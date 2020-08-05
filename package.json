@@ -1,0 +1,100 @@
+{
+	"name": "escript-lsp",
+	"version": "0.1.0",
+	"description": "escript-lsp",
+	"contributors": [
+		{
+			"name": "Kevin Eady",
+			"url": "https://github.com/KevinEady"
+		}
+	],
+	"license": "MIT",
+	"publisher": "polserver",
+	"categories": [],
+	"keywords": [],
+	"engines": {
+		"vscode": "^1.43.0"
+	},
+	"activationEvents": [
+		"*"
+	],
+	"main": "./client/out/extension",
+	"contributes": {
+		"languages": [
+			{
+				"id": "escript",
+				"aliases": [
+					"EScript",
+					"escript"
+				],
+				"extensions": [
+					".src",
+					".inc",
+					".em"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "escript",
+				"scopeName": "source.escript",
+				"path": "./grammars/escript.json"
+			}
+		],
+		"commands": [
+			{
+				"command": "myExtension.sayHello",
+				"title": "Say Hello"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "myExtension.sayHello",
+					"when": "editorLangId == escript"
+				}
+			]
+		},
+		"configuration": {
+			"type": "object",
+			"title": "Example configuration",
+			"properties": {
+				"languageServerExample.maxNumberOfProblems": {
+					"scope": "resource",
+					"type": "number",
+					"default": 100,
+					"description": "Controls the maximum number of problems produced by the server."
+				},
+				"languageServerExample.trace.server": {
+					"scope": "window",
+					"type": "string",
+					"enum": [
+						"off",
+						"messages",
+						"verbose"
+					],
+					"default": "off",
+					"description": "Traces the communication between VS Code and the language server."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "cd client && npm run update-vscode && cd .. && npm run compile",
+		"compile": "tsc -b && js-yaml grammars/escript.yml > grammars/escript.json",
+		"watch": "tsc -b -w",
+		"postinstall": "cd common && npm install && cd ../doctrine && npm install --production && cd ../client && npm install && cd ../server && npm install && cd ..",
+		"test": "sh ./scripts/e2e.sh",
+		"eslint": "eslint \"**/*.{js,ts}\""
+	},
+	"devDependencies": {
+		"@types/mocha": "^5.2.7",
+		"@types/node": "^12.12.0",
+		"@typescript-eslint/parser": "^2.3.0",
+		"eslint": "^6.4.0",
+		"js-yaml": "^3.13.1",
+		"mocha": "^6.2.2",
+		"typescript": "^3.8.3"
+	}
+}

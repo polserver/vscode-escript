@@ -1,0 +1,146 @@
+---
+# Based off https://github.com/microsoft/vscode/blob/master/extensions/javascript/syntaxes/JavaScript.tmLanguage.json a little...
+scopeName: source.escript
+name: EScript
+# Currently disabling the TextMate highlighting
+patterns:
+  # - include: '#compilationUnit'
+  # - include: '#moduleUnit'
+  # - include: '#comment'
+repository:
+  compilationUnit:
+    patterns:
+      - include: '#useDeclaration'
+      - include: '#includeDeclaration'
+      - include: '#programDeclaration'
+      - include: '#functionDeclaration'
+      - include: '#statement'
+  moduleUnit:
+    patterns:
+      - include: '#moduleDeclarationStatement'
+  moduleDeclarationStatement:
+    patterns:
+      - include: '#moduleFunctionDeclaration'
+      - include: '#constStatement'
+  moduleFunctionDeclaration:
+    begin: ([_$[:alpha:]][_$[:alnum:]]*)\s*(\())
+    end: (\))\s*(;)
+    beginCaptures:
+      0:
+        name: variable.escript
+      1:
+        name: punctuation.parenthesis.open.escript
+    endCaptures:
+      0:
+        name: punctuation.parenthesis.open.escript
+      1:
+        name: punctuation.terminator.escript
+    patterns:
+      - include: '#moduleFunctionParameterList'
+  # moduleFunctionParameterList:
+  useDeclaration:
+    # match: '(?i)(use)\s+((?:[\'\"])?)([_$[:alpha:]][_$[:alnum:]]*)\2'
+    begin: '(?i)use'
+    end: ;
+    beginCaptures:
+      0:
+        name: entity.name.namespace.escript
+    endCaptures:
+      0:
+        name: punctuation.terminator.statement.escript
+    patterns:
+      - include: '#stringOrIdentifier'
+  stringOrIdentifier:
+    patterns:
+      - include: '#string'
+      - include: '#identifier'
+  string:
+    name: string.quoted.double.escript
+    begin: "\""
+    beginCaptures: 
+      0: 
+        name: punctuation.definition.string.begin.escript
+    end: "(\")|((?:[^\\\\\\n])$)"
+    endCaptures:
+      1:
+        - name: punctuation.definition.string.end.escript
+      2:
+        - name: invalid.illegal.newline.js
+    patterns:
+      - include: '#string-character-escape'
+  string-character-escape:
+      name: constant.character.escape.js
+      match: \\\\(x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|u\\{[0-9A-Fa-f]+\\}|[0-2][0-7]{0,2}|3[0-6][0-7]?|37[0-7]?|[4-7][0-7]?|.|$)
+  identifier:
+    name: variable.escript
+    match: ([_$[:alpha:]][_$[:alnum:]]*)
+  includeDeclaration:
+    # match: '(?i)(use)\s+((?:[\'\"])?)([_$[:alpha:]][_$[:alnum:]]*)\2'
+    begin: (?i)include
+    end: ;
+    beginCaptures:
+      0:
+        name: entity.name.namespace.escript
+    endCaptures:
+      0:
+        name: punctuation.terminator.statement.escript
+    patterns:
+      - include: '#stringOrIdentifier'
+  programDeclaration:
+    begin: (?i)(program)\s+([_$[:alpha:]][_$[:alnum:]]*)
+    end: (?endprogram)
+    beginCaptures:
+      0:
+        name: entity.name.namespace.escript
+    endCaptures:
+      0:
+        name: punctuation.terminator.statement.escript
+    patterns:
+      - include: '#stringOrIdentifier'
+  # expression:
+  #   patterns:
+  #   - include: "#letter"
+  #   - include: "#paren-expression"
+  # letter:
+  #   match: a|b|c
+  #   name: keyword.letter
+  # program:
+  #   patterns:
+  #     - name: storage.type.program.escript
+  #       begin: \bprogram\b
+  #       end: \bendprogram\b
+  #       patterns:
+  #         - include: '#program-name'
+  # program-name:
+  #   name: meta.defintion.program.escript entity.name.function.escript
+  #   match: "[_$[:alpha:]][_$[:alnum:]]*"
+  # function:
+  #   patterns:
+  #     - name: storage.type.function.escript
+  #       match: \b(?:(exported)\s+)?function\b
+  #       beginCaptures:
+  #         '1':
+  #           name: keyword.control.export.escript
+  #     - name: storage.type.function.escript
+  #       match: \bendfunction\b
+  comment:
+    patterns:
+      - name: comment.block.escript
+        begin: "/\\*"
+        beginCaptures:
+          0:
+            name: punctuation.definition.comment.escript
+        end: "\\*/"
+        endCaptures:
+          0:
+            name: punctuation.definition.comment.escript
+      - name: comment.line.double-slash.escript
+        begin: "(^[ \\t]+)?((//)(?:\\s*((@)internal)(?=\\s|$))?)"
+        beginCaptures:
+          1:
+            name: punctuation.whitespace.comment.leading.escript
+          2:
+            name: comment.line.double-slash.js
+          3:
+            name: punctuation.definition.comment.js
+        end: (?=$)

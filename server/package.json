@@ -1,0 +1,19 @@
+{
+	"name": "escript-lsp-server",
+	"description": "Example implementation of eScript language server in node.",
+	"version": "0.1.0",
+	"license": "Unlicense",
+	"engines": {
+		"node": "*"
+	},
+	"dependencies": {
+		"antlr4ts": "^0.5.0-alpha.3",
+		"doctrine": "file:../doctrine",
+		"escript-antlr4": "^0.1.7",
+		"escript-common": "file:../common",
+		"vscode-languageserver": "^7.0.0-next.1",
+		"vscode-languageserver-textdocument": "^1.0.1"
+	},
+	"scripts": {},
+	"devDependencies": {}
+}
