@@ -1,8 +1,0 @@
-node_modules
-.idea
-*.iml
-coverage
-.nyc_output
-.cache
-npm-debug.log
-.eslint-release-info.json

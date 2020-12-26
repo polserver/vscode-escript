@@ -4,9 +4,9 @@ scopeName: source.escript
 name: EScript
 # Currently disabling the TextMate highlighting
 patterns:
-  # - include: '#compilationUnit'
-  # - include: '#moduleUnit'
-  # - include: '#comment'
+  - include: '#compilationUnit'
+  - include: '#moduleUnit'
+  - include: '#comment'
 repository:
   compilationUnit:
     patterns:
