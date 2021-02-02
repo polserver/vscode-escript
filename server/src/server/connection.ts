@@ -1,7 +1,8 @@
 import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-
+import { Workspace } from '../workspace/workspace';
 import { validateTextDocument } from '../semantics/analyzer';
+import { URI } from 'vscode-uri';
 
 export class LSPServer {
     private connection = createConnection(ProposedFeatures.all);
@@ -34,11 +35,16 @@ export class LSPServer {
         };
     }
 
-    private onDidChangeContent = (e: TextDocumentChangeEvent<TextDocument>) => {
-        this.connection.sendDiagnostics({
-            uri: e.document.uri,
-            diagnostics: validateTextDocument(e.document)
-        });
+    private onDidChangeContent = async (e: TextDocumentChangeEvent<TextDocument>) => {
+        const { path } = URI.parse(e.document.uri);
+        const workspace = await Workspace.find(path);
+        if (workspace) {
+            console.log(`Workspace for ${path}:`, workspace);
+            this.connection.sendDiagnostics({
+                uri: e.document.uri,
+                diagnostics: validateTextDocument(e.document)
+            });
+        }
     };
 
 }

@@ -55,7 +55,7 @@ class CfgFileReader {
     }
 }
 
-class Workspace {
+export class Workspace {
     /**
      * Cache to hold workspaces. Key is the POL root, ie. `key ===
      * value.polRoot`
@@ -112,12 +112,6 @@ class Workspace {
                 }
             }
             while (true) {
-                path = dirname(path);
-                if (path === lastPath) {
-                    break;
-                }
-                lastPath = path;
-
                 try {
                 // Check if ./pol.cfg exists. Is this needed...?
                     await access(join(path, 'pol.cfg'));
@@ -163,8 +157,12 @@ class Workspace {
                     Workspace.workspaces.set(polRoot, workspace);
                     return workspace;
                 } catch (e) {
-                    continue;
                 }
+                path = dirname(path);
+                if (path === lastPath) {
+                    break;
+                }
+                lastPath = path;
             }
         } catch {
             return undefined;
