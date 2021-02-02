@@ -36,10 +36,10 @@ export class LSPServer {
     }
 
     private onDidChangeContent = async (e: TextDocumentChangeEvent<TextDocument>) => {
-        const { path } = URI.parse(e.document.uri);
-        const workspace = await Workspace.find(path);
+        const { fsPath } = URI.parse(e.document.uri);
+        const workspace = await Workspace.find(fsPath);
         if (workspace) {
-            console.log(`Workspace for ${path}:`, workspace);
+            console.log(`Workspace for ${fsPath}:`, workspace);
             this.connection.sendDiagnostics({
                 uri: e.document.uri,
                 diagnostics: validateTextDocument(e.document)
