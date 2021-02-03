@@ -169,14 +169,3 @@ export class Workspace {
         }
     }
 }
-
-if (require.main === module) {
-    void async function() {
-        const p1 = Workspace.find('/Users/kevineady/UO/ModernDistroo/pkg/commands/gm/info.src');
-        const p2 = Workspace.find('/Users/kevineady/UO/ModernDistro/pkg/commands/gm/test.src');
-        const p3 = Workspace.find('/Users/kevineady/UO/ModernDistro/pkg/systems/accounts/start.src');
-        const [w1, w2, w3] = await Promise.all([p1, p2, p3]);
-        console.log(w1 === undefined);
-        console.log(w2 === w3);
-    }().catch(e => { console.log(e); process.exit(1); });
-}
