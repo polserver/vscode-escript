@@ -125,7 +125,7 @@ export class Workspace {
 
                     // Read ./scripts/ecompile.cfg
                     const cfg = await CfgFileReader.load(join(path, 'scripts', 'ecompile.cfg'), true);
-                    const polRoot = path;
+                    const polRoot = resolve(path);
                     const moduleDirectory_ = cfg.moduledirectory?.[0];
                     const includeDirectory_ = cfg.includedirectory?.[0];
                     const polScriptRoot_ = cfg.polscriptroot?.[0];

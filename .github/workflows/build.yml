@@ -9,8 +9,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  linux:
+    name: Test and Package [Linux]
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
@@ -28,3 +29,27 @@ jobs:
         with:
           name: escript-lsp
           path: escript-lsp-*.vsix
+  windows:
+    name: Test [Windows]
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - run: npm install
+
+      - run: npm test
+  mac:
+    name: Test [Mac]
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - run: npm install
+
+      - run: npm test

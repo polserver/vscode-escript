@@ -1,4 +1,5 @@
 import * as mock from 'mock-fs';
+import { resolve } from 'path';
 import { CfgFileReader, Workspace } from '../src/workspace/workspace';
 
 describe('CfgFileReader', () => {
@@ -52,13 +53,13 @@ describe('Workspace', function () {
     }
 
     const config = {
-        'polRoot': '/ModernDistro',
-        'includeDirectory': '/ModernDistro/scripts',
-        'moduleDirectory': '/ModernDistro/scripts/modules',
-        'polScriptRoot': '/ModernDistro/scripts',
+        'polRoot': resolve('/ModernDistro'),
+        'includeDirectory': resolve('/ModernDistro/scripts'),
+        'moduleDirectory': resolve('/ModernDistro/scripts/modules'),
+        'polScriptRoot': resolve('/ModernDistro/scripts'),
         'packageRoots': [
-            '/ModernDistro/pkg',
-            '/ModernDistro/devpkg'
+            resolve('/ModernDistro/pkg'),
+            resolve('/ModernDistro/devpkg')
         ]
     };
 
