@@ -111,30 +111,26 @@ export class Workspace {
      * @param path Path of file (script, include, ...)
      */
     static async _find(path: string): Promise<Workspace | undefined> {
-        try {
-            let lastPath = path;
-            for (const [polRoot, workspace] of this.workspaces.entries()) {
-                if (path.startsWith(polRoot)) {
-                    return workspace;
-                }
+        let lastPath = path = resolve(path);
+        for (const [polRoot, workspace] of this.workspaces.entries()) {
+            if (path.startsWith(polRoot)) {
+                return workspace;
             }
-            while (true) {
-                try {
+        }
+        while (true) {
+            try {
                 // Check if ./pol.cfg exists. Is this needed...?
-                    await access(join(path, 'pol.cfg'));
+                await access(join(path, 'pol.cfg'));
 
-                    // Read ./scripts/ecompile.cfg
-                    const cfg = await CfgFileReader.load(join(path, 'scripts', 'ecompile.cfg'), true);
-                    const polRoot = resolve(path);
-                    const moduleDirectory_ = cfg.moduledirectory?.[0];
-                    const includeDirectory_ = cfg.includedirectory?.[0];
-                    const polScriptRoot_ = cfg.polscriptroot?.[0];
-                    const packageRoots_ = cfg.packageroot;
+                // Read ./scripts/ecompile.cfg
+                const cfg = await CfgFileReader.load(join(path, 'scripts', 'ecompile.cfg'), true);
+                const polRoot = resolve(path);
+                const moduleDirectory_ = cfg.moduledirectory?.[0];
+                const includeDirectory_ = cfg.includedirectory?.[0];
+                const polScriptRoot_ = cfg.polscriptroot?.[0];
+                const packageRoots_ = cfg.packageroot;
 
-                    if (!moduleDirectory_ || !includeDirectory_ || !polScriptRoot_) {
-                        continue;
-                    }
-
+                if (moduleDirectory_ && includeDirectory_ && polScriptRoot_) {
                     const moduleDirectory = resolve(polRoot, moduleDirectory_);
                     const includeDirectory = resolve(polRoot, includeDirectory_);
                     const polScriptRoot = resolve(polRoot, polScriptRoot_);
@@ -150,15 +146,13 @@ export class Workspace {
                     const workspace = new Workspace(config);
                     Workspace.workspaces.set(polRoot, workspace);
                     return workspace;
-                } catch { }
-                path = dirname(path);
-                if (path === lastPath) {
-                    break;
                 }
-                lastPath = path;
+            } catch { }
+            path = dirname(path);
+            if (path === lastPath) {
+                break;
             }
-        } catch {
-            return undefined;
+            lastPath = path;
         }
     }
     /**

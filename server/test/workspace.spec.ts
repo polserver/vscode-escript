@@ -10,51 +10,55 @@ describe('CfgFileReader', () => {
     test('Can parse elements with spaces', async () => {
         mock({ 'test.cfg': 'key value' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toHaveProperty('key');
-        expect(cfg.key).toEqual(['value']);
+        expect(cfg).toEqual({ key: ["value"] });
     });
 
     test('Can parse elements with tabs', async () => {
         mock({ 'test.cfg': 'key\tvalue' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toHaveProperty('key');
-        expect(cfg.key).toEqual(['value']);
+        expect(cfg).toEqual({ key: ["value"] });
     });
 
     test('Can parse elements with equal sign', async () => {
         mock({ 'test.cfg': 'key=value' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toHaveProperty('key');
-        expect(cfg.key).toEqual(['value']);
+        expect(cfg).toEqual({ key: ["value"] });
+    });
+
+    test('Ignores comments', async () => {
+        mock({ 'test.cfg': 'key=value\n#comment' });
+        const cfg = await CfgFileReader.load('test.cfg', true);
+        expect(cfg).toEqual({ key: ["value"] });
     });
 
     test('Can parse multiple keys', async () => {
         mock({ 'test.cfg': 'key1=value1\nkey2=value2' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toHaveProperty('key1');
-        expect(cfg).toHaveProperty('key2');
-        expect(cfg.key1).toEqual(['value1']);
-        expect(cfg.key2).toEqual(['value2']);
+        expect(cfg).toEqual({ key1: ["value1"], key2: ["value2"] });
     });
 
     test('Additional whitespaces are ignored', async () => {
         mock({ 'test.cfg': 'key  =  value  ' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toHaveProperty('key');
-        expect(cfg.key).toEqual(['value']);
+        expect(cfg).toEqual({ key: ["value"] });
     });
 
     test('Can parse keys with multiple values', async () => {
         mock({ 'test.cfg': 'key\tvalue1\nkey=value2\nkey value3' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toHaveProperty('key');
-        expect(cfg.key).toEqual(['value1', 'value2', 'value3']);
+        expect(cfg).toEqual({ key: ['value1', 'value2', 'value3'] });
     });
 
     test('Keys are case-insensitive', async () => {
         mock({ 'test.cfg': 'KEY\tvalue' });
         const cfg = await CfgFileReader.load('test.cfg', true);
         expect(cfg).toHaveProperty('key');
+    });
+
+    test('parseAsInner=false is not yet supported', async () => {
+        mock({ 'test.cfg': '' });
+        const cfg = CfgFileReader.load('test.cfg', false);
+        return expect(cfg).rejects.toThrowError();
     });
 });
 
@@ -123,6 +127,32 @@ describe('Workspace', function () {
         expect(workspace).toBeUndefined();
     });
 
+    test('Returns no Workspace if ecompile.cfg is missing required keys', async () => {
+        mock({
+            '/ModernDistro': {
+                'pol.cfg': '',
+                'scripts': {
+                    'ecompile.cfg': 'dddd=ddd',
+                },
+            }
+        });
+        const workspace = await Workspace.find('/ModernDistro/pkg/systems/saver/start.src');
+        expect(workspace).toBeUndefined();
+    });
+
+    test('Returns a Workspace when PackageRoot key is missing', async () => {
+        mock({
+            '/ModernDistro': {
+                'pol.cfg': '',
+                'scripts': {
+                    'ecompile.cfg': 'ModuleDirectory=./scripts/modules/\nIncludeDirectory=./scripts/\nPolScriptRoot=./scripts/\n',
+                },
+            }
+        });
+        const workspace = await Workspace.find('/ModernDistro/pkg/systems/saver/start.src');
+        expect(workspace).not.toBeUndefined();
+    });
+
     test('Supports relative paths in ecompile.cfg', async () => {
         mock({
             '/ModernDistro': {
@@ -151,6 +181,29 @@ describe('Workspace', function () {
         const [workspace1, workspace2] = await Promise.all([promiseWorkspace1, promiseWorkspace2]);
         toBeDefined(workspace1);
         toBeDefined(workspace2);
-        expect(workspace1).toStrictEqual(workspace2);
+        expect(workspace1).toBe(workspace2);
+    });
+
+    test('Finding two different Workspaces simultaneously results in different objects', async () => {
+        mock({
+            '/ModernDistro': {
+                'pol.cfg': '',
+                'scripts': {
+                    'ecompile.cfg': 'ModuleDirectory=./scripts/modules/\nIncludeDirectory=./scripts/\nPolScriptRoot=./scripts/\nPackageRoot=./pkg\nPackageRoot=./devpkg\n',
+                },
+            },
+            '/ClassicDistro': {
+                'pol.cfg': '',
+                'scripts': {
+                    'ecompile.cfg': 'ModuleDirectory=./scripts/modules/\nIncludeDirectory=./scripts/\nPolScriptRoot=./scripts/\nPackageRoot=./pkg\nPackageRoot=./devpkg\n',
+                },
+            }
+        });
+        const promiseWorkspace1 = Workspace.find('/ModernDistro/scripts/start.src');
+        const promiseWorkspace2 = Workspace.find('/ClassicDistro/pkg/systems/saver/start.src');
+        const [workspace1, workspace2] = await Promise.all([promiseWorkspace1, promiseWorkspace2]);
+        toBeDefined(workspace1);
+        toBeDefined(workspace2);
+        expect(workspace1).not.toBe(workspace2);
     });
 });

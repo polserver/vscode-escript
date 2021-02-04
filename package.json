@@ -52,7 +52,7 @@
 		"watch": "npm run grammar && tsc -b -w",
 		"compile": "npm run grammar && tsc -b",
 		"clean": "rimraf client/out server/out grammars/escript.json",
-		"test": "jest",
+		"test": "jest --coverage",
 		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json",
 		"eslint": "eslint \"**/*.{js,ts}\""
 	},
