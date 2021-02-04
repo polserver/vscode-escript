@@ -40,7 +40,7 @@ export class CfgFileReader {
                 const matches = line.match(/^([^=\s]+)\s*(?:=\s*)?(.+)$/);
                 if (matches) {
                     const key = matches[1].toLowerCase();
-                    const value = matches[2];
+                    const value = matches[2].trim();
                     const existing = ret[key];
                     if (existing) {
                         existing.push(value);
