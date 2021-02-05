@@ -1,6 +1,7 @@
 const path = require('path');
 
 module.exports = {
+    rootDir: 'test',
     testMatch: [
         '**/__tests__/**/*.+(ts|tsx|js)',
         '**/?(*.)+(spec|test).+(ts|tsx|js)'

@@ -1,7 +1,7 @@
 {
 	"name": "escript-lsp",
 	"version": "0.3.0",
-	"description": "escript-lsp",
+	"description": "EScript for Visual Studio Code. Provides code completion, navigation, and more.",
 	"contributors": [
 		{
 			"name": "POL Core Team",
@@ -19,6 +19,7 @@
 		"*"
 	],
 	"repository": {
+		"type": "git",
 		"url": "https://github.com/polserver/vscode-escript"
 	},
 	"main": "./client/out/extension.js",

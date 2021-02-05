@@ -1,7 +1,7 @@
 # escript-lsp-server
 
 TODO
-## Running the Extension
+## Running the Extension via Debugging
 
 - Run `npm install` in this folder. This installs all necessary npm modules in
   both the client and server folder
@@ -10,7 +10,6 @@ TODO
 - Switch to the Debug viewlet.
 - Select `Launch Client` from the drop down.
 - Run the launch config.
-- In the new Visual Studio Code [Extension Development Host], open a folder or
-  workspace that contains `scripts\ecompile.exe` (Windows) or `scripts\ecompile`
-  (Linux)
+- In the new Visual Studio Code [Extension Development Host], open a POL distro
+  folder that contains `pol.cfg` and `scripts/ecompile.cfg`.
 - Check the "ECompile Language Server" channel in the Output pane.

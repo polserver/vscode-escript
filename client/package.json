@@ -1,13 +1,18 @@
 {
 	"name": "lsp-sample-client",
-	"description": "VSCode part of a language server",
-	"author": "Microsoft Corporation",
+	"description": "VSCode part of EScript language server",
+	"contributors": [
+		{
+			"name": "POL Core Team",
+			"url": "https://github.com/polserver"
+		}
+	],
 	"license": "MIT",
-	"version": "0.0.1",
-	"publisher": "vscode",
+	"version": "0.1.0",
+	"publisher": "polserver",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/Microsoft/vscode-extension-samples"
+		"url": "https://github.com/polserver/vscode-escript"
 	},
 	"engines": {
 		"vscode": "^1.52.0"
