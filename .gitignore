@@ -4,3 +4,4 @@ node_modules
 grammars/*.json
 *.vsix
 coverage
+.vscode-test

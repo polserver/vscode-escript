@@ -10,37 +10,37 @@ describe('CfgFileReader', () => {
     test('Can parse elements with spaces', async () => {
         mock({ 'test.cfg': 'key value' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toEqual({ key: ["value"] });
+        expect(cfg).toEqual({ key: ['value'] });
     });
 
     test('Can parse elements with tabs', async () => {
         mock({ 'test.cfg': 'key\tvalue' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toEqual({ key: ["value"] });
+        expect(cfg).toEqual({ key: ['value'] });
     });
 
     test('Can parse elements with equal sign', async () => {
         mock({ 'test.cfg': 'key=value' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toEqual({ key: ["value"] });
+        expect(cfg).toEqual({ key: ['value'] });
     });
 
     test('Ignores comments', async () => {
         mock({ 'test.cfg': 'key=value\n#comment' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toEqual({ key: ["value"] });
+        expect(cfg).toEqual({ key: ['value'] });
     });
 
     test('Can parse multiple keys', async () => {
         mock({ 'test.cfg': 'key1=value1\nkey2=value2' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toEqual({ key1: ["value1"], key2: ["value2"] });
+        expect(cfg).toEqual({ key1: ['value1'], key2: ['value2'] });
     });
 
     test('Additional whitespaces are ignored', async () => {
         mock({ 'test.cfg': 'key  =  value  ' });
         const cfg = await CfgFileReader.load('test.cfg', true);
-        expect(cfg).toEqual({ key: ["value"] });
+        expect(cfg).toEqual({ key: ['value'] });
     });
 
     test('Can parse keys with multiple values', async () => {
