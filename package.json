@@ -1,7 +1,7 @@
 {
 	"name": "escript-lsp",
 	"version": "0.3.0",
-	"description": "escript-lsp",
+	"description": "EScript for Visual Studio Code. Provides code completion, navigation, and more.",
 	"contributors": [
 		{
 			"name": "POL Core Team",
@@ -19,6 +19,7 @@
 		"*"
 	],
 	"repository": {
+		"type": "git",
 		"url": "https://github.com/polserver/vscode-escript"
 	},
 	"main": "./client/out/extension.js",
@@ -52,6 +53,8 @@
 		"watch": "npm run grammar && tsc -b -w",
 		"compile": "npm run grammar && tsc -b",
 		"clean": "rimraf client/out server/out grammars/escript.json",
+		"e2e": "cd client && npm test",
+		"test": "jest --coverage --config=./server/jest.config.js",
 		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json",
 		"eslint": "eslint \"**/*.{js,ts}\""
 	},
@@ -59,12 +62,16 @@
 		"vscode-languageclient": "^7.0.0"
 	},
 	"devDependencies": {
-		"@types/mocha": "^8.2.0",
+		"@types/jest": "^26.0.20",
+		"@types/mock-fs": "^4.13.0",
 		"@types/node": "^12.19.11",
 		"@typescript-eslint/parser": "^4.11.0",
 		"eslint": "^7.16.0",
+		"jest": "^26.6.3",
 		"js-yaml": "^3.14.1",
+		"mock-fs": "^4.13.0",
 		"rimraf": "^3.0.2",
+		"ts-jest": "^26.5.0",
 		"ts-loader": "^8.0.12",
 		"typescript": "^4.1.3"
 	}
