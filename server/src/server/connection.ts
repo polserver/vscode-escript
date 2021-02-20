@@ -1,7 +1,6 @@
 import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Workspace } from '../workspace/workspace';
-import { validateTextDocument } from '../semantics/analyzer';
 import { URI } from 'vscode-uri';
 
 export class LSPServer {
@@ -36,14 +35,22 @@ export class LSPServer {
     }
 
     private onDidChangeContent = async (e: TextDocumentChangeEvent<TextDocument>) => {
-        const { fsPath } = URI.parse(e.document.uri);
+        const { document } = e;
+        const { fsPath } = URI.parse(document.uri);
+
         const workspace = await Workspace.find(fsPath);
         if (workspace) {
             console.log(`Workspace for ${fsPath}:`, workspace);
+
+            const sourceFile = workspace.add(document);
+            const diagnostics = sourceFile.getDiagnostics();
+
             this.connection.sendDiagnostics({
                 uri: e.document.uri,
-                diagnostics: validateTextDocument(e.document)
+                diagnostics
             });
+        } else {
+            console.log(`Could not find workspace for ${fsPath}`);
         }
     };
 

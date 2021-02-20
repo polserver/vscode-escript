@@ -2,6 +2,8 @@ import { dirname, join, resolve } from 'path';
 import { promises } from 'fs';
 import readFile = promises.readFile;
 import access = promises.access;
+import { SourceFile } from './source-file';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 /**
  * Workspace configuration object.
@@ -61,6 +63,11 @@ export class Workspace {
      * value.polRoot`
      */
     private static workspaces: Map<string, Workspace> = new Map();
+
+    /**
+     * Map of URI to SourceFiles
+     */
+    private readonly sources: Map<string, SourceFile> = new Map();
 
     /**
      * Constructs a new `Workspace`. This method is private, as the public
@@ -169,5 +176,31 @@ export class Workspace {
      */
     public close() {
         Workspace.workspaces.delete(this.config.polRoot);
+        this.sources.clear();
+    }
+
+    /**
+     * Adds a `TextDocument` to this `Workspace`. Will not duplicate if document
+     * already exists in workspace.
+     * @param document Document
+     */
+    public add(document: TextDocument) {
+        const { uri } = document;
+        let sourceFile = this.sources.get(uri);
+        if (!sourceFile) {
+            sourceFile = new SourceFile(document);
+            this.sources.set(uri, sourceFile);
+        } else {
+            sourceFile.document = document;
+        }
+        return sourceFile;
+    }
+
+    /**
+     * Returns the `SourceFile` for a given URI, if any.
+     * @param uri URI
+     */
+    public get(uri: string) {
+        return this.sources.get(uri);
     }
 }

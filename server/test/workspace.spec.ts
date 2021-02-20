@@ -1,6 +1,10 @@
+import { promises as fsPromise } from 'fs';
 import * as mock from 'mock-fs';
 import { resolve } from 'path';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+import { URI } from 'vscode-uri';
 import { CfgFileReader, Workspace } from '../src/workspace/workspace';
+import readFile = fsPromise.readFile;
 
 describe('CfgFileReader', () => {
     afterEach(() => {
@@ -75,7 +79,7 @@ describe('Workspace', function () {
     });
 
 
-    function toBeDefined<T>(val: T): asserts val is NonNullable<T> {
+    function toBeDefined<T>(val?: T): asserts val is NonNullable<T> {
         if (val === undefined) { throw new Error('Value is undefined'); }
     }
 
@@ -205,5 +209,64 @@ describe('Workspace', function () {
         toBeDefined(workspace1);
         toBeDefined(workspace2);
         expect(workspace1).not.toBe(workspace2);
+    });
+
+    test('Can add a new source file to Workspace', async () => {
+        mock({
+            '/ModernDistro': {
+                'pol.cfg': '',
+                'scripts': {
+                    'ecompile.cfg': 'ModuleDirectory=/ModernDistro/scripts/modules/\nIncludeDirectory=/ModernDistro/scripts/\nPolScriptRoot=/ModernDistro/scripts/\nPackageRoot=/ModernDistro/pkg\nPackageRoot=/ModernDistro/devpkg\n',
+                    'start.src': 'program main() endprogram'
+                },
+            }
+        });
+        const path = '/ModernDistro/scripts/start.src';
+        const workspace = await Workspace.find(path);
+        toBeDefined(workspace);
+        const uri = URI.file(path).toString();
+        const sourceFile = workspace.add(TextDocument.create(uri, 'escript', 1, await readFile(path, 'utf-8')));
+        toBeDefined(sourceFile);
+    });
+
+    test('Adding an existing SourceFile will return existing object', async () => {
+        mock({
+            '/ModernDistro': {
+                'pol.cfg': '',
+                'scripts': {
+                    'ecompile.cfg': 'ModuleDirectory=/ModernDistro/scripts/modules/\nIncludeDirectory=/ModernDistro/scripts/\nPolScriptRoot=/ModernDistro/scripts/\nPackageRoot=/ModernDistro/pkg\nPackageRoot=/ModernDistro/devpkg\n',
+                    'start.src': 'program main() endprogram'
+                },
+            }
+        });
+        const path = '/ModernDistro/scripts/start.src';
+        const uri = URI.file(path).toString();
+
+        const workspace = await Workspace.find(path);
+        toBeDefined(workspace);
+        const sourceFile1 = workspace.add(TextDocument.create(uri, 'escript', 1, await readFile(path, 'utf-8')));
+        const sourceFile2 = workspace.add(TextDocument.create(uri, 'escript', 2, await readFile(path, 'utf-8')));
+        toBeDefined(sourceFile1);
+        toBeDefined(sourceFile2);
+        expect(sourceFile1).toBe(sourceFile2);
+    });
+
+    test('Can get an added source file from Workspace', async () => {
+        mock({
+            '/ModernDistro': {
+                'pol.cfg': '',
+                'scripts': {
+                    'ecompile.cfg': 'ModuleDirectory=/ModernDistro/scripts/modules/\nIncludeDirectory=/ModernDistro/scripts/\nPolScriptRoot=/ModernDistro/scripts/\nPackageRoot=/ModernDistro/pkg\nPackageRoot=/ModernDistro/devpkg\n',
+                    'start.src': 'program main() endprogram'
+                },
+            }
+        });
+        const path = '/ModernDistro/scripts/start.src';
+        const workspace = await Workspace.find(path);
+        const uri = URI.file(path).toString();
+        toBeDefined(workspace);
+        const sourceFile = workspace.add(TextDocument.create(uri, 'escript', 1, await readFile(path, 'utf-8')));
+        toBeDefined(sourceFile);
+        expect(workspace.get(uri)).toBe(sourceFile);
     });
 });
