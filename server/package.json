@@ -17,6 +17,8 @@
 		"url": "https://github.com/polserver/vscode-escript"
 	},
 	"dependencies": {
+		"antlr4ts": "^0.5.0-alpha.4",
+		"escript-antlr4": "^0.2.0",
 		"vscode-languageserver": "^7.0.0",
 		"vscode-languageserver-textdocument": "^1.0.1",
 		"vscode-uri": "^3.0.2"
