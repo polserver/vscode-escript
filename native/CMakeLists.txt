@@ -29,21 +29,31 @@ set(BLIB_BUILD_DIR "${BLIB_SOURCE_DIR}/bin-build")
 set(BLIB_BIN_DIR "${BLIB_SOURCE_DIR}/bin")
 
 if (WIN32)
+  
   if ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     set(ANTLR_LIB "antlr4-runtime.lib")
   else()
     set(ANTLR_LIB "antlr4-runtime-static.lib")
   endif()
+
   set(BLIB_LIBS
-    "${BLIB_SOURCE_DIR}/Release/bin/bscript.lib"
-    "${BLIB_SOURCE_DIR}/Release/bin/clib.lib"
-    "${BLIB_SOURCE_DIR}/Release/bin/format.lib"
+    "${BLIB_SOURCE_DIR}/bin/Release/bscript.lib"
+    "${BLIB_SOURCE_DIR}/bin/Release/clib.lib"
+    "${BLIB_SOURCE_DIR}/bin/Release/plib.lib"
+    "${BLIB_SOURCE_DIR}/bin/Release/format.lib"
+    "${BLIB_SOURCE_DIR}/bin/Release/stackwalk.lib"
     "${BLIB_SOURCE_DIR}/lib/antlr/install/lib/${ANTLR_LIB}"
   )
+
+  target_link_libraries(${PROJECT_NAME}
+    "ws2_32"
+  )
+  
 else()
   set(BLIB_LIBS
     "${BLIB_SOURCE_DIR}/bin/libbscript.a"
     "${BLIB_SOURCE_DIR}/bin/libclib.a"
+    "${BLIB_SOURCE_DIR}/bin/libplib.a"
     "${BLIB_SOURCE_DIR}/bin/libformat.a"
     "${BLIB_SOURCE_DIR}/lib/antlr/install/lib/libantlr4-runtime.a"
   )
@@ -51,6 +61,10 @@ endif()
 
 if (UNIX)
   add_compile_options(-fPIC)
+endif()
+if (MSVC)
+set(CMAKE_CXX_FLAGS_RELEASE "/MT")
+set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
 endif()
 
 ExternalProject_Add(libbscript
@@ -82,5 +96,13 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 target_link_libraries(${PROJECT_NAME} ${BLIB_LIBS})
+
+if(MSVC)
+    add_compile_options(
+        $<$<CONFIG:>:/MT> #---------|
+        $<$<CONFIG:Debug>:/MTd> #---|-- Statically link the runtime libraries
+        $<$<CONFIG:Release>:/MT> #--|
+    )
+endif()
 
 add_definitions(-DNAPI_VERSION=5)
