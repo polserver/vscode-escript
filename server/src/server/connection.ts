@@ -3,7 +3,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Workspace } from '../workspace/workspace';
 import { validateTextDocument } from '../semantics/analyzer';
 import { URI } from 'vscode-uri';
-
+import { escript } from 'vscode-escript-native';
 export class LSPServer {
     private connection = createConnection(ProposedFeatures.all);
     private documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -26,6 +26,9 @@ export class LSPServer {
     }
 
     private onInitialize = (params: InitializeParams): InitializeResult => {
+
+        console.log(escript.hello());
+
         this.hasDiagnosticRelatedInformationCapability = Boolean(params.capabilities.textDocument?.publishDiagnostics?.relatedInformation);
 
         return {

@@ -17,6 +17,7 @@
 		".vscode-test"
 	],
 	"references": [
+		{ "path": "./native" },
 		{ "path": "./client" },
 		{ "path": "./server" }
 	]

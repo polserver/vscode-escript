@@ -5,3 +5,5 @@ grammars/*.json
 *.vsix
 coverage
 .vscode-test
+build
+prebuilds
