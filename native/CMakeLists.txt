@@ -27,17 +27,26 @@ set(BLIB_BUILD_DIR "${BLIB_SOURCE_DIR}/bin-build")
 set(BLIB_BIN_DIR "${BLIB_SOURCE_DIR}/bin")
 
 if (WIN32)
-  set(LIB_EXTENSION ".lib")
+  if ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND ${clang})
+    set(ANTLR_LIB "antlr4-runtime.lib")
+  else()
+    set(ANTLR_LIB "antlr4-runtime-static.lib")
+  endif()
+  set(BLIB_LIBS
+    "${BLIB_SOURCE_DIR}/bin/bscript.lib"
+    "${BLIB_SOURCE_DIR}/bin/clib.lib"
+    "${BLIB_SOURCE_DIR}/bin/format.lib"
+    "${BLIB_SOURCE_DIR}/lib/antlr/install/lib/${ANTLR_LIB}"
+  )
 else()
-  set(LIB_EXTENSION ".a")
+  set(BLIB_LIBS
+    "${BLIB_SOURCE_DIR}/bin/libbscript.a"
+    "${BLIB_SOURCE_DIR}/bin/libclib.a"
+    "${BLIB_SOURCE_DIR}/bin/libformat.a"
+    "${BLIB_SOURCE_DIR}/lib/antlr/install/lib/libantlr4-runtime.a"
+  )
 endif()
 
-set(BLIB_LIBS
-  "${BLIB_SOURCE_DIR}/bin/libbscript${LIB_EXTENSION}"
-  "${BLIB_SOURCE_DIR}/bin/libclib${LIB_EXTENSION}"
-  "${BLIB_SOURCE_DIR}/bin/libformat${LIB_EXTENSION}"
-  "${BLIB_SOURCE_DIR}/lib/antlr/install/lib/libantlr4-runtime${LIB_EXTENSION}"
-)
 
 ExternalProject_Add(libbscript
   SOURCE_DIR  ${BLIB_SOURCE_DIR}
@@ -50,12 +59,17 @@ ExternalProject_Add(libbscript
   INSTALL_COMMAND ""
 
   BUILD_BYPRODUCTS ${BLIB_LIBS}
-  LOG_DOWNLOAD 1
-  LOG_CONFIGURE 1
-  LOG_BUILD 1
-  LOG_INSTALL 1
-  LOG_OUTPUT_ON_FAILURE 1
+  # LOG_DOWNLOAD 1
+  # LOG_CONFIGURE 1
+  # LOG_BUILD 1
+  # LOG_INSTALL 1
+  # LOG_OUTPUT_ON_FAILURE 1
 )
+
+target_compile_options(${PROJECT_NAME} PRIVATE
+$<${UNIX}:
+  -fPIC
+>)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   "${BLIB_SOURCE_DIR}/pol-core"
