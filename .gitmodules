@@ -1,0 +1,3 @@
+[submodule "native/polserver"]
+	path = native/polserver
+	url = https://github.com/polserver/polserver.git
