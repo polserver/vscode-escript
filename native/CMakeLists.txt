@@ -35,9 +35,9 @@ if (WIN32)
     set(ANTLR_LIB "antlr4-runtime-static.lib")
   endif()
   set(BLIB_LIBS
-    "${BLIB_SOURCE_DIR}/bin/bscript.lib"
-    "${BLIB_SOURCE_DIR}/bin/clib.lib"
-    "${BLIB_SOURCE_DIR}/bin/format.lib"
+    "${BLIB_SOURCE_DIR}/Release/bin/bscript.lib"
+    "${BLIB_SOURCE_DIR}/Release/bin/clib.lib"
+    "${BLIB_SOURCE_DIR}/Release/bin/format.lib"
     "${BLIB_SOURCE_DIR}/lib/antlr/install/lib/${ANTLR_LIB}"
   )
 else()
@@ -49,6 +49,9 @@ else()
   )
 endif()
 
+if (UNIX)
+  add_compile_options(-fPIC)
+endif()
 
 ExternalProject_Add(libbscript
   SOURCE_DIR  ${BLIB_SOURCE_DIR}
@@ -70,12 +73,6 @@ ExternalProject_Add(libbscript
 )
 
 add_dependencies(${PROJECT_NAME} libbscript)
-
-if (UNIX)
-  target_compile_options(${PROJECT_NAME} PRIVATE
-    -fPIC
-  )
-endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   "${BLIB_SOURCE_DIR}/pol-core"

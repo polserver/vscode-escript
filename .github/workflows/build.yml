@@ -50,15 +50,6 @@ jobs:
           name: escript-lsp-windows
           path: escript-lsp-*.vsix
 
-  notify_on_failure:
-    needs: windows
-    runs-on: "windows-latest"
-    if: failure()
-    steps:
-      - shell: pwsh
-        run: |
-          Get-ChildItem -Recurse native\polserver\bin
-
   mac:
     name: Test [Mac]
     runs-on: macos-latest
