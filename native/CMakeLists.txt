@@ -27,7 +27,7 @@ set(BLIB_BUILD_DIR "${BLIB_SOURCE_DIR}/bin-build")
 set(BLIB_BIN_DIR "${BLIB_SOURCE_DIR}/bin")
 
 if (WIN32)
-  if ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND ${clang})
+  if ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     set(ANTLR_LIB "antlr4-runtime.lib")
   else()
     set(ANTLR_LIB "antlr4-runtime-static.lib")
@@ -59,11 +59,12 @@ ExternalProject_Add(libbscript
   INSTALL_COMMAND ""
 
   BUILD_BYPRODUCTS ${BLIB_LIBS}
-  # LOG_DOWNLOAD 1
-  # LOG_CONFIGURE 1
-  # LOG_BUILD 1
-  # LOG_INSTALL 1
-  # LOG_OUTPUT_ON_FAILURE 1
+  LOG_DOWNLOAD 1
+  LOG_CONFIGURE 1
+  LOG_BUILD 1
+  LOG_INSTALL 1
+  LOG_OUTPUT_ON_FAILURE 1
+  LOG_MERGED_STDOUTERR 1
 )
 
 target_compile_options(${PROJECT_NAME} PRIVATE
