@@ -67,10 +67,13 @@ ExternalProject_Add(libbscript
   LOG_MERGED_STDOUTERR 1
 )
 
-target_compile_options(${PROJECT_NAME} PRIVATE
-$<${UNIX}:
-  -fPIC
->)
+add_dependencies(${PROJECT_NAME} libbscript)
+
+if (UNIX)
+  target_compile_options(${PROJECT_NAME} PRIVATE
+    -fPIC
+  )
+endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   "${BLIB_SOURCE_DIR}/pol-core"
