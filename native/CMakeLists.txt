@@ -6,6 +6,8 @@ include(ExternalProject)
 
 project (vscode-escript-native)
 include_directories(${CMAKE_JS_INC})
+set(CMAKE_VERBOSE_MAKEFILE ON)
+
 file(GLOB SOURCE_FILES "cpp/*.cc" "cpp/*.h")
 add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${CMAKE_JS_SRC})
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")

@@ -49,6 +49,16 @@ jobs:
         with:
           name: escript-lsp-windows
           path: escript-lsp-*.vsix
+
+  notify_on_failure:
+    needs: windows
+    runs-on: "windows-latest"
+    if: failure()
+    steps:
+      - shell: pwsh
+        run: |
+          Get-ChildItem -Recurse native\polserver\bin
+
   mac:
     name: Test [Mac]
     runs-on: macos-latest
@@ -68,7 +78,7 @@ jobs:
 
       - run: npm install
 
-      - run: npm test && npm run e2e
+      - run: npm test && echo npm run e2e
 
       - name: Upload Extension Artifact
         uses: actions/upload-artifact@v2
