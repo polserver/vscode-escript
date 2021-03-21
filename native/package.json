@@ -22,22 +22,17 @@
 		"@types/node": "^14.14.35",
 		"cmake-js": "^6.1.0",
 		"node-addon-api": "^3.1.0",
-		"prebuild": "^10.0.1"
-	},
-	"dependencies": {
-		"prebuild-install": "^6.0.1",
 		"typescript": "*"
 	},
+	"dependencies": {},
 	"binary": {
 		"napi_versions": [
 			5
 		]
 	},
 	"scripts": {
-		"install": "prebuild-install --runtime napi || cmake-js rebuild && tsc",
+		"install": "cmake-js rebuild && tsc",
 		"rebuild": "cmake-js rebuild",
-		"build": "cmake-js build",
-		"prebuild": "prebuild --backend cmake-js --runtime napi --all --strip --verbose",
-		"upload": "prebuild --runtime napi --upload ${GITHUB_TOKEN}"
+		"build": "cmake-js build"
 	}
 }
