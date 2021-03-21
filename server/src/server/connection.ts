@@ -3,7 +3,11 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Workspace } from '../workspace/workspace';
 import { validateTextDocument } from '../semantics/analyzer';
 import { URI } from 'vscode-uri';
-import { escript } from 'vscode-escript-native';
+
+// vsce does not support symlinks
+// import { escript } from 'vscode-escript-native';
+const { escript } = require('../../../native/out/index') as typeof import('vscode-escript-native');
+
 export class LSPServer {
     private connection = createConnection(ProposedFeatures.all);
     private documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
