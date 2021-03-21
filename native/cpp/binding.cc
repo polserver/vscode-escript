@@ -10,40 +10,47 @@
 #include "bscript/compiler/file/SourceFileLoader.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compilercfg.h"
+#include "clib/fileutil.h"
 #include <memory>
 
 using namespace Pol::Bscript;
 
 class CustomLoader : public Compiler::SourceFileLoader
 {
+public:
+  CustomLoader( std::string&& contents ) : contents( contents ){};
   std::string get_contents( const std::string& pathname ) const override
   {
     if ( pathname.find( "test.src" ) != std::string::npos )
     {
-      return "include \"incfile\";\n\nconst global_const := 3;\nvar global_var := "
-             "4;\n\nprint(\"Hello!\");\n\nprogram hello(scope1a, scope1b, scope1c)\n    if (1)\n   "
-             "     var scope2a, scope2b;\n        foreach scope3a in scope2a\n            var "
-             "global_var;\n        endforeach\n        newfunc();\n    endif\n    if (1)\n        "
-             "var scope2a, scope2b;\n        foreach scope3a in scope2a\n            var scope4;\n "
-             "       endforeach\n        newfunc();\n    endif\nendprogram\n\nfunction "
-             "newfunc(scope5a := 5)\n    var scope5b;\nendfunction\n";
+      return contents;
     }
     return SourceFileLoader::get_contents( pathname );
   }
-};
 
-Compiler::Profile profile;
-CustomLoader source_loader;
-Compiler::SourceFileCache em_parse_tree_cache( source_loader, profile );
-Compiler::SourceFileCache inc_parse_tree_cache( source_loader, profile );
+private:
+  std::string contents;
+};
 
 Napi::Value Method( const Napi::CallbackInfo& info )
 {
   Napi::Env env = info.Env();
 
-  compilercfg.Read(
-      "/Users/kevineady/Documents/Projects/polserver/testsuite/escript/ecompile.cfg" );
-  std::string pathname = "/Users/kevineady/Documents/Projects/polserver/bin-build/test.src";
+  if ( info.Length() < 2 || !info[0].IsString() || !info[1].IsString() )
+  {
+    Napi::TypeError::New( env, "Invalid arguments" ).ThrowAsJavaScriptException();
+  }
+  auto moduleDirectory = info[0].As<Napi::String>().Utf8Value();
+  auto contents = info[1].As<Napi::String>().Utf8Value();
+
+  compilercfg.ModuleDirectory = Pol::Clib::normalized_dir_form( moduleDirectory );
+
+  std::string pathname = "test.src";
+
+  Compiler::Profile profile;
+  CustomLoader source_loader( std::move( contents ) );
+  Compiler::SourceFileCache em_parse_tree_cache( source_loader, profile );
+  Compiler::SourceFileCache inc_parse_tree_cache( source_loader, profile );
 
   auto compiler = std::make_unique<Compiler::Compiler>( source_loader, em_parse_tree_cache,
                                                         inc_parse_tree_cache, profile );
