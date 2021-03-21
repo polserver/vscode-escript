@@ -29,15 +29,17 @@ set(BLIB_BUILD_DIR "${BLIB_SOURCE_DIR}/bin-build")
 set(BLIB_BIN_DIR "${BLIB_SOURCE_DIR}/bin")
 
 if (WIN32)
-  
+
   if ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     set(ANTLR_LIB "antlr4-runtime.lib")
   else()
     set(ANTLR_LIB "antlr4-runtime-static.lib")
   endif()
 
+  set(BLIB_LIB "${BLIB_SOURCE_DIR}/bin/Release/bscript.lib")
+
   set(BLIB_LIBS
-    "${BLIB_SOURCE_DIR}/bin/Release/bscript.lib"
+    "${BLIB_LIB}"
     "${BLIB_SOURCE_DIR}/bin/Release/clib.lib"
     "${BLIB_SOURCE_DIR}/bin/Release/plib.lib"
     "${BLIB_SOURCE_DIR}/bin/Release/format.lib"
@@ -48,10 +50,13 @@ if (WIN32)
   target_link_libraries(${PROJECT_NAME}
     "ws2_32"
   )
-  
+
 else()
+
+  set(BLIB_LIB "${BLIB_SOURCE_DIR}/bin/libbscript.a")
+
   set(BLIB_LIBS
-    "${BLIB_SOURCE_DIR}/bin/libbscript.a"
+    "${BLIB_LIB}"
     "${BLIB_SOURCE_DIR}/bin/libclib.a"
     "${BLIB_SOURCE_DIR}/bin/libplib.a"
     "${BLIB_SOURCE_DIR}/bin/libformat.a"
@@ -63,30 +68,34 @@ if (UNIX)
   add_compile_options(-fPIC)
 endif()
 if (MSVC)
-set(CMAKE_CXX_FLAGS_RELEASE "/MT")
-set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+  set(CMAKE_CXX_FLAGS_RELEASE "/MT")
+  set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
 endif()
 
-ExternalProject_Add(libbscript
-  SOURCE_DIR  ${BLIB_SOURCE_DIR}
-  PREFIX blinb
-  CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DONLY_ECOMPILE=On
+if (NOT EXISTS "${BLIB_LIB}")
+  message("- will build libbscript")
+  ExternalProject_Add(libbscript
+    SOURCE_DIR  ${BLIB_SOURCE_DIR}
+    PREFIX blinb
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DONLY_ECOMPILE=On
 
-  BINARY_DIR ${BLIB_BUILD_DIR}
+    BINARY_DIR ${BLIB_BUILD_DIR}
 
-  BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release
-  INSTALL_COMMAND ""
+    BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release
+    INSTALL_COMMAND ""
 
-  BUILD_BYPRODUCTS ${BLIB_LIBS}
-  LOG_DOWNLOAD 1
-  LOG_CONFIGURE 1
-  LOG_BUILD 1
-  LOG_INSTALL 1
-  LOG_OUTPUT_ON_FAILURE 1
-  LOG_MERGED_STDOUTERR 1
-)
-
-add_dependencies(${PROJECT_NAME} libbscript)
+    BUILD_BYPRODUCTS ${BLIB_LIBS}
+    LOG_DOWNLOAD 1
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
+    LOG_OUTPUT_ON_FAILURE 1
+    LOG_MERGED_STDOUTERR 1
+  )
+  add_dependencies(${PROJECT_NAME} libbscript)
+else()
+  message("- will not build libbscript")
+endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   "${BLIB_SOURCE_DIR}/pol-core"
