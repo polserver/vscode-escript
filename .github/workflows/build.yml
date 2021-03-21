@@ -49,7 +49,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: native/polserver
-          key: windows-polserver
+          key: windows-ninja-polserver
 
       - run: npm install
 
