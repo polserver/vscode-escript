@@ -30,7 +30,7 @@ jobs:
           name: escript-lsp-linux
           path: escript-lsp-*.vsix
   windows:
-    name: Test [Windows]
+    name: Test and Package [Windows]
     runs-on: windows-latest
 
     steps:
@@ -51,7 +51,7 @@ jobs:
           path: escript-lsp-*.vsix
 
   mac:
-    name: Test [Mac]
+    name: Test and Package [Mac]
     runs-on: macos-latest
 
     steps:
@@ -70,6 +70,8 @@ jobs:
       - run: npm install
 
       - run: npm test && echo npm run e2e
+
+      - run: npx vsce package
 
       - name: Upload Extension Artifact
         uses: actions/upload-artifact@v2
