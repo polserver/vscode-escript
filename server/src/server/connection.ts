@@ -6,7 +6,7 @@ import { URI } from 'vscode-uri';
 
 // vsce does not support symlinks
 // import { escript } from 'vscode-escript-native';
-const { escript } = require('../../../native/out/index') as typeof import('vscode-escript-native');
+const { native } = require('../../../native/out/index') as typeof import('vscode-escript-native');
 
 export class LSPServer {
     private connection = createConnection(ProposedFeatures.all);
@@ -31,7 +31,7 @@ export class LSPServer {
 
     private onInitialize = (params: InitializeParams): InitializeResult => {
 
-        console.log(escript.hello());
+        // console.log(escript.hello());
 
         this.hasDiagnosticRelatedInformationCapability = Boolean(params.capabilities.textDocument?.publishDiagnostics?.relatedInformation);
 
