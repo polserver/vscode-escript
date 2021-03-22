@@ -3,12 +3,12 @@ import { existsSync } from 'fs';
 import type { Diagnostic } from 'vscode-languageserver-types';
 
 export type LSPWorkspaceConfig = {
-	cfg: string;
 	getContents: (pathname: string) => string;
 }
 
 export interface LSPWorkspace {
 	new(config: LSPWorkspaceConfig): LSPWorkspace;
+	read(cfg: string): void;
 	open(pathname: string): void;
 	close(pathname: string): void;
 	diagnose(pathname: string): Diagnostic[];

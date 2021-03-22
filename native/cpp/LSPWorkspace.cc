@@ -26,22 +26,45 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
 
   auto config = info[0].As<Napi::Object>();
   auto callback = config.Get( "getContents" );
-  auto cfg = config.Get( "cfg" );
 
-  if ( !callback.IsFunction() || !cfg.IsString() )
+  if ( !callback.IsFunction() )
   {
     Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
         .ThrowAsJavaScriptException();
   }
 
   GetContents = Napi::Persistent( callback.As<Napi::Function>() );
-  // FIXME: refactor this to be done in an instance method, not during
-  // instantiation
+}
+
+Napi::Function LSPWorkspace::GetClass( Napi::Env env )
+{
+  return DefineClass( env, "LSPWorkspace",
+                      {
+                          LSPWorkspace::InstanceMethod( "read", &LSPWorkspace::Read ),
+                          LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
+                          LSPWorkspace::InstanceMethod( "close", &LSPWorkspace::Close ),
+                          LSPWorkspace::InstanceMethod( "diagnose", &LSPWorkspace::Diagnose ),
+                      } );
+}
+
+
+Napi::Value LSPWorkspace::Read( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsString() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  auto cfg = info[0].As<Napi::String>();
   try
   {
     compilercfg.Read( cfg.As<Napi::String>().Utf8Value() );
+    return env.Undefined();
   }
-    catch ( const std::exception& ex )
+  catch ( const std::exception& ex )
   {
     Napi::Error::New( env, ex.what() ).ThrowAsJavaScriptException();
   }
@@ -49,16 +72,8 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
   {
     Napi::Error::New( env, "Unknown Error" ).ThrowAsJavaScriptException();
   }
-}
 
-Napi::Function LSPWorkspace::GetClass( Napi::Env env )
-{
-  return DefineClass( env, "LSPWorkspace",
-                      {
-                          LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
-                          LSPWorkspace::InstanceMethod( "close", &LSPWorkspace::Close ),
-                          LSPWorkspace::InstanceMethod( "diagnose", &LSPWorkspace::Diagnose ),
-                      } );
+  return Napi::Value();
 }
 
 Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )

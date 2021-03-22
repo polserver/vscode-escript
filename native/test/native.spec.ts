@@ -58,9 +58,9 @@ describe('vscode-escript-native LSPWorkspace', () => {
         // Constructed at LSP server initialization, pointing to the CFG (can be
         // found at extension load time)
         const workspace = new LSPWorkspace({
-            getContents,
-            cfg
+            getContents
         });
+        workspace.read(cfg);
 
         // Done at textDocument/didOpen
         const pathname = 'in-memory-file.src';

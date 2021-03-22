@@ -24,6 +24,7 @@ public:
   LSPWorkspace( const Napi::CallbackInfo& info );
   static Napi::Function GetClass( Napi::Env );
 
+  Napi::Value Read( const Napi::CallbackInfo& );
   Napi::Value Open( const Napi::CallbackInfo& );
   Napi::Value Close( const Napi::CallbackInfo& );
   Napi::Value Diagnose( const Napi::CallbackInfo& );
