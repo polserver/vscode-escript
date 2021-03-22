@@ -1,0 +1,38 @@
+{
+	"name": "vscode-escript-native",
+	"description": "Implementation of an EScript language server in node",
+	"version": "0.1.0",
+	"contributors": [
+		{
+			"name": "POL Core Team",
+			"url": "https://github.com/polserver"
+		}
+	],
+	"license": "MIT",
+	"engines": {
+		"node": "*"
+	},
+	"main": "out/index.js",
+	"types": "out/index.d.ts",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/polserver/vscode-escript"
+	},
+	"devDependencies": {
+		"@types/node": "^14.14.35",
+		"cmake-js": "^6.1.0",
+		"node-addon-api": "^3.1.0",
+		"typescript": "*"
+	},
+	"dependencies": {},
+	"binary": {
+		"napi_versions": [
+			5
+		]
+	},
+	"scripts": {
+		"install": "cmake-js rebuild && tsc",
+		"rebuild": "cmake-js rebuild",
+		"build": "cmake-js build"
+	}
+}

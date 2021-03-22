@@ -2,6 +2,8 @@ const { resolve } = require('path');
 const rootDir = resolve(__dirname, '..');
 
 module.exports = {
+    // rootDir,
+    // rootDir: resolve('.'),
     rootDir: '.', // resolve('.'),
     testMatch: [
 	  '**/__tests__/**/*.+(ts|tsx|js)',

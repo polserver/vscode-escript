@@ -17,3 +17,11 @@ client/node_modules/**
 server/test/**
 client/jest.e2e.config.js
 server/jest.config.js
+native/.clang-format
+native/CMakeLists.txt
+native/cpp/**
+native/prebuilds/**
+native/build/**
+!native/build/Release/**
+native/polserver/**
+native/node_modules/**
