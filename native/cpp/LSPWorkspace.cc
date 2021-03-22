@@ -37,8 +37,18 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
   GetContents = Napi::Persistent( callback.As<Napi::Function>() );
   // FIXME: refactor this to be done in an instance method, not during
   // instantiation
-  // FIXME: throws
-  compilercfg.Read( cfg.As<Napi::String>().Utf8Value() );
+  try
+  {
+    compilercfg.Read( cfg.As<Napi::String>().Utf8Value() );
+  }
+    catch ( const std::exception& ex )
+  {
+    Napi::Error::New( env, ex.what() ).ThrowAsJavaScriptException();
+  }
+  catch ( ... )
+  {
+    Napi::Error::New( env, "Unknown Error" ).ThrowAsJavaScriptException();
+  }
 }
 
 Napi::Function LSPWorkspace::GetClass( Napi::Env env )

@@ -1,6 +1,29 @@
 import { resolve } from 'path';
+import { promises } from 'fs';
 import { native } from '../src/index';
+import { F_OK } from 'constants';
+import writeFile = promises.writeFile;
+import access = promises.access;
 const { LSPWorkspace, hello } = native;
+
+const cfg = resolve(__dirname, 'ecompile.cfg');
+
+beforeAll(async () => {
+    try {
+        await access(cfg, F_OK);
+    } catch {
+        console.log('creating', cfg);
+        const moduleDirectory = resolve(__dirname, '..', 'polserver', 'pol-core', 'support', 'scripts');
+
+        const cfgText = `ModuleDirectory ${moduleDirectory}\nIncludeDirectory ${__dirname}\nPolScriptRoot ${__dirname}\nPackageRoot ${__dirname}\nDisplayWarnings 1\n`;
+        try {
+            await writeFile(cfg, cfgText, 'utf-8');
+        } catch (e) {
+            console.error(`Could not create ecompile.cfg: ${e?.message ?? e}`);
+            throw e;
+        }
+    }
+});
 
 describe('vscode-escript-native', () => {
     it('Diagnose POC', () => {
@@ -23,8 +46,6 @@ describe('vscode-escript-native', () => {
 
 describe('vscode-escript-native LSPWorkspace', () => {
     it('Text changing POC', () => {
-        const cfg = resolve(__dirname, '..', 'polserver', 'testsuite', 'escript', 'ecompile.cfg');
-
         // The SourceFileLoader callback, mocking the LSP TextDocuments utility
         // class
         let text: string;

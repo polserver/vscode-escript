@@ -7,3 +7,4 @@ coverage
 .vscode-test
 build
 prebuilds
+native/test/ecompile.cfg
