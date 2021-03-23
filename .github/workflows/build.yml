@@ -22,7 +22,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: native/polserver
-          key: linux-polserver-${{ hashFiles('.git/modules/native/polserver/logs/HEAD') }}
+          key: linux-polserver-568f8783f
 
       - run: npm install
 
@@ -49,7 +49,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: native/polserver
-          key: windows-polserver-${{ hashFiles('.git/modules/native/polserver/logs/HEAD') }}
+          key: windows-polserver-568f8783f
 
       - run: npm install
 
@@ -76,7 +76,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: native/polserver
-          key: mac-polserver-${{ hashFiles('.git/modules/native/polserver/logs/HEAD') }}
+          key: mac-polserver-568f8783f
 
       - name: Install polserver Dependencies
         shell: pwsh
