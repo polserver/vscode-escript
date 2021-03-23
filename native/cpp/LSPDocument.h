@@ -19,12 +19,14 @@ class LSPDocument
 public:
   LSPDocument( LSPWorkspace& workspace, const std::string& pathname );
 
+  void precompile();
   std::vector<Pol::Bscript::Compiler::Diagnostic>& diagnose();
 
 private:
   LSPWorkspace& workspace;
-  std::string pathname;
+  const std::string pathname;
   std::unique_ptr<Pol::Bscript::Compiler::DiagnosticReporter> reporter;
+  std::unique_ptr<Pol::Bscript::Compiler::Report> report;
   std::unique_ptr<Pol::Bscript::Compiler::CompilerWorkspace> compiler_workspace;
 };
 }  // namespace VSCodeEscript

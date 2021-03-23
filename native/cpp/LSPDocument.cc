@@ -9,18 +9,27 @@ using namespace Pol::Bscript;
 namespace VSCodeEscript
 {
 LSPDocument::LSPDocument( LSPWorkspace& workspace, const std::string& pathname )
-    : workspace( workspace ), pathname( pathname )
+    : workspace( workspace ),
+      pathname( pathname ),
+      reporter( std::make_unique<Compiler::DiagnosticReporter>() ),
+      report( std::make_unique<Compiler::Report>( *reporter ) )
 {
 }
 
-std::vector<Pol::Bscript::Compiler::Diagnostic>& LSPDocument::diagnose()
+void LSPDocument::precompile()
 {
-  reporter = std::make_unique<Compiler::DiagnosticReporter>();
-  Compiler::Report report( *reporter );
+  report->clear();
+  auto* ws_ptr = compiler_workspace.release();
+  compiler_workspace.get_deleter()( ws_ptr );
 
   auto compiler = workspace.make_compiler();
-  compiler_workspace = compiler->precompile( pathname, report );
+  compiler_workspace = compiler->precompile( pathname, *report );
+}
 
+
+std::vector<Pol::Bscript::Compiler::Diagnostic>& LSPDocument::diagnose()
+{
+  precompile();
   return reporter->diagnostics;
 }
 
