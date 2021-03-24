@@ -4,6 +4,8 @@
 #include "bscript/compiler/Report.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compilercfg.h"
+#include "clib/strutil.h"
+#include <filesystem>
 #include <napi.h>
 
 using namespace Pol::Bscript;
@@ -38,13 +40,13 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
 
 Napi::Function LSPWorkspace::GetClass( Napi::Env env )
 {
-  return DefineClass( env, "LSPWorkspace",
-                      {
-                          LSPWorkspace::InstanceMethod( "read", &LSPWorkspace::Read ),
-                          LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
-                          LSPWorkspace::InstanceMethod( "close", &LSPWorkspace::Close ),
-                          LSPWorkspace::InstanceMethod( "diagnose", &LSPWorkspace::Diagnose ),
-                      } );
+  return DefineClass(
+      env, "LSPWorkspace",
+      { LSPWorkspace::InstanceMethod( "read", &LSPWorkspace::Read ),
+        LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
+        LSPWorkspace::InstanceMethod( "close", &LSPWorkspace::Close ),
+        LSPWorkspace::InstanceMethod( "precompile", &LSPWorkspace::Precompile ),
+        LSPWorkspace::InstanceMethod( "diagnostics", &LSPWorkspace::Diagnostics ) } );
 }
 
 
@@ -87,7 +89,10 @@ Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
   }
 
   auto pathname = info[0].As<Napi::String>().Utf8Value();
-  _cache.emplace( std::make_pair( pathname, LSPDocument( *this, pathname ) ) );
+  auto extension = std::filesystem::path( pathname ).extension().string();
+  Pol::Clib::mklowerASCII( extension );
+  bool is_module = extension.compare( ".em" ) == 0;
+  _cache.emplace( std::make_pair( pathname, LSPDocument( *this, pathname, is_module ) ) );
   return info.Env().Undefined();
 }
 
@@ -103,7 +108,7 @@ Napi::Value LSPWorkspace::Close( const Napi::CallbackInfo& info )
 
   auto pathname = info[0].As<Napi::String>();
   auto itr = _cache.find( pathname );
-  if ( itr == _cache.end() )
+  if ( itr != _cache.end() )
   {
     _cache.erase( itr );
     return Napi::Boolean::New( env, true );
@@ -111,7 +116,7 @@ Napi::Value LSPWorkspace::Close( const Napi::CallbackInfo& info )
   return Napi::Boolean::New( env, false );
 }
 
-Napi::Value LSPWorkspace::Diagnose( const Napi::CallbackInfo& info )
+Napi::Value LSPWorkspace::Precompile( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
 
@@ -131,33 +136,8 @@ Napi::Value LSPWorkspace::Diagnose( const Napi::CallbackInfo& info )
   auto& document = itr->second;
   try
   {
-    const auto& diagnostics = document.diagnose();
-
-    auto results = Napi::Array::New( env );
-
-    auto push = results.Get( "push" ).As<Napi::Function>();
-
-    for ( const auto& diagnostic : diagnostics )
-    {
-      auto diag = Napi::Object::New( env );
-      auto range = Napi::Object::New( env );
-      auto rangeStart = Napi::Object::New( env );
-      range["start"] = rangeStart;
-      rangeStart["line"] = diagnostic.location.start.line_number;
-      rangeStart["character"] = diagnostic.location.start.character_column;
-      auto rangeEnd = Napi::Object::New( env );
-      range["end"] = rangeEnd;
-      rangeEnd["line"] = diagnostic.location.start.line_number;
-      rangeEnd["character"] = diagnostic.location.start.character_column;
-      diag["range"] = range;
-      diag["severity"] = Napi::Number::New(
-          env, diagnostic.severity == Compiler::Diagnostic::Severity::Error ? 1 : 2 );
-      diag["message"] = Napi::String::New( env, diagnostic.message );
-
-      push.Call( results, { diag } );
-    }
-
-    return results;
+    document.precompile();
+    return env.Undefined();
   }
   catch ( const std::exception& ex )
   {
@@ -168,6 +148,50 @@ Napi::Value LSPWorkspace::Diagnose( const Napi::CallbackInfo& info )
     Napi::Error::New( env, "Unknown Error" ).ThrowAsJavaScriptException();
   }
   return Napi::Value();
+}
+
+Napi::Value LSPWorkspace::Diagnostics( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsString() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  auto pathname = info[0].As<Napi::String>();
+  auto itr = _cache.find( pathname );
+  if ( itr == _cache.end() )
+  {
+    Napi::Error::New( env, Napi::String::New( env, "Document not opened" ) )
+        .ThrowAsJavaScriptException();
+  }
+  auto& document = itr->second;
+  auto results = Napi::Array::New( env );
+  auto push = results.Get( "push" ).As<Napi::Function>();
+
+  for ( const auto& diagnostic : document.reporter->diagnostics )
+  {
+    auto diag = Napi::Object::New( env );
+    auto range = Napi::Object::New( env );
+    auto rangeStart = Napi::Object::New( env );
+    range["start"] = rangeStart;
+    rangeStart["line"] = diagnostic.location.start.line_number - 1;
+    rangeStart["character"] = diagnostic.location.start.character_column - 1;
+    auto rangeEnd = Napi::Object::New( env );
+    range["end"] = rangeEnd;
+    rangeEnd["line"] = diagnostic.location.start.line_number - 1;
+    rangeEnd["character"] = diagnostic.location.start.character_column - 1;
+    diag["range"] = range;
+    diag["severity"] = Napi::Number::New(
+        env, diagnostic.severity == Compiler::Diagnostic::Severity::Error ? 1 : 2 );
+    diag["message"] = Napi::String::New( env, diagnostic.message );
+
+    push.Call( results, { diag } );
+  }
+
+  return results;
 }
 
 std::string LSPWorkspace::get_contents( const std::string& pathname ) const

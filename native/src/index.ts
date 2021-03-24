@@ -11,7 +11,8 @@ export interface LSPWorkspace {
 	read(cfg: string): void;
 	open(pathname: string): void;
 	close(pathname: string): void;
-	diagnose(pathname: string): Diagnostic[];
+	precompile(pathname: string): void;
+	diagnostics(pathname: string): Diagnostic[];
 }
 
 // FIXME: remove, used for POC

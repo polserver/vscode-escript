@@ -27,7 +27,8 @@ public:
   Napi::Value Read( const Napi::CallbackInfo& );
   Napi::Value Open( const Napi::CallbackInfo& );
   Napi::Value Close( const Napi::CallbackInfo& );
-  Napi::Value Diagnose( const Napi::CallbackInfo& );
+  Napi::Value Precompile( const Napi::CallbackInfo& );
+  Napi::Value Diagnostics( const Napi::CallbackInfo& );
 
   std::string get_contents( const std::string& pathname ) const override;
 

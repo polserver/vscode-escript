@@ -68,13 +68,53 @@ describe('vscode-escript-native LSPWorkspace', () => {
 
         // Done at textDocument/didChange
         text = 'var hello := foobar;';
-        let diagnostics = workspace.diagnose(pathname);
+        workspace.precompile(pathname);
+        let diagnostics = workspace.diagnostics(pathname);
         expect(diagnostics).toHaveLength(1); // unknown identifier
 
         // Replaced foobar with 0
         text = 'var hello := 0;';
-        diagnostics = workspace.diagnose(pathname);
+        workspace.precompile(pathname);
+        diagnostics = workspace.diagnostics(pathname);
         expect(diagnostics).toHaveLength(0); // no diagnostics
+
+        expect(calls).toEqual(2);
+
+        workspace.close(pathname);
+    });
+
+    it('Module compilation', () => {
+        // The SourceFileLoader callback, mocking the LSP TextDocuments utility
+        // class
+        let text: string;
+        let calls = 0;
+        const getContents = (pathname: string) => {
+            calls++;
+            return text;
+        };
+
+        // Constructed at LSP server initialization, pointing to the CFG (can be
+        // found at extension load time)
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.read(cfg);
+
+        // Done at textDocument/didOpen
+        const pathname = 'basicio.em';
+        workspace.open(pathname);
+
+        // Done at textDocument/didChange
+        text = 'Print(anything);';
+        workspace.precompile(pathname);
+        let diagnostics = workspace.diagnostics(pathname);
+        expect(diagnostics).toHaveLength(0); // okay
+
+        // Replaced foobar with 0
+        text = 'if (1) endif';
+        workspace.precompile(pathname);
+        diagnostics = workspace.diagnostics(pathname);
+        expect(diagnostics).toHaveLength(1); // modules can't have statements
 
         expect(calls).toEqual(2);
 

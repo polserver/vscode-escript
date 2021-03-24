@@ -17,14 +17,12 @@ class LSPWorkspace;
 class LSPDocument
 {
 public:
-  LSPDocument( LSPWorkspace& workspace, const std::string& pathname );
+  LSPDocument( LSPWorkspace& workspace, const std::string& pathname, bool is_module );
 
   void precompile();
-  std::vector<Pol::Bscript::Compiler::Diagnostic>& diagnose();
-
-private:
   LSPWorkspace& workspace;
   const std::string pathname;
+  const bool is_module;
   std::unique_ptr<Pol::Bscript::Compiler::DiagnosticReporter> reporter;
   std::unique_ptr<Pol::Bscript::Compiler::Report> report;
   std::unique_ptr<Pol::Bscript::Compiler::CompilerWorkspace> compiler_workspace;

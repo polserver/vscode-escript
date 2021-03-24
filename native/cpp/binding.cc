@@ -60,7 +60,7 @@ Napi::Value Method( const Napi::CallbackInfo& info )
   Compiler::DiagnosticReporter reporter;
   Compiler::Report report( reporter );
 
-  auto workspace = compiler->precompile( pathname, report );
+  auto workspace = compiler->precompile( pathname, report, false );
 
   auto diagnostics = Napi::Array::New( env );
   // size_t i = 0;

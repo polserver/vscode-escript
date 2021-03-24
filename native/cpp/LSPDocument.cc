@@ -8,9 +8,10 @@ using namespace Pol::Bscript;
 
 namespace VSCodeEscript
 {
-LSPDocument::LSPDocument( LSPWorkspace& workspace, const std::string& pathname )
+LSPDocument::LSPDocument( LSPWorkspace& workspace, const std::string& pathname, bool is_module )
     : workspace( workspace ),
       pathname( pathname ),
+      is_module( is_module ),
       reporter( std::make_unique<Compiler::DiagnosticReporter>() ),
       report( std::make_unique<Compiler::Report>( *reporter ) )
 {
@@ -19,18 +20,10 @@ LSPDocument::LSPDocument( LSPWorkspace& workspace, const std::string& pathname )
 void LSPDocument::precompile()
 {
   report->clear();
-  auto* ws_ptr = compiler_workspace.release();
-  compiler_workspace.get_deleter()( ws_ptr );
+  compiler_workspace.reset();
 
   auto compiler = workspace.make_compiler();
-  compiler_workspace = compiler->precompile( pathname, *report );
-}
-
-
-std::vector<Pol::Bscript::Compiler::Diagnostic>& LSPDocument::diagnose()
-{
-  precompile();
-  return reporter->diagnostics;
+  compiler_workspace = compiler->precompile( pathname, *report, is_module );
 }
 
 }  // namespace VSCodeEscript
