@@ -20,6 +20,9 @@ LSPDocument::LSPDocument( LSPWorkspace& workspace, const std::string& pathname, 
 void LSPDocument::precompile()
 {
   report->clear();
+  // Explicitly reset the pointer, in case `compiler->precompile()` throws and
+  // does not give a new value to populate. We do not want stale compilation
+  // data cached, as the tokens <-> line,col will no longer match.
   compiler_workspace.reset();
 
   auto compiler = workspace.make_compiler();
