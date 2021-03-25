@@ -40,8 +40,8 @@ if (WIN32)
 
   set(BSCRIPT_LIBS
     "${BSCRIPT_LIB}"
-    "${BSCRIPT_SOURCE_DIR}/bin/Release/clib.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/Release/plib.lib"
+    "${BSCRIPT_SOURCE_DIR}/bin/Release/clib.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/Release/format.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/Release/stackwalk.lib"
     "${BSCRIPT_SOURCE_DIR}/lib/antlr/install/lib/${ANTLR_LIB}"
@@ -72,10 +72,10 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
 endif()
 
-if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-  # add_link_options(-rdynamic)
+# if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+  add_link_options(-rdynamic)
   set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-rdynamic")
-endif()
+# endif()
 
 if (NOT EXISTS "${BSCRIPT_LIB}")
   message("- will build libbscript")
