@@ -66,11 +66,15 @@ endif()
 
 if (UNIX)
   add_compile_options(-fPIC)
-  add_link_options(-rdynamic)
 endif()
 if (MSVC)
   set(CMAKE_CXX_FLAGS_RELEASE "/MT")
   set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+endif()
+
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+  # add_link_options(-rdynamic)
+  set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-rdynamic")
 endif()
 
 if (NOT EXISTS "${BSCRIPT_LIB}")

@@ -26,14 +26,6 @@ jobs:
 
       - run: npm install
 
-      - run: npx vsce package
-
-      - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: escript-lsp-linux
-          path: escript-lsp-*.vsix
-
       - name: Library Check
         shell: bash
         run: |
@@ -41,6 +33,14 @@ jobs:
           nm --defined-only native/build/Release/vscode-escript-native.node | grep -i dirlist || echo "nm failed"
 
       - run: npm test
+
+      - run: npx vsce package
+
+      - name: Upload Extension Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: escript-lsp-linux
+          path: escript-lsp-*.vsix
 
   # windows:
   #   name: Test and Package [Windows]
