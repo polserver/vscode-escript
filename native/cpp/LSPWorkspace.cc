@@ -4,6 +4,7 @@
 #include "bscript/compiler/Report.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compilercfg.h"
+#include "clib/dirlist.h"
 #include "clib/strutil.h"
 #include "plib/pkg.h"
 #include <filesystem>
@@ -37,6 +38,14 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
   }
 
   GetContents = Napi::Persistent( callback.As<Napi::Function>() );
+
+  try
+  {
+    Pol::Clib::DirList( "" );
+  }
+  catch ( ... )
+  {
+  }
 }
 
 Napi::Function LSPWorkspace::GetClass( Napi::Env env )
