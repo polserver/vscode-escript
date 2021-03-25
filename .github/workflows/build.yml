@@ -22,11 +22,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: native/polserver
-          key: linux-polserver-a6323c77a.2
+          key: linux-polserver-a6323c77a
 
       - run: npm install
-
-      - run: npm test
 
       - run: npx vsce package
 
@@ -35,6 +33,13 @@ jobs:
         with:
           name: escript-lsp-linux
           path: escript-lsp-*.vsix
+
+      - name: Library Check
+        shell: bash
+        run: |
+          ldd native/build/Release/vscode-escript-native.node || echo "Uhh no ldd sad face"
+
+      - run: npm test
 
   windows:
     name: Test and Package [Windows]
@@ -49,7 +54,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: native/polserver
-          key: windows-polserver-a6323c77a.2
+          key: windows-polserver-a6323c77a
 
       - run: npm install
 
@@ -76,7 +81,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: native/polserver
-          key: mac-polserver-a6323c77a.2
+          key: mac-polserver-a6323c77a
 
       - name: Install polserver Dependencies
         shell: pwsh
