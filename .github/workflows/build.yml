@@ -26,12 +26,6 @@ jobs:
 
       - run: npm install
 
-      - name: Library Check
-        shell: bash
-        run: |
-          nm -u native/build/Release/vscode-escript-native.node | grep -i dirlist || echo "nm failed"
-          nm --defined-only native/build/Release/vscode-escript-native.node | grep -i dirlist || echo "nm failed"
-
       - run: npm test
 
       - run: npx vsce package
@@ -42,64 +36,64 @@ jobs:
           name: escript-lsp-linux
           path: escript-lsp-*.vsix
 
-  # windows:
-  #   name: Test and Package [Windows]
-  #   runs-on: windows-latest
+  windows:
+    name: Test and Package [Windows]
+    runs-on: windows-latest
 
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #       with:
-  #         submodules: recursive
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
-  #     - name: Cache polserver
-  #       uses: actions/cache@v2
-  #       with:
-  #         path: native/polserver
-  #         key: windows-polserver-a6323c77a
+      - name: Cache polserver
+        uses: actions/cache@v2
+        with:
+          path: native/polserver
+          key: windows-polserver-a6323c77a
 
-  #     - run: npm install
+      - run: npm install
 
-  #     - run: npm test
+      - run: npm test
 
-  #     - run: npx vsce package
+      - run: npx vsce package
 
-  #     - name: Upload Extension Artifact
-  #       uses: actions/upload-artifact@v2
-  #       with:
-  #         name: escript-lsp-windows
-  #         path: escript-lsp-*.vsix
+      - name: Upload Extension Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: escript-lsp-windows
+          path: escript-lsp-*.vsix
 
-  # mac:
-  #   name: Test and Package [Mac]
-  #   runs-on: macos-latest
+  mac:
+    name: Test and Package [Mac]
+    runs-on: macos-latest
 
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #       with:
-  #         submodules: recursive
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
-  #     - name: Cache polserver
-  #       uses: actions/cache@v2
-  #       with:
-  #         path: native/polserver
-  #         key: mac-polserver-a6323c77a
+      - name: Cache polserver
+        uses: actions/cache@v2
+        with:
+          path: native/polserver
+          key: mac-polserver-a6323c77a
 
-  #     - name: Install polserver Dependencies
-  #       shell: pwsh
-  #       run: |
-  #         brew install pkg-config
-  #         brew reinstall openssl@1.1
-  #         brew install ninja openssl@1.1 glib-openssl mysql-client mysql-connector-c++
-  #         echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:/usr/local/opt/mysql-client/lib/pkgconfig:$Env:PKG_CONFIG_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Install polserver Dependencies
+        shell: pwsh
+        run: |
+          brew install pkg-config
+          brew reinstall openssl@1.1
+          brew install ninja openssl@1.1 glib-openssl mysql-client mysql-connector-c++
+          echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:/usr/local/opt/mysql-client/lib/pkgconfig:$Env:PKG_CONFIG_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-  #     - run: npm install
+      - run: npm install
 
-  #     - run: npm test && echo npm run e2e
+      - run: npm test && echo npm run e2e
 
-  #     - run: npx vsce package
+      - run: npx vsce package
 
-  #     - name: Upload Extension Artifact
-  #       uses: actions/upload-artifact@v2
-  #       with:
-  #         name: escript-lsp-osx
-  #         path: escript-lsp-*.vsix
+      - name: Upload Extension Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: escript-lsp-osx
+          path: escript-lsp-*.vsix

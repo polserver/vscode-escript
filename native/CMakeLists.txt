@@ -72,11 +72,6 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
 endif()
 
-# if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-  add_link_options(-rdynamic)
-  set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-rdynamic")
-# endif()
-
 if (NOT EXISTS "${BSCRIPT_LIB}")
   message("- will build libbscript")
   ExternalProject_Add(libbscript
