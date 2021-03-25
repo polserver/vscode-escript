@@ -5,6 +5,7 @@
 #include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compilercfg.h"
 #include "clib/strutil.h"
+#include "plib/pkg.h"
 #include <filesystem>
 #include <napi.h>
 
@@ -64,6 +65,12 @@ Napi::Value LSPWorkspace::Read( const Napi::CallbackInfo& info )
   try
   {
     compilercfg.Read( cfg.As<Napi::String>().Utf8Value() );
+    for ( const auto& elem : compilercfg.PackageRoot )
+    {
+      Pol::Plib::load_packages( elem, true /* quiet */ );
+    }
+    Pol::Plib::replace_packages();
+    Pol::Plib::check_package_deps();
     return env.Undefined();
   }
   catch ( const std::exception& ex )

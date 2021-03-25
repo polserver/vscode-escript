@@ -1,6 +1,5 @@
 #pragma once
 
-#include "bscript/compiler/Report.h"
 #include <map>
 #include <napi.h>
 #include <vector>
@@ -8,6 +7,8 @@
 namespace Pol::Bscript::Compiler
 {
 class CompilerWorkspace;
+class DiagnosticReporter;
+class Report;
 }  // namespace Pol::Bscript::Compiler
 
 namespace VSCodeEscript
