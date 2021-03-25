@@ -66,6 +66,7 @@ endif()
 
 if (UNIX)
   add_compile_options(-fPIC)
+  add_link_options(-rdynamic)
 endif()
 if (MSVC)
   set(CMAKE_CXX_FLAGS_RELEASE "/MT")

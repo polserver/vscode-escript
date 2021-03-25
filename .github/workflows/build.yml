@@ -37,8 +37,8 @@ jobs:
       - name: Library Check
         shell: bash
         run: |
-          nm -u native/build/Release/vscode-escript-native.node || echo "nm failed"
-          nm --defined-only native/build/Release/vscode-escript-native.node || echo "nm failed"
+          nm -u native/build/Release/vscode-escript-native.node | grep -i dirlist || echo "nm failed"
+          nm --defined-only native/build/Release/vscode-escript-native.node | grep -i dirlist || echo "nm failed"
 
       - run: npm test
 
