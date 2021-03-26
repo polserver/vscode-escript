@@ -40,8 +40,8 @@ if (WIN32)
 
   set(BSCRIPT_LIBS
     "${BSCRIPT_LIB}"
-    "${BSCRIPT_SOURCE_DIR}/bin/Release/clib.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/Release/plib.lib"
+    "${BSCRIPT_SOURCE_DIR}/bin/Release/clib.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/Release/format.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/Release/stackwalk.lib"
     "${BSCRIPT_SOURCE_DIR}/lib/antlr/install/lib/${ANTLR_LIB}"
@@ -57,8 +57,8 @@ else()
 
   set(BSCRIPT_LIBS
     "${BSCRIPT_LIB}"
-    "${BSCRIPT_SOURCE_DIR}/bin/libclib.a"
     "${BSCRIPT_SOURCE_DIR}/bin/libplib.a"
+    "${BSCRIPT_SOURCE_DIR}/bin/libclib.a"
     "${BSCRIPT_SOURCE_DIR}/bin/libformat.a"
     "${BSCRIPT_SOURCE_DIR}/lib/antlr/install/lib/libantlr4-runtime.a"
   )

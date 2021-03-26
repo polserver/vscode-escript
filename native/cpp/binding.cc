@@ -1,5 +1,7 @@
 #include <napi.h>
 
+#include "LSPWorkspace.h"
+
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Profile.h"
 #include "bscript/compiler/Report.h"
@@ -58,7 +60,7 @@ Napi::Value Method( const Napi::CallbackInfo& info )
   Compiler::DiagnosticReporter reporter;
   Compiler::Report report( reporter );
 
-  auto workspace = compiler->precompile( pathname, report );
+  auto workspace = compiler->precompile( pathname, report, false );
 
   auto diagnostics = Napi::Array::New( env );
   // size_t i = 0;
@@ -89,6 +91,8 @@ Napi::Value Method( const Napi::CallbackInfo& info )
 
 Napi::Object Init( Napi::Env env, Napi::Object exports )
 {
+  exports.Set( Napi::String::New( env, "LSPWorkspace" ),
+               VSCodeEscript::LSPWorkspace::GetClass( env ) );
   exports.Set( Napi::String::New( env, "hello" ), Napi::Function::New( env, Method ) );
   return exports;
 }
