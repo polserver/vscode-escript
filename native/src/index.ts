@@ -13,6 +13,7 @@ export interface LSPWorkspace {
 	close(pathname: string): void;
 	analyze(pathname: string): void;
 	diagnostics(pathname: string): Diagnostic[];
+	tokens(pathname: string): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
 }
 
 export interface EscriptVscodeNative {

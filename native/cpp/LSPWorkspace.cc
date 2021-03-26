@@ -41,13 +41,13 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
 
 Napi::Function LSPWorkspace::GetClass( Napi::Env env )
 {
-  return DefineClass(
-      env, "LSPWorkspace",
-      { LSPWorkspace::InstanceMethod( "read", &LSPWorkspace::Read ),
-        LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
-        LSPWorkspace::InstanceMethod( "close", &LSPWorkspace::Close ),
-        LSPWorkspace::InstanceMethod( "analyze", &LSPWorkspace::Analyze ),
-        LSPWorkspace::InstanceMethod( "diagnostics", &LSPWorkspace::Diagnostics ) } );
+  return DefineClass( env, "LSPWorkspace",
+                      { LSPWorkspace::InstanceMethod( "read", &LSPWorkspace::Read ),
+                        LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
+                        LSPWorkspace::InstanceMethod( "close", &LSPWorkspace::Close ),
+                        LSPWorkspace::InstanceMethod( "analyze", &LSPWorkspace::Analyze ),
+                        LSPWorkspace::InstanceMethod( "diagnostics", &LSPWorkspace::Diagnostics ),
+                        LSPWorkspace::InstanceMethod( "tokens", &LSPWorkspace::Tokens ) } );
 }
 
 
@@ -196,6 +196,45 @@ Napi::Value LSPWorkspace::Diagnostics( const Napi::CallbackInfo& info )
     diag["message"] = Napi::String::New( env, diagnostic.message );
 
     push.Call( results, { diag } );
+  }
+
+  return results;
+}
+
+Napi::Value LSPWorkspace::Tokens( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsString() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  auto pathname = info[0].As<Napi::String>();
+  auto itr = _cache.find( pathname );
+  if ( itr == _cache.end() )
+  {
+    Napi::Error::New( env, Napi::String::New( env, "Document not opened" ) )
+        .ThrowAsJavaScriptException();
+  }
+  auto& document = itr->second;
+
+  auto results = Napi::Array::New( env );
+  auto push = results.Get( "push" ).As<Napi::Function>();
+
+  if ( document.compiler_workspace )
+  {
+    for ( const auto& token : document.compiler_workspace->tokens )
+    {
+      auto semTok = Napi::Array::New( env );
+      push.Call( semTok, { Napi::Number::New( env, token.line_number - 1 ) } );
+      push.Call( semTok, { Napi::Number::New( env, token.character_column - 1 ) } );
+      push.Call( semTok, { Napi::Number::New( env, token.length ) } );
+      push.Call( semTok, { Napi::Number::New( env, static_cast<unsigned int>( token.type ) ) } );
+      push.Call( semTok, { Napi::Number::New( env, 0 ) } );
+      push.Call( results, { semTok } );
+    }
   }
 
   return results;
