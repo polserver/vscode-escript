@@ -18,11 +18,15 @@ jobs:
         with:
           submodules: recursive
 
+      - id: get-ref
+        run: |
+          echo ::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )
+
       - name: Cache polserver
         uses: actions/cache@v2
         with:
           path: native/polserver
-          key: linux-polserver-a6323c77a
+          key: linux-polserver-${{ steps.get-ref.outputs.ref }}
 
       - run: npm install
 
@@ -45,11 +49,15 @@ jobs:
         with:
           submodules: recursive
 
+      - id: get-ref
+        run: |
+          echo ::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )
+
       - name: Cache polserver
         uses: actions/cache@v2
         with:
           path: native/polserver
-          key: windows-polserver-a6323c77a
+          key: windows-polserver-${{ steps.get-ref.outputs.ref }}
 
       - run: npm install
 
@@ -72,11 +80,15 @@ jobs:
         with:
           submodules: recursive
 
-      # - name: Cache polserver
-      #   uses: actions/cache@v2
-      #   with:
-      #     path: native/polserver
-      #     key: mac-polserver-a6323c77a.3
+      - id: get-ref
+        run: |
+          echo ::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )
+
+      - name: Cache polserver
+        uses: actions/cache@v2
+        with:
+          path: native/polserver
+          key: mac-polserver-${{ steps.get-ref.outputs.ref }}
 
       - name: Set polserver Dependencies
         shell: pwsh
