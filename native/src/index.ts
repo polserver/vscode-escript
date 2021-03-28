@@ -11,17 +11,12 @@ export interface LSPWorkspace {
 	read(cfg: string): void;
 	open(pathname: string): void;
 	close(pathname: string): void;
-	precompile(pathname: string): void;
+	analyze(pathname: string): void;
 	diagnostics(pathname: string): Diagnostic[];
 }
 
-// FIXME: remove, used for POC
-interface hello {
-	(moduleDirectory: string, contents: string): Diagnostic[];
-}
 export interface EscriptVscodeNative {
-	LSPWorkspace: LSPWorkspace,
-	hello: hello
+	LSPWorkspace: LSPWorkspace
 }
 
 const tries = [

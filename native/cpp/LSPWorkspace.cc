@@ -46,7 +46,7 @@ Napi::Function LSPWorkspace::GetClass( Napi::Env env )
       { LSPWorkspace::InstanceMethod( "read", &LSPWorkspace::Read ),
         LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
         LSPWorkspace::InstanceMethod( "close", &LSPWorkspace::Close ),
-        LSPWorkspace::InstanceMethod( "precompile", &LSPWorkspace::Precompile ),
+        LSPWorkspace::InstanceMethod( "analyze", &LSPWorkspace::Analyze ),
         LSPWorkspace::InstanceMethod( "diagnostics", &LSPWorkspace::Diagnostics ) } );
 }
 
@@ -123,7 +123,7 @@ Napi::Value LSPWorkspace::Close( const Napi::CallbackInfo& info )
   return Napi::Boolean::New( env, false );
 }
 
-Napi::Value LSPWorkspace::Precompile( const Napi::CallbackInfo& info )
+Napi::Value LSPWorkspace::Analyze( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
 
@@ -143,7 +143,7 @@ Napi::Value LSPWorkspace::Precompile( const Napi::CallbackInfo& info )
   auto& document = itr->second;
   try
   {
-    document.precompile();
+    document.analyze();
     return env.Undefined();
   }
   catch ( const std::exception& ex )
