@@ -20,8 +20,9 @@ jobs:
 
       - name: Get polserver HEAD ref
         id: get-ref
+        shell: pwsh
         run: |
-          echo ::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )
+          echo "::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )"
 
       - name: Cache polserver
         uses: actions/cache@v2
@@ -52,8 +53,9 @@ jobs:
 
       - name: Get polserver HEAD ref
         id: get-ref
+        shell: pwsh
         run: |
-          echo ::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )
+          echo "::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )"
 
       - name: Cache polserver
         uses: actions/cache@v2
@@ -84,8 +86,9 @@ jobs:
 
       - name: Get polserver HEAD ref
         id: get-ref
+        shell: pwsh
         run: |
-          echo ::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )
+          echo "::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )"
 
       - name: Cache polserver
         uses: actions/cache@v2
