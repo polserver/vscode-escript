@@ -20,7 +20,7 @@ class LSPDocument
 public:
   LSPDocument( LSPWorkspace& workspace, const std::string& pathname, bool is_module );
 
-  void precompile();
+  void analyze();
   LSPWorkspace& workspace;
   const std::string pathname;
   const bool is_module;
