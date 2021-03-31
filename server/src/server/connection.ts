@@ -119,6 +119,18 @@ export class LSPServer {
                 uri,
                 diagnostics
             });
+
+            const dependees = this.workspace.dependees(fsPath);
+            for (const dependee of dependees) {
+                const uri = URI.file(dependee).toString();
+                this.workspace.analyze(dependee);
+                const diagnostics = this.workspace.diagnostics(dependee);
+
+                this.connection.sendDiagnostics({
+                    uri,
+                    diagnostics
+                });
+            }
         } catch (ex) {
             console.error(ex);
         }
