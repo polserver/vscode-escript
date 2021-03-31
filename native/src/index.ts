@@ -12,6 +12,7 @@ export interface LSPWorkspace {
 	open(pathname: string): void;
 	close(pathname: string): void;
 	analyze(pathname: string): void;
+	dependees(pathname: string): string[];
 	diagnostics(pathname: string): Diagnostic[];
 	tokens(pathname: string): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
 }

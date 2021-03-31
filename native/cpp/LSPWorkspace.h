@@ -30,6 +30,7 @@ public:
   Napi::Value Analyze( const Napi::CallbackInfo& );
   Napi::Value Diagnostics( const Napi::CallbackInfo& );
   Napi::Value Tokens( const Napi::CallbackInfo& );
+  Napi::Value Dependees( const Napi::CallbackInfo& );
 
   std::string get_contents( const std::string& pathname ) const override;
 

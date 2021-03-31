@@ -2,6 +2,7 @@
 #include "LSPDocument.h"
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
+#include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compilercfg.h"
 #include "clib/strutil.h"
@@ -47,7 +48,8 @@ Napi::Function LSPWorkspace::GetClass( Napi::Env env )
                         LSPWorkspace::InstanceMethod( "close", &LSPWorkspace::Close ),
                         LSPWorkspace::InstanceMethod( "analyze", &LSPWorkspace::Analyze ),
                         LSPWorkspace::InstanceMethod( "diagnostics", &LSPWorkspace::Diagnostics ),
-                        LSPWorkspace::InstanceMethod( "tokens", &LSPWorkspace::Tokens ) } );
+                        LSPWorkspace::InstanceMethod( "tokens", &LSPWorkspace::Tokens ),
+                        LSPWorkspace::InstanceMethod( "dependees", &LSPWorkspace::Dependees ) } );
 }
 
 
@@ -234,6 +236,42 @@ Napi::Value LSPWorkspace::Tokens( const Napi::CallbackInfo& info )
       push.Call( semTok, { Napi::Number::New( env, static_cast<unsigned int>( token.type ) ) } );
       push.Call( semTok, { Napi::Number::New( env, 0 ) } );
       push.Call( results, { semTok } );
+    }
+  }
+
+  return results;
+}
+
+Napi::Value LSPWorkspace::Dependees( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsString() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  auto pathname = info[0].As<Napi::String>().Utf8Value();
+
+  auto results = Napi::Array::New( env );
+  auto push = results.Get( "push" ).As<Napi::Function>();
+
+  for ( const auto& cacheEntry : _cache )
+  {
+    const auto& document = cacheEntry.second;
+    if ( document.pathname.compare( pathname ) == 0 || !document.compiler_workspace )
+    {
+      continue;
+    }
+
+    for ( const auto& sourceId : document.compiler_workspace->referenced_source_file_identifiers )
+    {
+      if ( sourceId->pathname.compare( pathname ) == 0 )
+      {
+        push.Call( results, { Napi::String::New( env, document.pathname ) } );
+        break;
+      }
     }
   }
 
