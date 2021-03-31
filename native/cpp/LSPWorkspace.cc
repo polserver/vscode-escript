@@ -7,6 +7,7 @@
 #include "bscript/compilercfg.h"
 #include "clib/strutil.h"
 #include "plib/pkg.h"
+#include "plib/systemstate.h"
 #include <filesystem>
 #include <napi.h>
 
@@ -67,6 +68,10 @@ Napi::Value LSPWorkspace::Read( const Napi::CallbackInfo& info )
   try
   {
     compilercfg.Read( cfg.As<Napi::String>().Utf8Value() );
+
+    Pol::Plib::systemstate.packages.clear();
+    Pol::Plib::systemstate.packages_byname.clear();
+
     for ( const auto& elem : compilercfg.PackageRoot )
     {
       Pol::Plib::load_packages( elem, true /* quiet */ );

@@ -1,5 +1,5 @@
 import { resolve } from 'path';
-import { promises } from 'fs';
+import { promises, readFileSync } from 'fs';
 import { native } from '../src/index';
 import { F_OK } from 'constants';
 import writeFile = promises.writeFile;
@@ -12,10 +12,10 @@ beforeAll(async () => {
     try {
         await access(cfg, F_OK);
     } catch {
-        console.log('creating', cfg);
         const moduleDirectory = resolve(__dirname, '..', 'polserver', 'pol-core', 'support', 'scripts');
-
-        const cfgText = `ModuleDirectory ${moduleDirectory}\nIncludeDirectory ${__dirname}\nPolScriptRoot ${__dirname}\nPackageRoot ${__dirname}\nDisplayWarnings 1\n`;
+        const polDirectory = resolve(__dirname, '..', 'polserver', 'testsuite', 'pol');
+        const includeDirectory = resolve(polDirectory, 'scripts', 'include');
+        const cfgText = `ModuleDirectory ${moduleDirectory}\nIncludeDirectory ${includeDirectory}\nPolScriptRoot ${polDirectory}\nPackageRoot ${polDirectory}\nDisplayWarnings 1\n`;
         try {
             await writeFile(cfg, cfgText, 'utf-8');
         } catch (e) {
@@ -100,5 +100,39 @@ describe('vscode-escript-native LSPWorkspace', () => {
         expect(calls).toEqual(2);
 
         workspace.close(pathname);
+    });
+
+    it('Can get dependees', () => {
+        const pathname = '/tmp/start.src';
+        const incname = resolve(__dirname, '..', 'polserver', 'testsuite', 'pol', 'scripts', 'include', 'testutil.inc');
+
+        const mocks = {
+            [pathname]: 'include "testutil";',
+            [incname]: 'Print(1);'
+        };
+
+        const getContents = (pathname: string) => {
+            const text = mocks[pathname] ?? readFileSync(pathname, 'utf-8');
+            return text;
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+
+        workspace.read(cfg);
+
+        workspace.open(pathname);
+        workspace.open(incname);
+
+        workspace.analyze(pathname);
+        const diagnostics = workspace.diagnostics(pathname);
+        expect(diagnostics).toHaveLength(0); // okay
+
+        const dependees = workspace.dependees(incname);
+        expect(dependees).toEqual([pathname]);
+
+        workspace.close(pathname);
+        workspace.close(incname);
     });
 });
