@@ -141,7 +141,15 @@ export class LSPServer {
         const { fsPath } = URI.parse(params.textDocument.uri);
         const tokens = this.workspace.tokens(fsPath);
 
-        for (const token of tokens) {
+        const sorted = tokens.sort((tokInfo1, tokInfo2) => {
+            const line = tokInfo1[0] - tokInfo2[0];
+            if (line === 0) {
+                return tokInfo1[1] - tokInfo2[1];
+            }
+            return line;
+        });
+
+        for (const token of sorted) {
             builder.push(...token);
         }
 

@@ -300,7 +300,9 @@ std::string LSPWorkspace::get_contents( const std::string& pathname ) const
 
 std::unique_ptr<Compiler::Compiler> LSPWorkspace::make_compiler()
 {
-  return std::make_unique<Compiler::Compiler>( *this, em_parse_tree_cache, inc_parse_tree_cache,
+  auto compiler = std::make_unique<Compiler::Compiler>( *this, em_parse_tree_cache, inc_parse_tree_cache,
                                                profile );
+  compiler->set_include_compile_mode();
+  return std::move( compiler );
 }
 }  // namespace VSCodeEscript
