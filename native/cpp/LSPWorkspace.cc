@@ -5,7 +5,6 @@
 #include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compilercfg.h"
-#include "clib/strutil.h"
 #include "plib/pkg.h"
 #include "plib/systemstate.h"
 #include <filesystem>
@@ -103,10 +102,7 @@ Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
   }
 
   auto pathname = info[0].As<Napi::String>().Utf8Value();
-  auto extension = std::filesystem::path( pathname ).extension().string();
-  Pol::Clib::mklowerASCII( extension );
-  bool is_module = extension.compare( ".em" ) == 0;
-  _cache.emplace( std::make_pair( pathname, LSPDocument( *this, pathname, is_module ) ) );
+  _cache.emplace( std::make_pair( pathname, LSPDocument( *this, pathname ) ) );
   return info.Env().Undefined();
 }
 
@@ -187,6 +183,13 @@ Napi::Value LSPWorkspace::Diagnostics( const Napi::CallbackInfo& info )
 
   for ( const auto& diagnostic : document.reporter->diagnostics )
   {
+    // Skip errors from other files...? Include compilation shows errors from
+    // all over. Watch how this this behaves... This may need to _not_ be
+    // skipped, and filtered out based off extension setting.
+    if ( diagnostic.location.source_file_identifier->pathname.compare( pathname ) )
+    {
+      continue;
+    }
     auto diag = Napi::Object::New( env );
     auto range = Napi::Object::New( env );
     auto rangeStart = Napi::Object::New( env );
@@ -300,9 +303,7 @@ std::string LSPWorkspace::get_contents( const std::string& pathname ) const
 
 std::unique_ptr<Compiler::Compiler> LSPWorkspace::make_compiler()
 {
-  auto compiler = std::make_unique<Compiler::Compiler>( *this, em_parse_tree_cache, inc_parse_tree_cache,
+  return std::make_unique<Compiler::Compiler>( *this, em_parse_tree_cache, inc_parse_tree_cache,
                                                profile );
-  compiler->set_include_compile_mode();
-  return std::move( compiler );
 }
 }  // namespace VSCodeEscript
