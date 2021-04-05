@@ -3,7 +3,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Workspace } from '../workspace/workspace';
 import { validateTextDocument } from '../semantics/analyzer';
 import { URI } from 'vscode-uri';
-import { promises } from 'fs';
+import { promises, readFileSync } from 'fs';
 import access = promises.access;
 import { join } from 'path';
 import { F_OK } from 'constants';
@@ -11,12 +11,13 @@ import { F_OK } from 'constants';
 // vsce does not support symlinks
 // import { escript } from 'vscode-escript-native';
 const { native } = require('../../../native/out/index') as typeof import('vscode-escript-native');
-const { LSPWorkspace } = native;
+const { LSPWorkspace, LSPDocument } = native;
 
 export class LSPServer {
     private connection = createConnection(ProposedFeatures.all);
     private documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
     private workspace: typeof LSPWorkspace;
+    private sources: Map<string, typeof LSPDocument> = new Map();
 
     public hasDiagnosticRelatedInformationCapability: boolean = false;
 
@@ -39,7 +40,7 @@ export class LSPServer {
                 if (typeof text !== 'undefined') {
                     return text;
                 }
-                throw new Error(`Could not get text for ${uri}`);
+                return readFileSync(pathname, 'utf-8');
             }
         });
     }
@@ -93,7 +94,7 @@ export class LSPServer {
 
     private onDidOpen = async (e: TextDocumentChangeEvent<TextDocument>) => {
         const { fsPath } = URI.parse(e.document.uri);
-        this.workspace.open(fsPath);
+        this.sources.set(fsPath, new LSPDocument(this.workspace, fsPath));
     };
 
     private onDidClose = async (e: TextDocumentChangeEvent<TextDocument>) => {
@@ -105,31 +106,35 @@ export class LSPServer {
             uri,
             diagnostics: []
         });
-        this.workspace.close(fsPath);
+        this.sources.delete(fsPath);
     };
 
     private onDidChangeContent = async (e: TextDocumentChangeEvent<TextDocument>) => {
         const { uri } = e.document;
         const { fsPath } = URI.parse(uri);
+        const document = this.sources.get(fsPath);
         try {
-            this.workspace.analyze(fsPath);
-            const diagnostics = this.workspace.diagnostics(fsPath);
+            if (!document) {
+                throw new Error('Document not opened');
+            }
+            document.analyze();
+            const diagnostics = document.diagnostics();
 
             this.connection.sendDiagnostics({
                 uri,
                 diagnostics
             });
 
-            const dependees = this.workspace.dependees(fsPath);
-            for (const dependee of dependees) {
-                const uri = URI.file(dependee).toString();
-                this.workspace.analyze(dependee);
-                const diagnostics = this.workspace.diagnostics(dependee);
-
-                this.connection.sendDiagnostics({
-                    uri,
-                    diagnostics
-                });
+            for (const [ dependeePathname, dependeeDoc ] of this.sources.entries()) {
+                if (dependeePathname !== fsPath && dependeeDoc.dependents().includes(fsPath)) {
+                    const uri = URI.file(dependeePathname).toString();
+                    dependeeDoc.analyze();
+                    const diagnostics = dependeeDoc.diagnostics();
+                    this.connection.sendDiagnostics({
+                        uri,
+                        diagnostics
+                    });
+                }
             }
         } catch (ex) {
             console.error(ex);
@@ -139,20 +144,27 @@ export class LSPServer {
     private onSemanticTokens = async (params: SemanticTokensParams): Promise<SemanticTokens> => {
         const builder = new SemanticTokensBuilder();
         const { fsPath } = URI.parse(params.textDocument.uri);
-        const tokens = this.workspace.tokens(fsPath);
-
-        const sorted = tokens.sort((tokInfo1, tokInfo2) => {
-            const line = tokInfo1[0] - tokInfo2[0];
-            if (line === 0) {
-                return tokInfo1[1] - tokInfo2[1];
+        const document = this.sources.get(fsPath);
+        try {
+            if (!document) {
+                throw new Error('Document not opened');
             }
-            return line;
-        });
+            const tokens = document.tokens();
 
-        for (const token of sorted) {
-            builder.push(...token);
+            const sorted = tokens.sort((tokInfo1, tokInfo2) => {
+                const line = tokInfo1[0] - tokInfo2[0];
+                if (line === 0) {
+                    return tokInfo1[1] - tokInfo2[1];
+                }
+                return line;
+            });
+
+            for (const token of sorted) {
+                builder.push(...token);
+            }
+        } catch (ex) {
+            console.error(ex);
         }
-
         return builder.build();
     };
 }

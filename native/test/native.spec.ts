@@ -4,7 +4,7 @@ import { native } from '../src/index';
 import { F_OK } from 'constants';
 import writeFile = promises.writeFile;
 import access = promises.access;
-const { LSPWorkspace } = native;
+const { LSPWorkspace, LSPDocument } = native;
 
 const cfg = resolve(__dirname, 'ecompile.cfg');
 
@@ -27,13 +27,17 @@ beforeAll(async () => {
 
 describe('vscode-escript-native LSPWorkspace', () => {
     it('Text changing POC', () => {
+        const src = 'in-memory-file.src';
         // The SourceFileLoader callback, mocking the LSP TextDocuments utility
         // class
         let text: string;
         let calls = 0;
         const getContents = (pathname: string) => {
-            calls++;
-            return text;
+            if (pathname === src) {
+                calls++;
+                return text;
+            }
+            return readFileSync(pathname, 'utf-8');
         };
 
         // Constructed at LSP server initialization, pointing to the CFG (can be
@@ -44,24 +48,21 @@ describe('vscode-escript-native LSPWorkspace', () => {
         workspace.read(cfg);
 
         // Done at textDocument/didOpen
-        const pathname = 'in-memory-file.src';
-        workspace.open(pathname);
+        const document = new LSPDocument(workspace, src);
 
         // Done at textDocument/didChange
         text = 'var hello := foobar;';
-        workspace.analyze(pathname);
-        let diagnostics = workspace.diagnostics(pathname);
+        document.analyze();
+        let diagnostics = document.diagnostics();
         expect(diagnostics).toHaveLength(1); // unknown identifier
 
         // Replaced foobar with 0
         text = 'var hello := 0;';
-        workspace.analyze(pathname);
-        diagnostics = workspace.diagnostics(pathname);
+        document.analyze();
+        diagnostics = document.diagnostics();
         expect(diagnostics).toHaveLength(0); // no diagnostics
 
         expect(calls).toEqual(2);
-
-        workspace.close(pathname);
     });
 
     it('Module compilation', () => {
@@ -83,26 +84,24 @@ describe('vscode-escript-native LSPWorkspace', () => {
 
         // Done at textDocument/didOpen
         const pathname = 'basicio.em';
-        workspace.open(pathname);
+        const document = new LSPDocument(workspace, pathname);
 
         // Done at textDocument/didChange
         text = 'Print(anything);';
-        workspace.analyze(pathname);
-        let diagnostics = workspace.diagnostics(pathname);
+        document.analyze();
+        let diagnostics = document.diagnostics();
         expect(diagnostics).toHaveLength(0); // okay
 
         // Replaced foobar with 0
         text = 'if (1) endif';
-        workspace.analyze(pathname);
-        diagnostics = workspace.diagnostics(pathname);
+        document.analyze();
+        diagnostics = document.diagnostics();
         expect(diagnostics).toHaveLength(1); // modules can't have statements
 
         expect(calls).toEqual(2);
-
-        workspace.close(pathname);
     });
 
-    it('Can get dependees', () => {
+    it('Can get dependents', () => {
         const pathname = '/tmp/start.src';
         const incname = resolve(__dirname, '..', 'polserver', 'testsuite', 'pol', 'scripts', 'include', 'testutil.inc');
 
@@ -122,17 +121,23 @@ describe('vscode-escript-native LSPWorkspace', () => {
 
         workspace.read(cfg);
 
-        workspace.open(pathname);
-        workspace.open(incname);
+        const document = new LSPDocument(workspace, pathname);
 
-        workspace.analyze(pathname);
-        const diagnostics = workspace.diagnostics(pathname);
+        document.analyze();
+        const diagnostics = document.diagnostics();
         expect(diagnostics).toHaveLength(0); // okay
 
-        const dependees = workspace.dependees(incname);
-        expect(dependees).toEqual([pathname]);
+        const dependents = document.dependents();
 
-        workspace.close(pathname);
-        workspace.close(incname);
+        const moduleDirectory = resolve(__dirname, '..', 'polserver', 'pol-core', 'support', 'scripts');
+        const basicMod = resolve(moduleDirectory, 'basic.em');
+        const basicioMod = resolve(moduleDirectory, 'basicio.em');
+
+        expect(dependents).toEqual([
+            pathname,
+            basicMod,
+            basicioMod,
+            incname,
+        ]);
     });
 });
