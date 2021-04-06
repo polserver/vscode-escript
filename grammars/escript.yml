@@ -4,8 +4,10 @@ scopeName: source.escript
 name: EScript
 # Currently disabling the TextMate highlighting
 patterns:
-  - include: '#compilationUnit'
-  - include: '#moduleUnit'
+  # - include: '#compilationUnit'
+  # - include: '#moduleUnit'
+
+  # This will... probably highlight comments inside strings?
   - include: '#comment'
 repository:
   compilationUnit:
@@ -57,8 +59,8 @@ repository:
   string:
     name: string.quoted.double.escript
     begin: "\""
-    beginCaptures: 
-      0: 
+    beginCaptures:
+      0:
         name: punctuation.definition.string.begin.escript
     end: "(\")|((?:[^\\\\\\n])$)"
     endCaptures:
