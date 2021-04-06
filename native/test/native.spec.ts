@@ -102,7 +102,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
     });
 
     it('Can get dependents', () => {
-        const pathname = '/tmp/start.src';
+        const pathname = resolve('/tmp/start.src');
         const incname = resolve(__dirname, '..', 'polserver', 'testsuite', 'pol', 'scripts', 'include', 'testutil.inc');
 
         const mocks = {
@@ -133,7 +133,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         const basicMod = resolve(moduleDirectory, 'basic.em');
         const basicioMod = resolve(moduleDirectory, 'basicio.em');
 
-        expect(dependents).toEqual([
+        expect(dependents.map(x => resolve(x))).toEqual([
             pathname,
             basicMod,
             basicioMod,
