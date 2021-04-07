@@ -9,16 +9,20 @@ export type LSPWorkspaceConfig = {
 export interface LSPWorkspace {
 	new(config: LSPWorkspaceConfig): LSPWorkspace;
 	read(cfg: string): void;
-	open(pathname: string): void;
-	close(pathname: string): void;
-	analyze(pathname: string): void;
-	dependees(pathname: string): string[];
-	diagnostics(pathname: string): Diagnostic[];
-	tokens(pathname: string): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
 }
 
+export interface LSPDocument {
+	new(workspace: LSPWorkspace, pathname: string): LSPDocument;
+	analyze(): void;
+	dependents(): string[];
+	diagnostics(): Diagnostic[];
+	tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
+}
+
+
 export interface EscriptVscodeNative {
-	LSPWorkspace: LSPWorkspace
+	LSPWorkspace: LSPWorkspace;
+	LSPDocument: LSPDocument;
 }
 
 const tries = [

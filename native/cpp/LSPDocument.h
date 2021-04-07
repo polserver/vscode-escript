@@ -21,19 +21,24 @@ enum class LSPDocumentType {
   EM
 };
 
-class LSPDocument
+class LSPDocument : public Napi::ObjectWrap<LSPDocument>
 {
 public:
-  LSPDocument( LSPWorkspace& workspace, const std::string& pathname );
+  LSPDocument( const Napi::CallbackInfo& info );
+  static Napi::Function GetClass( Napi::Env );
 
-  void analyze();
-  LSPWorkspace& workspace;
-  const std::string pathname;
+  Napi::Value Analyze( const Napi::CallbackInfo& );
+  Napi::Value Diagnostics( const Napi::CallbackInfo& );
+  Napi::Value Tokens( const Napi::CallbackInfo& );
+  Napi::Value Dependents( const Napi::CallbackInfo& );
+
   std::unique_ptr<Pol::Bscript::Compiler::DiagnosticReporter> reporter;
-  std::unique_ptr<Pol::Bscript::Compiler::Report> report;
-  std::unique_ptr<Pol::Bscript::Compiler::CompilerWorkspace> compiler_workspace;
 
 private:
-  LSPDocumentType _type;
+  std::unique_ptr<Pol::Bscript::Compiler::Report> report;
+  std::unique_ptr<Pol::Bscript::Compiler::CompilerWorkspace> compiler_workspace;
+  Napi::ObjectReference workspace;
+  std::string pathname;
+  LSPDocumentType type;
 };
 }  // namespace VSCodeEscript
