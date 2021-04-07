@@ -99,6 +99,7 @@ endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   "${BSCRIPT_SOURCE_DIR}/pol-core"
+  "${BSCRIPT_SOURCE_DIR}/pol-core/bscript"
   "${BSCRIPT_SOURCE_DIR}/lib"
   "${BSCRIPT_SOURCE_DIR}/bin-build"
   "${BSCRIPT_SOURCE_DIR}/lib/antlr/install/include/antlr4-runtime"

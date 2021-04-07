@@ -1,11 +1,16 @@
 #include "SemanticContextFinder.h"
 #include "bscript/compiler/ast/ConstDeclaration.h"
 #include "bscript/compiler/ast/Expression.h"
+#include "bscript/compiler/ast/Function.h"
+#include "bscript/compiler/ast/FunctionBody.h"
 #include "bscript/compiler/ast/FunctionCall.h"
 #include "bscript/compiler/ast/FunctionParameterDeclaration.h"
 #include "bscript/compiler/ast/Identifier.h"
-#include "bscript/compiler/ast/ModuleFunctionDeclaration.h"
+#include "bscript/compiler/ast/IfThenElseStatement.h"
+#include "bscript/compiler/ast/IntegerValue.h"
+#include "bscript/compiler/ast/MemberAccess.h"
 #include "bscript/compiler/ast/UserFunction.h"
+#include "bscript/compiler/ast/Value.h"
 #include "bscript/compiler/ast/VarStatement.h"
 #include "bscript/compiler/file/SourceFile.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
@@ -25,11 +30,49 @@ SemanticContextFinder::SemanticContextFinder( CompilerWorkspace& workspace,
 std::optional<std::string> SemanticContextFinder::hover( const Position& )
 {
   workspace.accept( *this );
-  if ( !nodes.empty() )
+
+  auto parameters_to_string =
+      [&]( std::vector<std::reference_wrapper<FunctionParameterDeclaration>> params )
+      -> std::string {
+    bool added = false;
+    std::string result;
+    for ( const auto& param_ref : params )
+    {
+      auto& param = param_ref.get();
+      if ( added )
+      {
+        result += ", ";
+      }
+      else
+      {
+        added = true;
+      }
+      result += param.name;
+      auto* default_value = param.default_value();
+      if ( default_value )
+      {
+        result += " := ";
+        result += default_value->describe();
+      }
+    }
+    return result;
+  };
+
+  while ( !nodes.empty() )
   {
     auto node = nodes.back();
     nodes.pop_back();
-    if ( auto* function_call = dynamic_cast<FunctionCall*>( node ) )
+    if ( auto* function_def = dynamic_cast<Function*>( node ) )
+    {
+      bool added = false;
+      std::string result = "(function) ";
+      result += function_def->name;
+      result += "(";
+      result += parameters_to_string( function_def->parameters() );
+      result += ")";
+      return result;
+    }
+    else if ( auto* function_call = dynamic_cast<FunctionCall*>( node ) )
     {
       bool added = false;
       std::string result = "(function) ";
@@ -38,25 +81,7 @@ std::optional<std::string> SemanticContextFinder::hover( const Position& )
       auto params = function_call->parameters();
       if ( params )
       {
-        for ( const auto& param_ref : *params )
-        {
-          auto& param = param_ref.get();
-          if ( added )
-          {
-            result += ", ";
-          }
-          else
-          {
-            added = true;
-          }
-          result += param.name;
-          auto* default_value = param.default_value();
-          if ( default_value )
-          {
-            result += " := ";
-            result += default_value->describe();
-          }
-        }
+        result += parameters_to_string( *params );
       }
       else
       {
@@ -85,13 +110,46 @@ std::optional<std::string> SemanticContextFinder::hover( const Position& )
 
       if ( auto variable = identifier->variable )
       {
-        std::string result = "(variable) ";
+        std::string result = ( variable->scope == VariableScope::Global ? "(global variable) "
+                                                                        : "(local variable) " );
         result += name;
         return result;
       }
+      break;
+    }
+    else if ( auto* member_access = dynamic_cast<MemberAccess*>( node ) )
+    {
+      std::string result = "(member) ";
+      result += member_access->name;
+      return result;
+    }
+    else if ( auto* funct_param = dynamic_cast<FunctionParameterDeclaration*>( node ) )
+    {
+      std::string result = "(parameter) ";
+      result += funct_param->name;
+      return result;
+    }
+    else if ( auto* value = dynamic_cast<Value*>( node ) )
+    {
+      // Constants are optimized away and are only shown as values. But, this
+      // will also hover normal values like strings.
+      std::string result = "(value) ";
+      result += value->describe();
+      return result;
     }
   }
   return std::nullopt;
+}
+
+void SemanticContextFinder::visit_user_function( UserFunction& node )
+{
+  // Maybe SourceLocation::contains can have a pathname check too
+  if ( node.source_location.source_file_identifier->pathname == workspace.source->pathname &&
+       node.source_location.contains( position ) )
+  {
+    nodes.push_back( &node );
+    visit_children( node );
+  }
 }
 
 void SemanticContextFinder::visit_const_declaration( ConstDeclaration& const_decl )
@@ -109,12 +167,14 @@ void SemanticContextFinder::visit_children( Node& parent )
 {
   for ( const auto& child : parent.children )
   {
-    if ( child->source_location.source_file_identifier->pathname == workspace.source->pathname &&
-         child->source_location.contains( position ) )
+    if ( child )
     {
-      nodes.push_back( child.get() );
+      if ( child->source_location.source_file_identifier->pathname == workspace.source->pathname &&
+           child->source_location.contains( position ) )
+      {
+        nodes.push_back( child.get() );
+      }
       child->accept( *this );
-      break;
     }
   }
 }

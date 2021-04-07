@@ -24,6 +24,7 @@ public:
 
   std::optional<std::string> hover( const Pol::Bscript::Compiler::Position& );
 
+  void visit_user_function( Pol::Bscript::Compiler::UserFunction& ) override;
   void visit_const_declaration( Pol::Bscript::Compiler::ConstDeclaration& ) override;
 
   void visit_children( Pol::Bscript::Compiler::Node& parent ) override;
