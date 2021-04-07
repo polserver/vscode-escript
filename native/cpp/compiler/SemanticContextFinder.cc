@@ -9,6 +9,7 @@
 #include "bscript/compiler/ast/IfThenElseStatement.h"
 #include "bscript/compiler/ast/IntegerValue.h"
 #include "bscript/compiler/ast/MemberAccess.h"
+#include "bscript/compiler/ast/MethodCall.h"
 #include "bscript/compiler/ast/UserFunction.h"
 #include "bscript/compiler/ast/Value.h"
 #include "bscript/compiler/ast/VarStatement.h"
@@ -135,6 +136,13 @@ std::optional<std::string> SemanticContextFinder::hover( const Position& )
       // will also hover normal values like strings.
       std::string result = "(value) ";
       result += value->describe();
+      return result;
+    }
+    else if ( auto* method_call = dynamic_cast<MethodCall*>( node ) )
+    {
+      // Methods do not have known argument names.
+      std::string result = "(method) ";
+      result += method_call->methodname;
       return result;
     }
   }
