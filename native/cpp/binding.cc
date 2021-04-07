@@ -1,7 +1,7 @@
 #include <napi.h>
 
-#include "LSPWorkspace.h"
-#include "LSPDocument.h"
+#include "napi/LSPWorkspace.h"
+#include "napi/LSPDocument.h"
 
 using namespace Pol::Bscript;
 

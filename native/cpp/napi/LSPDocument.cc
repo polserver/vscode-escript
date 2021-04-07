@@ -1,5 +1,6 @@
 #include "LSPDocument.h"
 #include "LSPWorkspace.h"
+#include "../compiler/SemanticContextFinder.h"
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
@@ -52,6 +53,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                       { LSPDocument::InstanceMethod( "analyze", &LSPDocument::Analyze ),
                         LSPDocument::InstanceMethod( "diagnostics", &LSPDocument::Diagnostics ),
                         LSPDocument::InstanceMethod( "tokens", &LSPDocument::Tokens ),
+                        LSPDocument::InstanceMethod( "hover", &LSPDocument::Hover ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -166,6 +168,41 @@ Napi::Value LSPDocument::Dependents( const Napi::CallbackInfo& info )
   }
 
   return results;
+}
+
+
+Napi::Value LSPDocument::Hover( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsObject() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  if ( compiler_workspace )
+  {
+    auto position = info[0].As<Napi::Object>();
+    auto line = position.Get( "line" );
+    auto character = position.Get( "character" );
+    if ( !line.IsNumber() || !character.IsNumber() )
+    {
+      Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+          .ThrowAsJavaScriptException();
+    }
+    Compiler::Position pos{
+        static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
+        static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
+
+    CompilerExt::SemanticContextFinder finder( *compiler_workspace, pos );
+    auto hover = finder.hover( pos );
+    if ( hover.has_value() )
+    {
+      return Napi::String::New( env, hover.value() );
+    }
+  }
+  return env.Undefined();
 }
 
 }  // namespace VSCodeEscript
