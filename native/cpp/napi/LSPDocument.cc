@@ -1,6 +1,7 @@
 #include "LSPDocument.h"
 #include "LSPWorkspace.h"
 #include "../compiler/SemanticContextFinder.h"
+#include "../compiler/HoverBuilder.h"
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
@@ -195,8 +196,9 @@ Napi::Value LSPDocument::Hover( const Napi::CallbackInfo& info )
         static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
         static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
 
-    CompilerExt::SemanticContextFinder finder( *compiler_workspace, pos );
-    auto hover = finder.hover( pos );
+    // CompilerExt::SemanticContextFinder finder( *compiler_workspace, pos );
+    CompilerExt::HoverBuilder finder( *compiler_workspace, pos );
+    auto hover = finder.hover();
     if ( hover.has_value() )
     {
       return Napi::String::New( env, hover.value() );
