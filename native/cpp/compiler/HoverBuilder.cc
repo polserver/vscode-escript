@@ -119,7 +119,7 @@ std::optional<std::string> HoverBuilder::hover()
     if ( auto* function_def = workspace.scope_tree.find_module_function( name ) )
     {
       std::string result = "(module function) ";
-      result += name;
+      result += function_def->name;
       result += "(";
       result += parameters_to_string( function_def->parameters() );
       result += ")";
@@ -132,7 +132,7 @@ std::optional<std::string> HoverBuilder::hover()
     if ( auto* function_def = workspace.scope_tree.find_user_function( name ) )
     {
       std::string result = "(user function) ";
-      result += name;
+      result += function_def->name;
       result += "(";
       result += parameters_to_string( function_def->parameters() );
       result += ")";
@@ -198,7 +198,6 @@ std::optional<std::string> HoverBuilder::hover()
         }
       }
     }
-
     else if ( auto* ctx = dynamic_cast<EscriptParser::ModuleFunctionParameterContext*>( node ) )
     {
       if ( auto* id = ctx->IDENTIFIER() )
@@ -329,8 +328,8 @@ std::optional<std::string> HoverBuilder::hover()
           auto param_name = id->getText();
           std::string result = "(parameter) ";
           result += param_name;
-          if ( auto* parent_ctx =
-                   dynamic_cast<EscriptParser::FunctionDeclarationContext*>( ctx->parent->parent ) )
+          if ( auto* parent_ctx = dynamic_cast<EscriptParser::FunctionDeclarationContext*>(
+                   ctx->parent->parent->parent ) )
           {
             if ( auto* parent_id = parent_ctx->IDENTIFIER() )
             {
