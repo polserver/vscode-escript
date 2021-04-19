@@ -81,7 +81,7 @@ std::optional<std::string> HoverBuilder::hover()
   };
 
   auto try_constant = [&]( const std::string& name ) -> std::optional<std::string> {
-    if ( auto* const_decl = workspace.constants.find( name ) )
+    if ( auto* const_decl = workspace.scope_tree.find_constant( name ) )
     {
       std::string result = "(constant) ";
       result += const_decl->identifier;
@@ -164,15 +164,18 @@ std::optional<std::string> HoverBuilder::hover()
         if ( contains( id ) )
         {
           auto name = id->getText();
-          if ( auto* parent_ctx =
-                   dynamic_cast<EscriptParser::ConstStatementContext*>( ctx->parent ) )
-          {
-            return try_constant( name );
-          }
-          else
-          {
-            return try_variable( name );
-          }
+          return try_variable( name );
+        }
+      }
+    }
+    else if ( auto* ctx = dynamic_cast<EscriptParser::ConstantDeclarationContext*>( node ) )
+    {
+      if ( auto* id = ctx->IDENTIFIER() )
+      {
+        if ( contains( id ) )
+        {
+          auto name = id->getText();
+          return try_constant( name );
         }
       }
     }
