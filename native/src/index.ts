@@ -1,6 +1,6 @@
 import { resolve } from 'path';
 import { existsSync } from 'fs';
-import type { Diagnostic, Position } from 'vscode-languageserver-types';
+import type { Diagnostic, Position, Range } from 'vscode-languageserver-types';
 
 export type LSPWorkspaceConfig = {
 	getContents: (pathname: string) => string;
@@ -17,6 +17,7 @@ export interface LSPDocument {
 	dependents(): string[];
 	diagnostics(): Diagnostic[];
 	hover(position: Position): string | undefined;
+	definition(position: Position): { range: Range, fsPath: string } | undefined;
 	tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
 }
 
