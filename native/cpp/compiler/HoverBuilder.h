@@ -1,37 +1,38 @@
 #ifndef VSCODEESCRIPT_HOVERBUILDER_H
 #define VSCODEESCRIPT_HOVERBUILDER_H
 
-#include "bscript/compiler/ast/NodeVisitor.h"
-#include "bscript/compiler/file/SourceLocation.h"
-
-#include <EscriptGrammar/EscriptParserBaseVisitor.h>
-#include <optional>
-#include <vector>
-
-
-namespace Pol::Bscript::Compiler
-{
-class CompilerWorkspace;
-}
+#include "SemanticContextBuilder.h"
 
 namespace VSCodeEscript::CompilerExt
 {
-class HoverBuilder : public EscriptGrammar::EscriptParserBaseVisitor
+class HoverBuilder : public SemanticContextBuilder<std::string>
 {
 public:
   HoverBuilder( Pol::Bscript::Compiler::CompilerWorkspace&,
-                         const Pol::Bscript::Compiler::Position& position );
+                const Pol::Bscript::Compiler::Position& position );
 
   ~HoverBuilder() override = default;
 
-  std::optional<std::string> hover();
-  virtual antlrcpp::Any visitChildren( antlr4::tree::ParseTree *node ) override;
-  bool contains( antlr4::tree::TerminalNode* terminal );
+  virtual std::optional<std::string> get_variable(
+      std::shared_ptr<Pol::Bscript::Compiler::Variable> variable ) override;
+  virtual std::optional<std::string> get_constant(
+      Pol::Bscript::Compiler::ConstDeclaration* const_decl ) override;
 
-private:
-  Pol::Bscript::Compiler::CompilerWorkspace& workspace;
-  Pol::Bscript::Compiler::Position position;
-  std::vector<antlr4::ParserRuleContext*> nodes;
+  virtual std::optional<std::string> get_module_function(
+      Pol::Bscript::Compiler::ModuleFunctionDeclaration* ) override;
+  virtual std::optional<std::string> get_module_function_parameter(
+      Pol::Bscript::Compiler::ModuleFunctionDeclaration* function_def,
+      Pol::Bscript::Compiler::FunctionParameterDeclaration* param ) override;
+  virtual std::optional<std::string> get_user_function(
+      Pol::Bscript::Compiler::UserFunction* ) override;
+  virtual std::optional<std::string> get_user_function_parameter(
+      Pol::Bscript::Compiler::UserFunction* function_def,
+      Pol::Bscript::Compiler::FunctionParameterDeclaration* param ) override;
+  virtual std::optional<std::string> get_program(
+      const std::string& name, Pol::Bscript::Compiler::Program* program ) override;
+  virtual std::optional<std::string> get_program_parameter( const std::string& param ) override;
+  virtual std::optional<std::string> get_member( const std::string& name ) override;
+  virtual std::optional<std::string> get_method( const std::string& name ) override;
 };
 
 }  // namespace VSCodeEscript::CompilerExt
