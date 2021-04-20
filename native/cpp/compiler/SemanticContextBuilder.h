@@ -66,6 +66,13 @@ protected:
 };
 
 template <typename T>
+SemanticContextBuilder<T>::SemanticContextBuilder( Pol::Bscript::Compiler::CompilerWorkspace& workspace,
+                                                 const Pol::Bscript::Compiler::Position& position )
+    : workspace( workspace ), position( position )
+{
+}
+
+template <typename T>
 std::optional<T> SemanticContextBuilder<T>::get_variable(
     std::shared_ptr<Pol::Bscript::Compiler::Variable> variable )
 {

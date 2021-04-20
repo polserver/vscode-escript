@@ -1,6 +1,7 @@
 #include "LSPDocument.h"
-#include "LSPWorkspace.h"
+#include "../compiler/DefinitionBuilder.h"
 #include "../compiler/HoverBuilder.h"
+#include "LSPWorkspace.h"
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
@@ -54,6 +55,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "diagnostics", &LSPDocument::Diagnostics ),
                         LSPDocument::InstanceMethod( "tokens", &LSPDocument::Tokens ),
                         LSPDocument::InstanceMethod( "hover", &LSPDocument::Hover ),
+                        LSPDocument::InstanceMethod( "definition", &LSPDocument::Definition ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -200,6 +202,55 @@ Napi::Value LSPDocument::Hover( const Napi::CallbackInfo& info )
     if ( hover.has_value() )
     {
       return Napi::String::New( env, hover.value() );
+    }
+  }
+  return env.Undefined();
+}
+
+Napi::Value LSPDocument::Definition( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsObject() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  if ( compiler_workspace )
+  {
+    auto position = info[0].As<Napi::Object>();
+    auto line = position.Get( "line" );
+    auto character = position.Get( "character" );
+    if ( !line.IsNumber() || !character.IsNumber() )
+    {
+      Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+          .ThrowAsJavaScriptException();
+    }
+    Compiler::Position pos{
+        static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
+        static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
+
+    CompilerExt::DefinitionBuilder finder( *compiler_workspace, pos );
+    auto definition = finder.context();
+    if ( definition.has_value() )
+    {
+      const auto& location = definition.value();
+      auto result = Napi::Object::New( env );
+      auto range = Napi::Object::New( env );
+      auto rangeStart = Napi::Object::New( env );
+
+      range["start"] = rangeStart;
+      rangeStart["line"] = location.start.line_number - 1;
+      rangeStart["character"] = location.start.character_column - 1;
+      auto rangeEnd = Napi::Object::New( env );
+      range["end"] = rangeEnd;
+      rangeEnd["line"] = location.end.line_number - 1;
+      rangeEnd["character"] = location.end.character_column - 1;
+
+      result["range"] = range;
+      result["fsPath"] = location.source_file_identifier->pathname;
+      return result;
     }
   }
   return env.Undefined();

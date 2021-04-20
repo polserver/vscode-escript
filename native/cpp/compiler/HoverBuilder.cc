@@ -5,13 +5,6 @@ using namespace EscriptGrammar;
 
 namespace VSCodeEscript::CompilerExt
 {
-template <typename T>
-SemanticContextBuilder<T>::SemanticContextBuilder( CompilerWorkspace& workspace,
-                                                 const Position& position )
-    : workspace( workspace ), position( position )
-{
-}
-
 HoverBuilder::HoverBuilder( CompilerWorkspace& workspace, const Position& position )
     : SemanticContextBuilder( workspace, position )
 {
