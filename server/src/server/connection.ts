@@ -1,5 +1,5 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, ClientCapabilities } from 'vscode-languageserver/node';
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, ClientCapabilities, Hover, HoverParams, MarkupContent } from 'vscode-languageserver/node';
+import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { Workspace } from '../workspace/workspace';
 import { validateTextDocument } from '../semantics/analyzer';
 import { URI } from 'vscode-uri';
@@ -32,6 +32,7 @@ export class LSPServer {
         this.documents.onDidChangeContent(this.onDidChangeContent);
         this.documents.onDidClose(this.onDidClose);
         this.connection.languages.semanticTokens.on(this.onSemanticTokens);
+        this.connection.onHover(this.onHover);
         this.documents.listen(this.connection);
         this.workspace = new LSPWorkspace({
             getContents: (pathname) => {
@@ -78,6 +79,7 @@ export class LSPServer {
         const result: InitializeResult = {
             capabilities: {
                 textDocumentSync: TextDocumentSyncKind.Incremental,
+                hoverProvider: true,
                 semanticTokensProvider: {
                     // FIXME: Should come from blib
                     legend: {
@@ -166,5 +168,27 @@ export class LSPServer {
             console.error(ex);
         }
         return builder.build();
+    };
+
+    private onHover = (params: HoverParams): Hover | null => {
+        const { fsPath } = URI.parse(params.textDocument.uri);
+        const { position: { line, character } } = params;
+        const position: Position = { line: line + 1, character: character + 1 };
+        const document = this.sources.get(fsPath);
+        if (document) {
+            const hover = document.hover(position);
+            if (hover) {
+                const value = '```\n' + hover + '\n```';
+                const contents: MarkupContent = {
+                    value,
+                    kind: 'markdown'
+                };
+
+                return {
+                    contents
+                };
+            }
+        }
+        return null;
     };
 }

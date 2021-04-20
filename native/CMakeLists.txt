@@ -8,7 +8,7 @@ project (vscode-escript-native)
 include_directories(${CMAKE_JS_INC})
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-file(GLOB SOURCE_FILES "cpp/*.cc" "cpp/*.h")
+file(GLOB_RECURSE SOURCE_FILES "cpp/*.cc" "cpp/*.h")
 add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${CMAKE_JS_SRC})
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB})
@@ -21,7 +21,7 @@ execute_process(
 string(REGEX REPLACE "[\r\n\"]" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${NODE_ADDON_API_DIR})
-
+target_compile_definitions(${PROJECT_NAME} PUBLIC ANTLR4CPP_STATIC)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
 set(BSCRIPT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/polserver")
@@ -99,6 +99,7 @@ endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   "${BSCRIPT_SOURCE_DIR}/pol-core"
+  "${BSCRIPT_SOURCE_DIR}/pol-core/bscript"
   "${BSCRIPT_SOURCE_DIR}/lib"
   "${BSCRIPT_SOURCE_DIR}/bin-build"
   "${BSCRIPT_SOURCE_DIR}/lib/antlr/install/include/antlr4-runtime"
