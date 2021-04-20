@@ -305,3 +305,127 @@ describe('Hover - Module', () => {
         expect(hover).toEqual('(parameter) a');
     });
 });
+
+
+describe('Definition - SRC', () => {
+    let document: LSPDocument;
+    let text: string;
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return text;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.read(cfg);
+
+        document = new LSPDocument(workspace, src);
+    });
+
+    const getDefinition = (source: string, character: number) => {
+        text = source;
+        document.analyze();
+        return document.definition({ line: 1, character });
+    };
+
+    it('Can define variable', () => {
+        const definition = getDefinition('var foo := struct{ bar := 3 }; foo;', 33);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 4 }, end: { line: 0, character: 29 } },
+            fsPath: 'in-memory-file.src'
+        });
+    });
+
+    it('Can define constant', () => {
+        const definition = getDefinition('const foo := 12345; foo;', 22);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 19 } },
+            fsPath: 'in-memory-file.src'
+        });
+    });
+
+    it('Can define module function', () => {
+        const definition = getDefinition('Print("foo");', 3);
+
+        const moduleDirectory = resolve(__dirname, '..', 'polserver', 'pol-core', 'support', 'scripts');
+        const fsPath = resolve(moduleDirectory, 'basicio.em');
+
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 18 } },
+            fsPath
+        });
+    });
+
+    it('Can define user function', () => {
+        const definition = getDefinition('function foo() endfunction foo();', 29);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 26 } },
+            fsPath: 'in-memory-file.src'
+        });
+    });
+
+    it('Can define user function parameter', () => {
+        const definition = getDefinition('function foo(bar) endfunction foo();', 15);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 13 }, end: { line: 0, character: 16 } },
+            fsPath: 'in-memory-file.src'
+        });
+    });
+
+    it('Can define program', () => {
+        const definition = getDefinition('program foo(bar) endprogram', 10);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 27 } },
+            fsPath: 'in-memory-file.src'
+        });
+    });
+});
+
+describe('Definition - Module', () => {
+    let document: LSPDocument;
+    let text: string;
+    beforeAll(() => {
+        const src = 'in-memory-file.em';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return text;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.read(cfg);
+
+        document = new LSPDocument(workspace, src);
+    });
+
+    const getDefinition = (source: string, character: number) => {
+        text = source;
+        document.analyze();
+        return document.definition({ line: 1, character });
+    };
+
+    it('Can define module function', () => {
+        const definition = getDefinition('ModuleFunction(module_parameter := 1234);', 7);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 41 } },
+            fsPath: 'in-memory-file.em'
+        });
+    });
+
+    it('Can define module function parameter', () => {
+        const definition = getDefinition('ModuleFunction(module_parameter := 1234);', 23);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 15 }, end: { line: 0, character: 39 } },
+            fsPath: 'in-memory-file.em'
+        });
+    });
+
+});
