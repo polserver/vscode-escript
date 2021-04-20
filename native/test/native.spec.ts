@@ -354,7 +354,9 @@ describe('Definition - SRC', () => {
 
         const moduleDirectory = resolve(__dirname, '..', 'polserver', 'pol-core', 'support', 'scripts');
         const fsPath = resolve(moduleDirectory, 'basicio.em');
-
+        if (definition) {
+            definition.fsPath = resolve(definition.fsPath);
+        }
         expect(definition).toEqual({
             range: { start: { line: 0, character: 0 }, end: { line: 0, character: 18 } },
             fsPath
