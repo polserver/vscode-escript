@@ -33,6 +33,7 @@ public:
   Napi::Value Dependents( const Napi::CallbackInfo& );
   Napi::Value Hover( const Napi::CallbackInfo& );
   Napi::Value Definition( const Napi::CallbackInfo& );
+  Napi::Value Completion( const Napi::CallbackInfo& );
 
   std::unique_ptr<Pol::Bscript::Compiler::DiagnosticReporter> reporter;
 

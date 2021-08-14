@@ -1,4 +1,4 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location } from 'vscode-languageserver/node';
+import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem } from 'vscode-languageserver/node';
 import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { promises, readFileSync } from 'fs';
@@ -32,6 +32,7 @@ export class LSPServer {
         this.connection.languages.semanticTokens.on(this.onSemanticTokens);
         this.connection.onHover(this.onHover);
         this.connection.onDefinition(this.onDefinition);
+        this.connection.onCompletion(this.onCompletion);
         this.documents.listen(this.connection);
         this.workspace = new LSPWorkspace({
             getContents: (pathname) => {
@@ -80,6 +81,9 @@ export class LSPServer {
                 textDocumentSync: TextDocumentSyncKind.Incremental,
                 hoverProvider: true,
                 definitionProvider: true,
+                completionProvider: {
+                    triggerCharacters: []
+                },
                 semanticTokensProvider: {
                     // FIXME: Should come from blib
                     legend: {
@@ -204,6 +208,21 @@ export class LSPServer {
                     range: definition.range,
                     uri: URI.file(definition.fsPath).toString()
                 };
+            }
+        }
+        return null;
+    };
+
+    private onCompletion = async (params: CompletionParams): Promise<CompletionItem[] | null> => {
+        const { fsPath } = URI.parse(params.textDocument.uri);
+        const { position: { line, character } } = params;
+        const position: Position = { line: line + 1, character: character + 1 };
+        const document = this.sources.get(fsPath);
+        if (document) {
+            const completion = document.completion(position);
+            if (completion) {
+                console.log('Completion', completion);
+                return completion;
             }
         }
         return null;

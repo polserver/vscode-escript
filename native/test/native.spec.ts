@@ -431,3 +431,65 @@ describe('Definition - Module', () => {
     });
 
 });
+
+describe('Completion', () => {
+    let document: LSPDocument;
+    let text: string;
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return text;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.read(cfg);
+
+        document = new LSPDocument(workspace, src);
+    });
+
+    const getCompletion = (source: string, character: number) => {
+        text = source;
+        document.analyze();
+        return document.completion({ line: 1, character });
+    };
+
+    it('Can complete module functions', () => {
+        const hover = getCompletion('use uo; ListItems;', 17);
+        expect(hover).toEqual([
+            { label: 'ListItemsAtLocation', kind: 3 },
+            { label: 'ListItemsInBoxOfObjType', kind: 3 },
+            { label: 'ListItemsNearLocation', kind: 3 },
+            { label: 'ListItemsNearLocationOfType', kind: 3 },
+            { label: 'ListItemsNearLocationWithFlag', kind: 3 }
+        ]);
+    });
+
+    it('Can complete user functions', () => {
+        const completion = getCompletion('function foobar() endfunction foob; foobar();', 34);
+        expect(completion).toEqual([{ label: 'foobar', kind: 3 }]);
+    });
+
+    it('Can complete constants', () => {
+        const completion = getCompletion('use uo; CRMULTI_;', 16);
+        expect(completion).toEqual([
+            { label: 'CRMULTI_FACING_EAST', kind: 21 },
+            { label: 'CRMULTI_FACING_NORTH', kind: 21 },
+            { label: 'CRMULTI_FACING_SOUTH', kind: 21 },
+            { label: 'CRMULTI_FACING_WEST', kind: 21 },
+            { label: 'CRMULTI_IGNORE_ALL', kind: 21 },
+            { label: 'CRMULTI_IGNORE_MULTIS', kind: 21 },
+            { label: 'CRMULTI_IGNORE_OBJECTS', kind: 21 },
+            { label: 'CRMULTI_IGNORE_WORLDZ', kind: 21 }
+        ]);
+    });
+
+    it('Can complete variables', () => {
+        const completion = getCompletion('var varGlobal; program foo() var varLocal; va; endprogram', 45);
+        expect(completion).toEqual([{ label: 'varLocal', kind: 6 }, { label: 'varGlobal', kind: 6 }]);
+    });
+});
