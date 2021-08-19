@@ -221,7 +221,6 @@ export class LSPServer {
         if (document) {
             const completion = document.completion(position);
             if (completion) {
-                console.log('Completion', completion);
                 return completion;
             }
         }
