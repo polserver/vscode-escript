@@ -1,4 +1,5 @@
 #include "LSPDocument.h"
+#include "../compiler/CompletionBuilder.h"
 #include "../compiler/DefinitionBuilder.h"
 #include "../compiler/HoverBuilder.h"
 #include "LSPWorkspace.h"
@@ -55,6 +56,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "diagnostics", &LSPDocument::Diagnostics ),
                         LSPDocument::InstanceMethod( "tokens", &LSPDocument::Tokens ),
                         LSPDocument::InstanceMethod( "hover", &LSPDocument::Hover ),
+                        LSPDocument::InstanceMethod( "completion", &LSPDocument::Completion ),
                         LSPDocument::InstanceMethod( "definition", &LSPDocument::Definition ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
@@ -254,6 +256,49 @@ Napi::Value LSPDocument::Definition( const Napi::CallbackInfo& info )
     }
   }
   return env.Undefined();
+}
+
+Napi::Value LSPDocument::Completion( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsObject() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  auto results = Napi::Array::New( env );
+  auto push = results.Get( "push" ).As<Napi::Function>();
+
+  if ( compiler_workspace )
+  {
+    auto position = info[0].As<Napi::Object>();
+    auto line = position.Get( "line" );
+    auto character = position.Get( "character" );
+    if ( !line.IsNumber() || !character.IsNumber() )
+    {
+      Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+          .ThrowAsJavaScriptException();
+    }
+    Compiler::Position pos{
+        static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
+        static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
+
+    CompilerExt::CompletionBuilder finder( *compiler_workspace, pos );
+    auto definition = finder.context();
+    for ( const auto& completionItem : definition )
+    {
+      auto result = Napi::Object::New( env );
+      result["label"] = completionItem.label;
+      if ( completionItem.kind.has_value() )
+      {
+        result["kind"] = Napi::Number::New( env, static_cast<int32_t>(completionItem.kind.value()) );
+      }
+      push.Call( results, { result } );
+    }
+  }
+  return results;
 }
 
 }  // namespace VSCodeEscript
