@@ -111,16 +111,17 @@ Napi::Value LSPDocument::Diagnostics( const Napi::CallbackInfo& info )
     {
       continue;
     }
+    const auto& start = diagnostic.location.range.start;
     auto diag = Napi::Object::New( env );
     auto range = Napi::Object::New( env );
     auto rangeStart = Napi::Object::New( env );
     range["start"] = rangeStart;
-    rangeStart["line"] = diagnostic.location.start.line_number - 1;
-    rangeStart["character"] = diagnostic.location.start.character_column - 1;
+    rangeStart["line"] = start.line_number - 1;
+    rangeStart["character"] = start.character_column - 1;
     auto rangeEnd = Napi::Object::New( env );
     range["end"] = rangeEnd;
-    rangeEnd["line"] = diagnostic.location.start.line_number - 1;
-    rangeEnd["character"] = diagnostic.location.start.character_column - 1;
+    rangeEnd["line"] = start.line_number - 1;
+    rangeEnd["character"] = start.character_column - 1;
     diag["range"] = range;
     diag["severity"] = Napi::Number::New(
         env, diagnostic.severity == Compiler::Diagnostic::Severity::Error ? 1 : 2 );
@@ -238,17 +239,18 @@ Napi::Value LSPDocument::Definition( const Napi::CallbackInfo& info )
     if ( definition.has_value() )
     {
       const auto& location = definition.value();
+      const auto& locationRange = location.range;
       auto result = Napi::Object::New( env );
       auto range = Napi::Object::New( env );
       auto rangeStart = Napi::Object::New( env );
 
       range["start"] = rangeStart;
-      rangeStart["line"] = location.start.line_number - 1;
-      rangeStart["character"] = location.start.character_column - 1;
+      rangeStart["line"] = locationRange.start.line_number - 1;
+      rangeStart["character"] = locationRange.start.character_column - 1;
       auto rangeEnd = Napi::Object::New( env );
       range["end"] = rangeEnd;
-      rangeEnd["line"] = location.end.line_number - 1;
-      rangeEnd["character"] = location.end.character_column - 1;
+      rangeEnd["line"] = locationRange.end.line_number - 1;
+      rangeEnd["character"] = locationRange.end.character_column - 1;
 
       result["range"] = range;
       result["fsPath"] = location.source_file_identifier->pathname;
@@ -293,7 +295,8 @@ Napi::Value LSPDocument::Completion( const Napi::CallbackInfo& info )
       result["label"] = completionItem.label;
       if ( completionItem.kind.has_value() )
       {
-        result["kind"] = Napi::Number::New( env, static_cast<int32_t>(completionItem.kind.value()) );
+        result["kind"] =
+            Napi::Number::New( env, static_cast<int32_t>( completionItem.kind.value() ) );
       }
       push.Call( results, { result } );
     }

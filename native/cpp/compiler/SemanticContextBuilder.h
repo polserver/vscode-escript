@@ -529,9 +529,8 @@ antlrcpp::Any SemanticContextBuilder<T>::visitChildren( antlr4::tree::ParseTree*
   {
     if ( auto* ctx = dynamic_cast<antlr4::ParserRuleContext*>( child ) )
     {
-      Pol::Bscript::Compiler::SourceLocation sl(
-          workspace.referenced_source_file_identifiers.front().get(), *ctx );
-      if ( sl.contains( position ) )
+      Pol::Bscript::Compiler::Range range( *ctx );
+      if ( range.contains( position ) )
       {
         nodes.push_back( ctx );
       }
