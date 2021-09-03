@@ -2,6 +2,7 @@
 #include "../compiler/CompletionBuilder.h"
 #include "../compiler/DefinitionBuilder.h"
 #include "../compiler/HoverBuilder.h"
+#include "../compiler/SignatureHelpBuilder.h"
 #include "LSPWorkspace.h"
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
@@ -58,6 +59,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "hover", &LSPDocument::Hover ),
                         LSPDocument::InstanceMethod( "completion", &LSPDocument::Completion ),
                         LSPDocument::InstanceMethod( "definition", &LSPDocument::Definition ),
+                        LSPDocument::InstanceMethod( "signatureHelp", &LSPDocument::SignatureHelp ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -302,6 +304,69 @@ Napi::Value LSPDocument::Completion( const Napi::CallbackInfo& info )
     }
   }
   return results;
+}
+
+Napi::Value LSPDocument::SignatureHelp( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsObject() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  if ( compiler_workspace )
+  {
+    auto position = info[0].As<Napi::Object>();
+    auto line = position.Get( "line" );
+    auto character = position.Get( "character" );
+    if ( !line.IsNumber() || !character.IsNumber() )
+    {
+      Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+          .ThrowAsJavaScriptException();
+    }
+    Compiler::Position pos{
+        static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
+        static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() - 1 ) };
+
+    CompilerExt::SignatureHelpBuilder finder( *compiler_workspace, pos );
+    auto signatureHelp = finder.context();
+    if ( signatureHelp.has_value() )
+    {
+      auto results = Napi::Object::New( env );
+      auto signature = Napi::Object::New( env );
+      auto signatureParameters = Napi::Array::New( env );
+      auto signatures = Napi::Array::New( env );
+      auto push = signatures.Get( "push" ).As<Napi::Function>();
+
+      signature["label"] = signatureHelp->label;
+      signature["parameters"] = signatureParameters;
+      results["signatures"] = signatures;
+      results["activeSignature"] = Napi::Number::New( env, 0 );
+      results["activeParameter"] = Napi::Number::New( env, signatureHelp->active_parameter );
+
+      push.Call( signatures, { signature } );
+
+      const auto& parameters = signatureHelp->parameters;
+
+      std::for_each(
+          parameters.begin(), parameters.end(),
+          [&]( const auto& parameter )
+          {
+            auto signatureParameter = Napi::Object::New( env );
+            auto signatureLabel = Napi::Array::New( env );
+
+            signatureParameter["label"] = signatureLabel;
+
+            push.Call( signatureLabel, { Napi::Number::New( env, std::get<0>( parameter ) ) } );
+            push.Call( signatureLabel, { Napi::Number::New( env, std::get<1>( parameter ) ) } );
+            push.Call( signatureParameters, { signatureParameter } );
+          } );
+      return results;
+    }
+  }
+  return env.Undefined();
 }
 
 }  // namespace VSCodeEscript

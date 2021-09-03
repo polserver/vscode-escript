@@ -1,6 +1,6 @@
 import { resolve } from 'path';
 import { existsSync } from 'fs';
-import type { Diagnostic, Position, Range, CompletionItem } from 'vscode-languageserver-types';
+import type { Diagnostic, Position, Range, CompletionItem, SignatureHelp } from 'vscode-languageserver-types';
 
 export type LSPWorkspaceConfig = {
 	getContents: (pathname: string) => string;
@@ -19,6 +19,7 @@ export interface LSPDocument {
 	hover(position: Position): string | undefined;
 	completion(position: Position): CompletionItem[];
 	definition(position: Position): { range: Range, fsPath: string } | undefined;
+	signatureHelp(position: Position): SignatureHelp | undefined;
 	tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
 }
 
