@@ -8,6 +8,10 @@ const { LSPWorkspace, LSPDocument } = native;
 
 const cfg = resolve(__dirname, 'ecompile.cfg');
 
+function toBeDefined<T>(val: T): asserts val is NonNullable<T> {
+    if (val === undefined) { throw new Error('Value is undefined'); }
+}
+
 beforeAll(async () => {
     try {
         await access(cfg, F_OK);
@@ -491,5 +495,89 @@ describe('Completion', () => {
     it('Can complete variables', () => {
         const completion = getCompletion('var varGlobal; program foo() var varLocal; va; endprogram', 45);
         expect(completion).toEqual([{ label: 'varLocal', kind: 6 }, { label: 'varGlobal', kind: 6 }]);
+    });
+});
+
+describe('Signature Help', () => {
+    let document: LSPDocument;
+    let text: string;
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return text;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.read(cfg);
+
+        document = new LSPDocument(workspace, src);
+    });
+
+    const getSignatureHelp = (source: string, character: number) => {
+        text = source;
+        document.analyze();
+        return document.signatureHelp({ line: 1, character });
+    };
+
+    it('Can signature help module functions', () => {
+        const signatureHelp = getSignatureHelp('use uo; SendSysMessage();', 24);
+        expect(signatureHelp).toEqual({
+            'signatures': [{
+                'label': 'SendSysMessage(character, text, font := integer-value(3), color := integer-value(1000))',
+                'parameters': [
+                    { 'label': [15, 24] },
+                    { 'label': [26, 30] },
+                    { 'label': [32, 36] },
+                    { 'label': [58, 63] }]
+            }],
+            'activeSignature': 0,
+            'activeParameter': 0
+        });
+    });
+
+    it('Can signature help user functions', () => {
+        const signatureHelp = getSignatureHelp('hello("foo", "bar"); function hello(unused foo, unused bar := 5) endfunction', 16);
+        console.log(JSON.stringify(signatureHelp));
+
+        expect(signatureHelp).toEqual({
+            'signatures': [{
+                'label': 'hello(foo, bar := integer-value(5))',
+                'parameters': [
+                    { 'label': [6, 9] },
+                    { 'label': [11, 14] }]
+            }],
+            'activeSignature': 0,
+            'activeParameter': 1
+        });
+    });
+
+    it('Can signature help nested function calls', () => {
+        const where = [
+            [ 12, 'Compare',  0 ],
+            [ 21, 'Compare',  1 ],
+            [ 33, 'Compare',  2 ],
+            [ 42, 'SubStrReplace',  0 ],
+            [ 50, 'SubStrReplace',  1 ],
+            [ 57, 'SubStrReplace',  2 ],
+            [ 63, 'Compare',  3 ],
+            [ 69, 'Trim',  0 ],
+            [ 76, 'Trim',  1 ]
+        ] as const;
+
+        for (const [character, expectedFunctionName, activeParameter ] of where) {
+            const signatureHelp = getSignatureHelp('compare("hello", "there", substrreplace("abc", "def", 5123), trim("hello",0x03));', character);
+            toBeDefined(signatureHelp);
+            expect(signatureHelp.signatures).toHaveLength(1);
+            const { label } = signatureHelp.signatures[0];
+            const functionName = label.substr(0, label.indexOf('('));
+            expect(signatureHelp.signatures).toHaveLength(1);
+            expect(functionName).toEqual(expectedFunctionName);
+            expect(signatureHelp.activeParameter).toEqual(activeParameter);
+        }
     });
 });

@@ -1,6 +1,23 @@
 import { resolve } from 'path';
 import { existsSync } from 'fs';
-import type { Diagnostic, Position, Range, CompletionItem, SignatureHelp } from 'vscode-languageserver-types';
+import type { Diagnostic, Position, Range, CompletionItem } from 'vscode-languageserver-types';
+
+// The native module uses this specific format for a SignatureHelp
+export type ParameterInformation = {
+	label: [number, number]
+}
+
+export type SignatureInformation = {
+	label: string;
+	parameters: ParameterInformation[];
+}
+
+export type SignatureHelp = {
+	label: string;
+	signatures: Array<SignatureInformation>,
+	activeSignature: 0, // No method overloading, so always 0
+	activeParameter: number
+}
 
 export type LSPWorkspaceConfig = {
 	getContents: (pathname: string) => string;
@@ -36,6 +53,7 @@ const tries = [
 
 const filename = tries.find(filepath => existsSync(filepath));
 
+/* istanbul ignore next */
 if (!filename) {
     throw new Error('Unable to locate vscode-escript-native.node');
 }
