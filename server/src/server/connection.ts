@@ -1,4 +1,4 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem } from 'vscode-languageserver/node';
+import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp } from 'vscode-languageserver/node';
 import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { promises, readFileSync } from 'fs';
@@ -33,6 +33,7 @@ export class LSPServer {
         this.connection.onHover(this.onHover);
         this.connection.onDefinition(this.onDefinition);
         this.connection.onCompletion(this.onCompletion);
+        this.connection.onSignatureHelp(this.onSignatureHelp);
         this.documents.listen(this.connection);
         this.workspace = new LSPWorkspace({
             getContents: (pathname) => {
@@ -83,6 +84,9 @@ export class LSPServer {
                 definitionProvider: true,
                 completionProvider: {
                     triggerCharacters: []
+                },
+                signatureHelpProvider: {
+                    triggerCharacters: ['(', ',']
                 },
                 semanticTokensProvider: {
                     // FIXME: Should come from blib
@@ -226,4 +230,12 @@ export class LSPServer {
         }
         return null;
     };
+
+    private onSignatureHelp = async (params: SignatureHelpParams): Promise<SignatureHelp | null> => {
+        const { fsPath } = URI.parse(params.textDocument.uri);
+        const { position: { line, character } } = params;
+        const position: Position = { line: line + 1, character: character + 1 };
+        const document = this.sources.get(fsPath);
+        return document?.signatureHelp(position) ?? null;
+    }
 }

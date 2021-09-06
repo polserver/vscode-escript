@@ -2,6 +2,7 @@
 #include "../compiler/CompletionBuilder.h"
 #include "../compiler/DefinitionBuilder.h"
 #include "../compiler/HoverBuilder.h"
+#include "../compiler/SignatureHelpBuilder.h"
 #include "LSPWorkspace.h"
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
@@ -58,6 +59,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "hover", &LSPDocument::Hover ),
                         LSPDocument::InstanceMethod( "completion", &LSPDocument::Completion ),
                         LSPDocument::InstanceMethod( "definition", &LSPDocument::Definition ),
+                        LSPDocument::InstanceMethod( "signatureHelp", &LSPDocument::SignatureHelp ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -111,16 +113,17 @@ Napi::Value LSPDocument::Diagnostics( const Napi::CallbackInfo& info )
     {
       continue;
     }
+    const auto& start = diagnostic.location.range.start;
     auto diag = Napi::Object::New( env );
     auto range = Napi::Object::New( env );
     auto rangeStart = Napi::Object::New( env );
     range["start"] = rangeStart;
-    rangeStart["line"] = diagnostic.location.start.line_number - 1;
-    rangeStart["character"] = diagnostic.location.start.character_column - 1;
+    rangeStart["line"] = start.line_number - 1;
+    rangeStart["character"] = start.character_column - 1;
     auto rangeEnd = Napi::Object::New( env );
     range["end"] = rangeEnd;
-    rangeEnd["line"] = diagnostic.location.start.line_number - 1;
-    rangeEnd["character"] = diagnostic.location.start.character_column - 1;
+    rangeEnd["line"] = start.line_number - 1;
+    rangeEnd["character"] = start.character_column - 1;
     diag["range"] = range;
     diag["severity"] = Napi::Number::New(
         env, diagnostic.severity == Compiler::Diagnostic::Severity::Error ? 1 : 2 );
@@ -238,17 +241,18 @@ Napi::Value LSPDocument::Definition( const Napi::CallbackInfo& info )
     if ( definition.has_value() )
     {
       const auto& location = definition.value();
+      const auto& locationRange = location.range;
       auto result = Napi::Object::New( env );
       auto range = Napi::Object::New( env );
       auto rangeStart = Napi::Object::New( env );
 
       range["start"] = rangeStart;
-      rangeStart["line"] = location.start.line_number - 1;
-      rangeStart["character"] = location.start.character_column - 1;
+      rangeStart["line"] = locationRange.start.line_number - 1;
+      rangeStart["character"] = locationRange.start.character_column - 1;
       auto rangeEnd = Napi::Object::New( env );
       range["end"] = rangeEnd;
-      rangeEnd["line"] = location.end.line_number - 1;
-      rangeEnd["character"] = location.end.character_column - 1;
+      rangeEnd["line"] = locationRange.end.line_number - 1;
+      rangeEnd["character"] = locationRange.end.character_column - 1;
 
       result["range"] = range;
       result["fsPath"] = location.source_file_identifier->pathname;
@@ -293,12 +297,76 @@ Napi::Value LSPDocument::Completion( const Napi::CallbackInfo& info )
       result["label"] = completionItem.label;
       if ( completionItem.kind.has_value() )
       {
-        result["kind"] = Napi::Number::New( env, static_cast<int32_t>(completionItem.kind.value()) );
+        result["kind"] =
+            Napi::Number::New( env, static_cast<int32_t>( completionItem.kind.value() ) );
       }
       push.Call( results, { result } );
     }
   }
   return results;
+}
+
+Napi::Value LSPDocument::SignatureHelp( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsObject() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  if ( compiler_workspace )
+  {
+    auto position = info[0].As<Napi::Object>();
+    auto line = position.Get( "line" );
+    auto character = position.Get( "character" );
+    if ( !line.IsNumber() || !character.IsNumber() )
+    {
+      Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+          .ThrowAsJavaScriptException();
+    }
+    Compiler::Position pos{
+        static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
+        static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() - 1 ) };
+
+    CompilerExt::SignatureHelpBuilder finder( *compiler_workspace, pos );
+    auto signatureHelp = finder.context();
+    if ( signatureHelp.has_value() )
+    {
+      auto results = Napi::Object::New( env );
+      auto signature = Napi::Object::New( env );
+      auto signatureParameters = Napi::Array::New( env );
+      auto signatures = Napi::Array::New( env );
+      auto push = signatures.Get( "push" ).As<Napi::Function>();
+
+      signature["label"] = signatureHelp->label;
+      signature["parameters"] = signatureParameters;
+      results["signatures"] = signatures;
+      results["activeSignature"] = Napi::Number::New( env, 0 );
+      results["activeParameter"] = Napi::Number::New( env, signatureHelp->active_parameter );
+
+      push.Call( signatures, { signature } );
+
+      const auto& parameters = signatureHelp->parameters;
+
+      std::for_each(
+          parameters.begin(), parameters.end(),
+          [&]( const auto& parameter )
+          {
+            auto signatureParameter = Napi::Object::New( env );
+            auto signatureLabel = Napi::Array::New( env );
+
+            signatureParameter["label"] = signatureLabel;
+
+            push.Call( signatureLabel, { Napi::Number::New( env, std::get<0>( parameter ) ) } );
+            push.Call( signatureLabel, { Napi::Number::New( env, std::get<1>( parameter ) ) } );
+            push.Call( signatureParameters, { signatureParameter } );
+          } );
+      return results;
+    }
+  }
+  return env.Undefined();
 }
 
 }  // namespace VSCodeEscript
