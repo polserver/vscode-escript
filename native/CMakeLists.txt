@@ -43,7 +43,7 @@ if (WIN32)
     "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/plib.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/clib.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/format.lib"
-    "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/libescriptgrammarlib.lib"
+    "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/escriptgrammarlib.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/stackwalk.lib"
     "${BSCRIPT_SOURCE_DIR}/lib/antlr/install/lib/${ANTLR_LIB}"
   )
