@@ -36,14 +36,15 @@ if (WIN32)
     set(ANTLR_LIB "antlr4-runtime-static.lib")
   endif()
 
-  set(BSCRIPT_LIB "${BSCRIPT_SOURCE_DIR}/bin/Release/bscript.lib")
+  set(BSCRIPT_LIB "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/bscript.lib")
 
   set(BSCRIPT_LIBS
     "${BSCRIPT_LIB}"
-    "${BSCRIPT_SOURCE_DIR}/bin/Release/plib.lib"
-    "${BSCRIPT_SOURCE_DIR}/bin/Release/clib.lib"
-    "${BSCRIPT_SOURCE_DIR}/bin/Release/format.lib"
-    "${BSCRIPT_SOURCE_DIR}/bin/Release/stackwalk.lib"
+    "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/plib.lib"
+    "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/clib.lib"
+    "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/format.lib"
+    "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/libescriptgrammarlib.lib"
+    "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/stackwalk.lib"
     "${BSCRIPT_SOURCE_DIR}/lib/antlr/install/lib/${ANTLR_LIB}"
   )
 
@@ -60,6 +61,7 @@ else()
     "${BSCRIPT_SOURCE_DIR}/bin/libplib.a"
     "${BSCRIPT_SOURCE_DIR}/bin/libclib.a"
     "${BSCRIPT_SOURCE_DIR}/bin/libformat.a"
+    "${BSCRIPT_SOURCE_DIR}/bin/libescriptgrammarlib.a"
     "${BSCRIPT_SOURCE_DIR}/lib/antlr/install/lib/libantlr4-runtime.a"
   )
 endif()
@@ -77,11 +79,11 @@ if (NOT EXISTS "${BSCRIPT_LIB}")
   ExternalProject_Add(libbscript
     SOURCE_DIR  ${BSCRIPT_SOURCE_DIR}
     PREFIX blinb
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DONLY_ECOMPILE=On
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DONLY_ECOMPILE=On
 
     BINARY_DIR ${BSCRIPT_BUILD_DIR}
 
-    BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release
+    BUILD_COMMAND ${CMAKE_COMMAND} --build . --config ${CMAKE_BUILD_TYPE}
     INSTALL_COMMAND ""
 
     BUILD_BYPRODUCTS ${BSCRIPT_LIBS}
