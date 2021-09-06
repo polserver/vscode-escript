@@ -542,7 +542,6 @@ describe('Signature Help', () => {
 
     it('Can signature help user functions', () => {
         const signatureHelp = getSignatureHelp('hello("foo", "bar"); function hello(unused foo, unused bar := 5) endfunction', 16);
-        console.log(JSON.stringify(signatureHelp));
 
         expect(signatureHelp).toEqual({
             'signatures': [{
