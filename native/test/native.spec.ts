@@ -23,7 +23,7 @@ beforeAll(async () => {
         try {
             await writeFile(cfg, cfgText, 'utf-8');
         } catch (e) {
-            console.error(`Could not create ecompile.cfg: ${e?.message ?? e}`);
+            console.error(`Could not create ecompile.cfg: ${e instanceof Error ? e.message : e}`);
             throw e;
         }
     }
