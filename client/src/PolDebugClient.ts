@@ -46,9 +46,9 @@ export class PolDebugClient extends EventEmitter {
         client.on('data', this.onData);
     }
 
-	private readBuffer: string = '';
+    private readBuffer: string = '';
 
-	onData = (data: Buffer) => {
+    onData = (data: Buffer) => {
 	    this.readBuffer += data.toString('utf-8');
 
 	    while (true) {
@@ -80,14 +80,14 @@ export class PolDebugClient extends EventEmitter {
 	        }
 	        break;
 	    }
-	}
+    };
 
-	private seq: number = 1;
+    private seq: number = 1;
 
-	public request(command: 'processes', args?: { 'filter'?: string }, timeout?: number): Promise<PolProcessListResponse>;
-	public request(command: string, args?: Record<string, any>, timeout?: number): Promise<Response>;
+    public request(command: 'processes', args?: { 'filter'?: string }, timeout?: number): Promise<PolProcessListResponse>;
+    public request(command: string, args?: Record<string, any>, timeout?: number): Promise<Response>;
 
-	public request(command: string, args: Record<string, any> = {}, timeout = 1000) {
+    public request(command: string, args: Record<string, any> = {}, timeout = 1000) {
 	    return new Promise((resolve, reject) => {
 	        const seq = this.seq++;
 
@@ -111,14 +111,14 @@ export class PolDebugClient extends EventEmitter {
 
 	        this.write({ command, type: 'request', seq, 'arguments': args });
 	    });
-	}
+    }
 
-	public write(obj: Record<string, any>) {
+    public write(obj: Record<string, any>) {
 	    const str = JSON.stringify(obj);
 	    this.client.write(`Content-Length: ${str.length}\r\n\r\n${str}`);
-	}
+    }
 
-	public destroy() {
+    public destroy() {
 	    return new Promise<void>(resolve => {
 	        this.client.on('close', () => {
 	            resolve();
@@ -127,9 +127,9 @@ export class PolDebugClient extends EventEmitter {
 	        });
 	        this.client.destroy();
 	    });
-	}
+    }
 
-	static createConnection(host: string, port: number, password?: string, token?: CancellationToken): Promise<PolDebugClient> {
+    static createConnection(host: string, port: number, password?: string, token?: CancellationToken): Promise<PolDebugClient> {
 	    return new Promise((resolve, reject) => {
 	        const client = createConnection({ host, port });
 
@@ -152,5 +152,5 @@ export class PolDebugClient extends EventEmitter {
 	            reject(err);
 	        });
 	    });
-	}
+    }
 }

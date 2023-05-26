@@ -15,16 +15,17 @@
 		"url": "https://github.com/polserver/vscode-escript"
 	},
 	"engines": {
-		"vscode": "^1.52.0"
+		"vscode": "^1.78.0"
 	},
 	"scripts": {
-		"test": "node ./test/runTest.js"
+		"test": "echo E2E tests currently disabled, see ./jest.e2.config.js",
+		"_test": "node ./test/runTest.js"
 	},
 	"dependencies": {
-		"vscode-languageclient": "^7.0.0"
+		"vscode-languageclient": "^8.1.0"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.52.0",
-		"vscode-test": "^1.5.0"
+		"@types/vscode": "^1.78.0",
+		"@vscode/test-electron": "^2.3.2"
 	}
 }

@@ -1,7 +1,7 @@
 // @ts-check
 const path = require('path');
 const pkg = require('../package.json');
-const { runTests } = require('vscode-test');
+const { runTests } = require('@vscode/test-electron');
 
 async function main() {
     try {

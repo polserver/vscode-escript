@@ -100,7 +100,7 @@ export class LSPServer {
             }
         };
         return result;
-    }
+    };
 
     private onDidOpen = async (e: TextDocumentChangeEvent<TextDocument>) => {
         const { fsPath } = URI.parse(e.document.uri);
@@ -237,5 +237,5 @@ export class LSPServer {
         const position: Position = { line: line + 1, character: character + 1 };
         const document = this.sources.get(fsPath);
         return document?.signatureHelp(position) ?? null;
-    }
+    };
 }
