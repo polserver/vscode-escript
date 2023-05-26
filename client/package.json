@@ -15,7 +15,7 @@
 		"url": "https://github.com/polserver/vscode-escript"
 	},
 	"engines": {
-		"vscode": "^1.52.0"
+		"vscode": "^1.78.0"
 	},
 	"scripts": {
 		"test": "node ./test/runTest.js"
@@ -24,7 +24,7 @@
 		"vscode-languageclient": "^8.1.0"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.78.1",
+		"@types/vscode": "^1.78.0",
 		"vscode-test": "^1.6.1"
 	}
 }
