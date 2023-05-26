@@ -100,6 +100,8 @@ jobs:
 
       - run: npm install
 
+      - run: npm run eslint
+
       - run: npm test && echo npm run e2e
 
       - run: npx vsce package
