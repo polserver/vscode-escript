@@ -48,7 +48,7 @@ class PolDebugConfigurationProvider implements vscode.DebugConfigurationProvider
 
             if (!pid) {
                 const filter = String(script ?? '')
-                    .replace(/\\/g,'/') // POL only uses forward slashes
+                    .replace(/\\/g, '/') // POL only uses forward slashes
                     .replace(/\.src$/, '.ecl'); // Replace .src with .ecl
 
                 let client: PolDebugClient;
@@ -67,12 +67,50 @@ class PolDebugConfigurationProvider implements vscode.DebugConfigurationProvider
                     if (processes.length === 1) {
                         config.pid = processes[0].id;
                     } else {
-                        const selection = await vscode.window.showQuickPick(processes.map(({ id, program, state }) => `${id} ${program} ${state}`), { canPickMany: false });
+                        const debugging: vscode.QuickPickItem[] = [];
+                        const running: vscode.QuickPickItem[] = [];
+                        const sleeping: vscode.QuickPickItem[] = [];
+
+                        for (const { id, program, state } of processes) {
+                            const item: vscode.QuickPickItem = { kind: vscode.QuickPickItemKind.Default, label: `${id} ${program}` };
+
+                            if (state === 2) {
+                                debugging.push(item);
+                            } else if (state === 1) {
+                                running.push(item);
+                            } else {
+                                sleeping.push(item);
+                            }
+                        }
+
+                        if (debugging.length) {
+                            debugging.unshift({
+                                label: 'Debugging',
+                                kind: vscode.QuickPickItemKind.Separator
+                            });
+                        }
+
+                        if (running.length) {
+                            running.unshift({
+                                label: 'Running',
+                                kind: vscode.QuickPickItemKind.Separator
+                            });
+                        }
+
+                        if (sleeping.length) {
+                            sleeping.unshift({
+                                label: 'Sleeping',
+                                kind: vscode.QuickPickItemKind.Separator
+                            });
+                        }
+
+                        const selection = await vscode.window.showQuickPick(debugging.concat(running).concat(sleeping), { canPickMany: false });
+
                         if (!selection) {
                             return undefined;
                         }
 
-                        const selectionPid = parseInt(selection, 10);
+                        const selectionPid = parseInt(selection.label, 10);
                         if (isNaN(selectionPid)) {
                             vscode.window.showErrorMessage(`Invalid selection: ${selection}`).then(_ => { });
                             return undefined;
