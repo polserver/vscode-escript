@@ -8,3 +8,5 @@ coverage
 build
 prebuilds
 native/test/ecompile.cfg
+.vscode/c_cpp_properties.json
+.vscode/settings.json

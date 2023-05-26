@@ -45,6 +45,113 @@
 				"scopeName": "source.escript",
 				"path": "./grammars/escript.json"
 			}
+		],
+		"breakpoints": [
+			{
+				"language": "escript"
+			}
+		],
+		"debuggers": [
+			{
+				"type": "pol",
+				"languages": [
+					"escript"
+				],
+				"label": "POL Debug",
+				"configurationAttributes": {
+					"launch": {
+						"required": [
+							"host",
+							"port",
+							"script"
+						],
+						"properties": {
+							"host": {
+								"type": "string",
+								"description": "Debug server host",
+								"default": "localhost"
+							},
+							"port": {
+								"type": "number",
+								"description": "Debug server port",
+								"default": 5002
+							},
+							"password": {
+								"type": "string",
+								"description": "Debug server password"
+							},
+							"script": {
+								"type": "string",
+								"description": "Script to launch"
+							},
+							"arg": {
+								"type": "string",
+								"description": "Packed argument to send to program"
+							}
+						}
+					},
+					"attach": {
+						"required": [
+							"host",
+							"port"
+						],
+						"properties": {
+							"host": {
+								"type": "string",
+								"description": "Debug server host",
+								"default": "localhost"
+							},
+							"port": {
+								"type": "number",
+								"description": "Debug server port",
+								"default": 5002
+							},
+							"password": {
+								"type": "string",
+								"description": "Debug server password"
+							},
+							"pid": {
+								"type": "number",
+								"description": "Process id",
+								"default": 0
+							},
+							"script": {
+								"type": "string",
+								"description": "If no process id provided, attach to process running this script."
+							}
+						}
+					}
+				},
+				"configurationSnippets": [
+					{
+						"label": "POL Debug: Attach",
+						"description": "A new configuration for attaching to a script",
+						"body": {
+							"type": "pol",
+							"name": "Attach to script",
+							"request": "attach",
+							"host": "",
+							"port": 0,
+							"password": "",
+							"pid": 0,
+							"script": ""
+						}
+					},
+					{
+						"label": "POL Debug: Launch",
+						"description": "A new configuration for launching a script",
+						"body": {
+							"type": "pol",
+							"name": "Launch script",
+							"request": "launch",
+							"host": "",
+							"port": 0,
+							"password": "",
+							"script": ""
+						}
+					}
+				]
+			}
 		]
 	},
 	"scripts": {

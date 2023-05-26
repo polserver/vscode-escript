@@ -4,4 +4,4 @@ client/out/**
 server/node_modules/**
 server/out/**
 server/src/grammars/**
-doctrine/**
+native/**

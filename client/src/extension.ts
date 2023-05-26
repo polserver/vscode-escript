@@ -6,6 +6,7 @@
 import * as path from 'path';
 import { workspace, ExtensionContext } from 'vscode';
 
+import { activatePolDebug } from './activatePolDebug';
 import {
     LanguageClient,
     LanguageClientOptions,
@@ -55,6 +56,8 @@ export function activate(context: ExtensionContext) {
 
     // Start the client. This will also launch the server
     client.start();
+
+    activatePolDebug(context);
 }
 
 export function deactivate(): Thenable<void> | undefined {
