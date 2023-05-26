@@ -11,10 +11,10 @@ on:
 jobs:
   linux:
     name: Test and Package [Linux]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
 
@@ -22,10 +22,10 @@ jobs:
         id: get-ref
         shell: pwsh
         run: |
-          echo "::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )"
+          echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
       - name: Cache polserver
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: native/polserver
           key: linux-polserver-full-${{ steps.get-ref.outputs.ref }}
@@ -37,7 +37,7 @@ jobs:
       - run: npx vsce package
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: escript-lsp-linux
           path: escript-lsp-*.vsix
@@ -47,7 +47,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
 
@@ -55,10 +55,10 @@ jobs:
         id: get-ref
         shell: pwsh
         run: |
-          echo "::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )"
+          echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
       - name: Cache polserver
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: native/polserver
           key: windows-polserver-full-${{ steps.get-ref.outputs.ref }}
@@ -70,7 +70,7 @@ jobs:
       - run: npx vsce package
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: escript-lsp-windows
           path: escript-lsp-*.vsix
@@ -80,7 +80,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
 
@@ -88,10 +88,10 @@ jobs:
         id: get-ref
         shell: pwsh
         run: |
-          echo "::set-output name=ref::$( cd native/polserver && git log -1 --format=%h )"
+          echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
       - name: Cache polserver
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: native/polserver
           key: mac-polserver-full-${{ steps.get-ref.outputs.ref }}
@@ -108,7 +108,7 @@ jobs:
       - run: npx vsce package
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: escript-lsp-osx
           path: escript-lsp-*.vsix
