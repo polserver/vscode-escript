@@ -130,11 +130,11 @@
 							"type": "pol",
 							"name": "Attach to script",
 							"request": "attach",
-							"host": "",
+							"host": "127.0.0.1",
 							"port": 0,
 							"password": "",
 							"pid": 0,
-							"script": ""
+							"script": "^\"\\${relativeFile}\""
 						}
 					},
 					{
@@ -144,10 +144,10 @@
 							"type": "pol",
 							"name": "Launch script",
 							"request": "launch",
-							"host": "",
+							"host": "127.0.0.1",
 							"port": 0,
 							"password": "",
-							"script": ""
+							"script": "^\"\\${relativeFile}\""
 						}
 					}
 				]
