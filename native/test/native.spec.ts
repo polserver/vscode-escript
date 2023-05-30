@@ -1,6 +1,7 @@
 import { basename, extname, resolve } from 'path';
 import { readFileSync, readdirSync } from 'fs';
 import { LSPDocument, LSPWorkspace, native } from '../src/index';
+import { inspect } from 'util';
 import { F_OK } from 'constants';
 import { writeFile, access, mkdir, readFile } from "fs/promises";
 import { dirname, join } from "path";
@@ -724,15 +725,15 @@ describe('Signature Help', () => {
 
     it('Can signature help nested function calls', () => {
         const where = [
-            [ 12, 'Compare',  0 ],
-            [ 21, 'Compare',  1 ],
-            [ 33, 'Compare',  2 ],
-            [ 42, 'SubStrReplace',  0 ],
-            [ 50, 'SubStrReplace',  1 ],
-            [ 57, 'SubStrReplace',  2 ],
-            [ 63, 'Compare',  3 ],
-            [ 69, 'Trim',  0 ],
-            [ 76, 'Trim',  1 ]
+            [12, 'Compare', 0],
+            [21, 'Compare', 1],
+            [33, 'Compare', 2],
+            [42, 'SubStrReplace', 0],
+            [50, 'SubStrReplace', 1],
+            [57, 'SubStrReplace', 2],
+            [63, 'Compare', 3],
+            [69, 'Trim', 0],
+            [76, 'Trim', 1]
         ] as const;
 
         for (const [character, expectedFunctionName, activeParameter] of where) {
@@ -841,4 +842,98 @@ describeLongTest('Actively typing sources', () => {
             });
         }
     }
+});
+
+describe('References - SRC', () => {
+    const getReferences = (source: string, character: number, mocks: Record<string, string> = {}) => {
+        const src = 'in-memory-file.src';
+        const workspace = new LSPWorkspace({
+            getContents(pathname) {
+                console.log(pathname);
+                if (pathname === src) {
+                    return source;
+                } else if (basename(pathname) in mocks) {
+                    return mocks[basename(pathname)];
+                }
+                return readFileSync(pathname, 'utf-8');
+            }
+        });
+        workspace.open(dir);
+
+        const document = new LSPDocument(workspace, src);
+        document.analyze();
+        if (document.diagnostics().length) {
+            throw new Error(inspect(document.diagnostics()));
+        };
+
+        return document.references({ line: 1, character });
+    };
+
+    it('Can get global variable across includes', () => {
+        const references = getReferences('include "testutil"; include "sysevent"; var globalInSource; globalInSource := 1; baz(); baz2();', 66, {
+            'testutil.inc': "function baz() foob; globalInSource; endfunction",
+            'sysevent.inc': "function baz2() foob; globalInSource; endfunction",
+        });
+
+        expect(references).toEqual(
+            [
+                {
+                    // globalInSource := 1;
+                    range: {
+                        start: { line: 0, character: 60 },
+                        end: { line: 0, character: 74 }
+                    },
+                    fsPath: 'in-memory-file.src'
+                },
+                {
+                    // inside baz()
+                    range: {
+                        start: { line: 0, character: 21 },
+                        end: { line: 0, character: 35 }
+                    },
+                    fsPath: resolve(__dirname, '..', 'polserver', 'testsuite', 'pol', 'scripts', 'include', 'testutil.inc')
+                },
+                {
+                    // inside baz2()
+                    range: {
+                        start: { line: 0, character: 22 },
+                        end: { line: 0, character: 36 }
+                    },
+                    fsPath: resolve(__dirname, '..', 'polserver', 'testsuite', 'pol', 'scripts', 'include', 'sysevent.inc')
+                }
+            ]
+        );
+    });
+
+    it('Can get local varaibles', () => {
+        const references = getReferences('function bar() var foo := 1; if (foo) Print(foo + 3 * foo); endif endfunction bar();', 21);
+        // console.log(inspect(references, undefined, Infinity))
+        expect(references).toEqual([
+            {
+                // inside conditional
+                range: {
+                    start: { line: 0, character: 33 },
+                    end: { line: 0, character: 36 }
+                },
+                fsPath: 'in-memory-file.src'
+            },
+            {
+                // inside print argument
+                range: {
+                    start: { line: 0, character: 44 },
+                    end: { line: 0, character: 47 }
+                },
+                fsPath: 'in-memory-file.src'
+            },
+            {
+                // inside print argument
+                range: {
+                    start: { line: 0, character: 54 },
+                    end: { line: 0, character: 57 }
+                },
+                fsPath: 'in-memory-file.src'
+            }
+        ]);
+    });
+
 });

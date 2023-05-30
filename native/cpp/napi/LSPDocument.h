@@ -35,6 +35,7 @@ public:
   Napi::Value Definition( const Napi::CallbackInfo& );
   Napi::Value Completion( const Napi::CallbackInfo& );
   Napi::Value SignatureHelp( const Napi::CallbackInfo& );
+  Napi::Value References( const Napi::CallbackInfo& );
 
   std::unique_ptr<Pol::Bscript::Compiler::DiagnosticReporter> reporter;
 

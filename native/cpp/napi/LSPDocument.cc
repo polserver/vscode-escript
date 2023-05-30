@@ -2,6 +2,7 @@
 #include "../compiler/CompletionBuilder.h"
 #include "../compiler/DefinitionBuilder.h"
 #include "../compiler/HoverBuilder.h"
+#include "../compiler/ReferencesBuilder.h"
 #include "../compiler/SignatureHelpBuilder.h"
 #include "ExtensionConfig.h"
 #include "LSPWorkspace.h"
@@ -61,6 +62,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "completion", &LSPDocument::Completion ),
                         LSPDocument::InstanceMethod( "definition", &LSPDocument::Definition ),
                         LSPDocument::InstanceMethod( "signatureHelp", &LSPDocument::SignatureHelp ),
+                        LSPDocument::InstanceMethod( "references", &LSPDocument::References ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -270,6 +272,63 @@ Napi::Value LSPDocument::Definition( const Napi::CallbackInfo& info )
       result["range"] = range;
       result["fsPath"] = location.source_file_identifier->pathname;
       return result;
+    }
+  }
+  return env.Undefined();
+}
+
+Napi::Value LSPDocument::References( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsObject() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  if ( compiler_workspace )
+  {
+    auto position = info[0].As<Napi::Object>();
+    auto line = position.Get( "line" );
+    auto character = position.Get( "character" );
+    if ( !line.IsNumber() || !character.IsNumber() )
+    {
+      Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+          .ThrowAsJavaScriptException();
+    }
+    Compiler::Position pos{
+        static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
+        static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
+
+    CompilerExt::ReferencesBuilder finder( *compiler_workspace, pos, type == LSPDocumentType::SRC );
+    auto references = finder.context();
+    if ( references.has_value() )
+    {
+      auto results = Napi::Array::New( env );
+      auto push = results.Get( "push" ).As<Napi::Function>();
+
+      for ( const auto& location : references.value() )
+      {
+        const auto& locationRange = location.range;
+        auto result = Napi::Object::New( env );
+        auto range = Napi::Object::New( env );
+        auto rangeStart = Napi::Object::New( env );
+
+        range["start"] = rangeStart;
+        rangeStart["line"] = locationRange.start.line_number - 1;
+        rangeStart["character"] = locationRange.start.character_column - 1;
+        auto rangeEnd = Napi::Object::New( env );
+        range["end"] = rangeEnd;
+        rangeEnd["line"] = locationRange.end.line_number - 1;
+        rangeEnd["character"] = locationRange.end.character_column - 1;
+
+        result["range"] = range;
+        result["fsPath"] = location.source_file_identifier->pathname;
+        push.Call( results, { result } );
+      }
+
+      return results;
     }
   }
   return env.Undefined();
