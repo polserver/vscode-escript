@@ -301,7 +301,7 @@ Napi::Value LSPDocument::References( const Napi::CallbackInfo& info )
         static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
         static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
 
-    CompilerExt::ReferencesBuilder finder( *compiler_workspace, pos, type == LSPDocumentType::SRC );
+    CompilerExt::ReferencesBuilder finder( *compiler_workspace, pos );
     auto references = finder.context();
     if ( references.has_value() )
     {

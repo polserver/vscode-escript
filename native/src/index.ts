@@ -30,6 +30,7 @@ export interface LSPWorkspace {
     open(workspaceRoot: string): void;
     getConfigValue(key: 'PackageRoot'): Array<string>;
     getConfigValue(key: 'IncludeDirectory' | 'ModuleDirectory' | 'PolScriptRoot'): string;
+	scripts: { inc: string[], src: string[] };
 }
 
 export interface LSPDocument {

@@ -29,6 +29,7 @@ public:
   Napi::Value Open( const Napi::CallbackInfo& );
   Napi::Value GetConfigValue( const Napi::CallbackInfo& );
   Napi::Value GetWorkspaceRoot( const Napi::CallbackInfo& );
+  Napi::Value AutoCompiledScripts( const Napi::CallbackInfo& );
 
   std::string get_contents( const std::string& pathname ) const override;
 
@@ -46,5 +47,6 @@ private:
   Pol::Bscript::Compiler::SourceFileCache inc_parse_tree_cache;
   Napi::FunctionReference GetContents;
   Napi::FunctionReference GetXMLDocPath;
+  Napi::ObjectReference CompiledScripts;
 };
 }  // namespace VSCodeEscript

@@ -1,4 +1,4 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp } from 'vscode-languageserver/node';
+import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, WorkDoneProgressReporter, CancellationToken } from 'vscode-languageserver/node';
 import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { promises, readFileSync } from 'fs';
@@ -56,6 +56,33 @@ export class LSPServer {
         this.connection.onSignatureHelp(this.onSignatureHelp);
         this.connection.onNotification('didChangeConfiguration', this.onDidChangeConfiguration);
 
+
+        // this.connection.onReferences(this.onReferences);
+        this.connection.onReferences(async (a, b, cc, d) => {
+            b.onCancellationRequested(() => {
+                console.log('onCancellationRequested');
+            });
+
+            const c = await this.connection.window.createWorkDoneProgress();
+            c.token.onCancellationRequested(() => {
+
+            });
+            console.log('c is', c);
+            c.begin('Searching files title', 0, 'Searching files message', true);
+
+            // const f = createProgressHandler();
+            // d?.report([]);
+            for (let i = 0; i < 100; i++) {
+                c.report(i * 1);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                if (b.isCancellationRequested || c.token.isCancellationRequested) {
+                    return undefined;
+                }
+            }
+
+            c.done();
+            return [];
+        });
         this.documents.listen(this.connection);
         this.downloader = new DocsDownloader(LSPServer.options.storageFsPath);
         this.workspace = new LSPWorkspace({
@@ -77,6 +104,7 @@ export class LSPServer {
 
     private onInitialize = async (params: InitializeParams): Promise<InitializeResult> => {
 
+        console.log('Got initialization params', params.capabilities);
         const workspaceFolders = params.workspaceFolders ?? [];
         const initializationOptions: InitializationOptions = params.initializationOptions;
 
@@ -124,6 +152,10 @@ export class LSPServer {
                 definitionProvider: true,
                 completionProvider: {
                     triggerCharacters: []
+                },
+                referencesProvider: {
+                    workDoneProgress: true
+                    // partialResultToken: true
                 },
                 signatureHelpProvider: {
                     triggerCharacters: ['(', ',']
@@ -297,5 +329,19 @@ export class LSPServer {
                 console.warn(`Could not download polserver documentation: ${e?.message ?? e}`);
             });
         }
+    };
+
+    private onReferences = async (params: ReferenceParams, other: any): Promise<Location[] | null> => {
+        const { fsPath } = URI.parse(params.textDocument.uri);
+        const { position: { line, character } } = params;
+        const position: Position = { line: line + 1, character: character + 1 };
+        const document = this.sources.get(fsPath);
+        if (document) {
+            const completion = document.references(position);
+            if (completion) {
+                return completion;
+            }
+        }
+        return null;
     };
 }

@@ -10,6 +10,8 @@
 #include "plib/pkg.h"
 #include "plib/systemstate.h"
 
+#include <filesystem>
+#include <set>
 
 using namespace Pol::Bscript;
 
@@ -56,7 +58,74 @@ Napi::Function LSPWorkspace::GetClass( Napi::Env env )
       { LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
         LSPWorkspace::InstanceMethod( "getConfigValue", &LSPWorkspace::GetConfigValue ),
         LSPWorkspace::InstanceAccessor( "workspaceRoot", &LSPWorkspace::GetWorkspaceRoot,
-                                        nullptr ) } );
+                                        nullptr ),
+                                        LSPWorkspace::InstanceAccessor(
+                            "scripts", &LSPWorkspace::AutoCompiledScripts, nullptr )  } );
+}
+
+namespace fs = std::filesystem;
+
+void recurse_collect( const fs::path& basedir, std::set<std::string>* files_src,
+                      std::set<std::string>* files_inc )
+{
+  if ( !fs::is_directory( basedir ) )
+    return;
+  std::error_code ec;
+  for ( auto dir_itr = fs::recursive_directory_iterator( basedir, ec );
+        dir_itr != fs::recursive_directory_iterator(); ++dir_itr )
+  {
+    if ( auto fn = dir_itr->path().filename().u8string(); !fn.empty() && *fn.begin() == '.' )
+    {
+      if ( dir_itr->is_directory() )
+        dir_itr.disable_recursion_pending();
+      continue;
+    }
+    else if ( !dir_itr->is_regular_file() )
+      continue;
+    const auto ext = dir_itr->path().extension();
+    if ( !ext.compare( ".inc" ) )
+      files_inc->insert( dir_itr->path().u8string() );
+    else if ( !ext.compare( ".src" ) || !ext.compare( ".hsr" ) ||
+              ( compilercfg.CompileAspPages && !ext.compare( ".asp" ) ) )
+      files_src->insert( dir_itr->path().u8string() );
+  }
+}
+
+
+Napi::Value LSPWorkspace::AutoCompiledScripts( const Napi::CallbackInfo& info )
+{
+  if ( !CompiledScripts.IsEmpty() )
+  {
+    return CompiledScripts.Value();
+  }
+
+  std::set<std::string> files_src, files_inc;
+
+  recurse_collect( fs::path( compilercfg.PolScriptRoot ), &files_src, &files_inc );
+  for ( const auto& pkg : Pol::Plib::systemstate.packages )
+    recurse_collect( fs::path( pkg->dir() ), &files_src, &files_inc );
+
+  auto env = info.Env();
+  auto results_src = Napi::Array::New( env );
+  auto results_inc = Napi::Array::New( env );
+  auto push = results_src.Get( "push" ).As<Napi::Function>();
+  auto results = Napi::Object::New( env );
+  results["src"] = results_src;
+  results["inc"] = results_inc;
+
+  for ( const auto& path : files_src )
+  {
+    push.Call( results_src, { Napi::String::New( env, path ) } );
+  }
+
+
+  for ( const auto& path : files_inc )
+  {
+    push.Call( results_inc, { Napi::String::New( env, path ) } );
+  }
+
+  CompiledScripts.Reset( results );
+  return results;
 }
 
 Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
@@ -85,6 +154,7 @@ Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
       make_absolute( packageRoot );
     }
 
+    CompiledScripts.Reset();
     Pol::Plib::systemstate.packages.clear();
     Pol::Plib::systemstate.packages_byname.clear();
 

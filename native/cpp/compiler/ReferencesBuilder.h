@@ -12,14 +12,15 @@ class ReferencesBuilder : public SemanticContextBuilder<ReferencesResult>
 {
 public:
   ReferencesBuilder( Pol::Bscript::Compiler::CompilerWorkspace&,
-                     const Pol::Bscript::Compiler::Position& position, bool is_source );
+                     const Pol::Bscript::Compiler::Position& position );
 
   ~ReferencesBuilder() override = default;
 
   virtual std::optional<ReferencesResult> get_variable(
       std::shared_ptr<Pol::Bscript::Compiler::Variable> variable ) override;
 
-  const bool is_source;
+  virtual std::optional<ReferencesResult> get_user_function(
+      Pol::Bscript::Compiler::UserFunction* ) override;
 };
 
 }  // namespace VSCodeEscript::CompilerExt
