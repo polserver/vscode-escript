@@ -57,7 +57,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   ${CMAKE_JS_LIB}
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-  NAPI_VERSION=5
+  NAPI_VERSION=8
 )
 
 if(MSVC)

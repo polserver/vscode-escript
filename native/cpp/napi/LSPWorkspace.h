@@ -6,6 +6,7 @@
 #include <napi.h>
 #include <optional>
 #include <vector>
+#include <mutex>
 
 #include "bscript/compiler/Profile.h"
 #include "bscript/compiler/file/SourceFileCache.h"
@@ -30,6 +31,8 @@ public:
   Napi::Value GetConfigValue( const Napi::CallbackInfo& );
   Napi::Value GetWorkspaceRoot( const Napi::CallbackInfo& );
   Napi::Value AutoCompiledScripts( const Napi::CallbackInfo& );
+  Napi::Value CacheCompiledScripts( const Napi::CallbackInfo& );
+  Napi::Value GetFromCache( const Napi::CallbackInfo& );
 
   std::string get_contents( const std::string& pathname ) const override;
 
@@ -41,7 +44,8 @@ private:
   void make_absolute( std::string& path );
 
   std::filesystem::path _workspaceRoot;
-  std::map<std::string, LSPDocument> _cache;
+  std::mutex _mutex_cache;
+  std::map<std::string, Napi::ObjectReference> _cache;
   Pol::Bscript::Compiler::Profile profile;
   Pol::Bscript::Compiler::SourceFileCache em_parse_tree_cache;
   Pol::Bscript::Compiler::SourceFileCache inc_parse_tree_cache;

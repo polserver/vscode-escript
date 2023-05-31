@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <set>
 
+namespace fs = std::filesystem;
 using namespace Pol::Bscript;
 
 namespace VSCodeEscript
@@ -57,13 +58,14 @@ Napi::Function LSPWorkspace::GetClass( Napi::Env env )
       env, "LSPWorkspace",
       { LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
         LSPWorkspace::InstanceMethod( "getConfigValue", &LSPWorkspace::GetConfigValue ),
-        LSPWorkspace::InstanceAccessor( "workspaceRoot", &LSPWorkspace::GetWorkspaceRoot,
-                                        nullptr ),
-                                        LSPWorkspace::InstanceAccessor(
-                            "scripts", &LSPWorkspace::AutoCompiledScripts, nullptr )  } );
+        LSPWorkspace::InstanceAccessor( "workspaceRoot", &LSPWorkspace::GetWorkspaceRoot, nullptr ),
+        LSPWorkspace::InstanceAccessor( "scripts", &LSPWorkspace::AutoCompiledScripts, nullptr ),
+        LSPWorkspace::InstanceMethod( "cacheScripts", &LSPWorkspace::CacheCompiledScripts ),
+        LSPWorkspace::InstanceMethod( "getDocument", &LSPWorkspace::GetFromCache ),
+        LSPWorkspace::InstanceAccessor( "scripts", &LSPWorkspace::AutoCompiledScripts,
+                                        nullptr ) } );
 }
 
-namespace fs = std::filesystem;
 
 void recurse_collect( const fs::path& basedir, std::set<std::string>* files_src,
                       std::set<std::string>* files_inc )
@@ -89,6 +91,61 @@ void recurse_collect( const fs::path& basedir, std::set<std::string>* files_src,
               ( compilercfg.CompileAspPages && !ext.compare( ".asp" ) ) )
       files_src->insert( dir_itr->path().u8string() );
   }
+}
+
+
+Napi::Value LSPWorkspace::GetFromCache( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+  if ( info.Length() < 1 || !info[0].IsString() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+    return Napi::Value();
+  }
+
+  auto path = info[0].As<Napi::String>().Utf8Value();
+
+  {
+    std::lock_guard<std::mutex> lock( _mutex_cache );
+    auto existing = _cache.find( path );
+    if ( existing != _cache.end() )
+    {
+      return existing->second.Value();
+    }
+    auto LSPWorkspace_ctor = env.GetInstanceData<Napi::Reference<Napi::Object>>()
+                                 ->Value()
+                                 .Get( "LSPDocument" )
+                                 .As<Napi::Function>();
+    auto document = LSPWorkspace_ctor.New( { Value(), Napi::String::New( env, path ) } );
+    _cache[path] = Persistent( document );
+    return document;
+  }
+}
+
+Napi::Value LSPWorkspace::CacheCompiledScripts( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+  std::set<std::string> files;
+
+  recurse_collect( fs::path( compilercfg.PolScriptRoot ), &files, &files );
+  for ( const auto& pkg : Pol::Plib::systemstate.packages )
+    recurse_collect( fs::path( pkg->dir() ), &files, &files );
+
+  auto LSPWorkspace_ctor = env.GetInstanceData<Napi::Reference<Napi::Object>>()
+                               ->Value()
+                               .Get( "LSPDocument" )
+                               .As<Napi::Function>();
+
+  for ( const auto& path : files )
+  {
+    std::lock_guard<std::mutex> lock( _mutex_cache );
+    if ( _cache.find( path ) == _cache.end() )
+      _cache[path] =
+          Persistent( LSPWorkspace_ctor.New( { Value(), Napi::String::New( env, path ) } ) );
+  }
+
+  return env.Undefined();
 }
 
 
@@ -155,6 +212,7 @@ Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
     }
 
     CompiledScripts.Reset();
+    _cache.clear();
     Pol::Plib::systemstate.packages.clear();
     Pol::Plib::systemstate.packages_byname.clear();
 
