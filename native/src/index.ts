@@ -31,6 +31,8 @@ export interface LSPWorkspace {
     getConfigValue(key: 'PackageRoot'): Array<string>;
     getConfigValue(key: 'IncludeDirectory' | 'ModuleDirectory' | 'PolScriptRoot'): string;
 	scripts: { inc: string[], src: string[] };
+	getDocument(pathname: string): LSPDocument;
+	cacheScripts(...args: any[]): void;
 }
 
 export interface LSPDocument {
@@ -41,6 +43,7 @@ export interface LSPDocument {
     hover(position: Position): string | undefined;
     completion(position: Position): CompletionItem[];
     definition(position: Position): { range: Range, fsPath: string } | undefined;
+    references(position: Position): { range: Range, fsPath: string }[] | undefined;
     signatureHelp(position: Position): SignatureHelp | undefined;
     tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
     references(position: Position): Location[] | undefined;

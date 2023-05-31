@@ -3,6 +3,10 @@
 
 #include "SemanticContextBuilder.h"
 
+namespace VSCodeEscript
+{
+class LSPWorkspace;
+}
 namespace VSCodeEscript::CompilerExt
 {
 
@@ -11,7 +15,7 @@ using ReferencesResult = std::vector<Pol::Bscript::Compiler::SourceLocation>;
 class ReferencesBuilder : public SemanticContextBuilder<ReferencesResult>
 {
 public:
-  ReferencesBuilder( Pol::Bscript::Compiler::CompilerWorkspace&,
+  ReferencesBuilder( Pol::Bscript::Compiler::CompilerWorkspace&, VSCodeEscript::LSPWorkspace*,
                      const Pol::Bscript::Compiler::Position& position );
 
   ~ReferencesBuilder() override = default;
@@ -21,6 +25,9 @@ public:
 
   virtual std::optional<ReferencesResult> get_user_function(
       Pol::Bscript::Compiler::UserFunction* ) override;
+
+private:
+   LSPWorkspace* lsp_workspace;
 };
 
 }  // namespace VSCodeEscript::CompilerExt

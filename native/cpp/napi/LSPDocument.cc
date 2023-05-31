@@ -33,9 +33,9 @@ LSPDocument::LSPDocument( const Napi::CallbackInfo& info )
 
   workspace = Napi::Persistent( info[0].As<Napi::Object>() );
 
-  pathname = info[1].As<Napi::String>().Utf8Value();
+  pathname_ = info[1].As<Napi::String>().Utf8Value();
 
-  auto extension = std::filesystem::path( pathname ).extension().string();
+  auto extension = std::filesystem::path( pathname_ ).extension().string();
   Pol::Clib::mklowerASCII( extension );
   if ( extension.compare( ".em" ) == 0 )
   {
@@ -51,6 +51,10 @@ LSPDocument::LSPDocument( const Napi::CallbackInfo& info )
   }
 }
 
+const std::string& LSPDocument::pathname()
+{
+  return pathname_;
+}
 
 Napi::Function LSPDocument::GetClass( Napi::Env env )
 {
@@ -90,7 +94,7 @@ Napi::Value LSPDocument::Analyze( const Napi::CallbackInfo& info )
         info.Length() > 0 && info[0].IsBoolean() ? info[0].As<Napi::Boolean>().Value() : true;
 
     compiler_workspace =
-        compiler->analyze( pathname, *report, type == LSPDocumentType::EM, continue_on_error );
+        compiler->analyze( pathname_, *report, type == LSPDocumentType::EM, continue_on_error );
     return env.Undefined();
   }
   catch ( const std::exception& ex )
@@ -116,7 +120,7 @@ Napi::Value LSPDocument::Diagnostics( const Napi::CallbackInfo& info )
     // Skip errors from other files...? Include compilation shows errors from
     // all over. Watch how this this behaves... This may need to _not_ be
     // skipped, and filtered out based off extension setting.
-    if ( diagnostic.location.source_file_identifier->pathname.compare( pathname ) )
+    if ( diagnostic.location.source_file_identifier->pathname.compare( pathname_ ) )
     {
       continue;
     }
@@ -301,7 +305,8 @@ Napi::Value LSPDocument::References( const Napi::CallbackInfo& info )
         static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
         static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
 
-    CompilerExt::ReferencesBuilder finder( *compiler_workspace, pos );
+    CompilerExt::ReferencesBuilder finder( *compiler_workspace,
+                                           LSPWorkspace::Unwrap( workspace.Value() ), pos );
     auto references = finder.context();
     if ( references.has_value() )
     {
@@ -449,6 +454,14 @@ Napi::Value LSPDocument::SignatureHelp( const Napi::CallbackInfo& info )
     }
   }
   return env.Undefined();
+}
+
+void LSPDocument::accept_visitor( Pol::Bscript::Compiler::NodeVisitor& visitor )
+{
+  if ( compiler_workspace )
+  {
+    compiler_workspace->accept( visitor );
+  }
 }
 
 }  // namespace VSCodeEscript

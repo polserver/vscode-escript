@@ -2,11 +2,12 @@
 
 
 #include <filesystem>
+#include <functional>
 #include <map>
+#include <mutex>
 #include <napi.h>
 #include <optional>
 #include <vector>
-#include <mutex>
 
 #include "bscript/compiler/Profile.h"
 #include "bscript/compiler/file/SourceFileCache.h"
@@ -39,6 +40,8 @@ public:
   std::optional<std::string> get_xml_doc_path( const std::string& moduleEmFile ) const;
 
   std::unique_ptr<Pol::Bscript::Compiler::Compiler> make_compiler();
+
+  void foreach_cache_entry( std::function<void( LSPDocument* )> callback );
 
 private:
   void make_absolute( std::string& path );

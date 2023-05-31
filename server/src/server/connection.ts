@@ -57,32 +57,32 @@ export class LSPServer {
         this.connection.onNotification('didChangeConfiguration', this.onDidChangeConfiguration);
 
 
-        // this.connection.onReferences(this.onReferences);
-        this.connection.onReferences(async (a, b, cc, d) => {
-            b.onCancellationRequested(() => {
-                console.log('onCancellationRequested');
-            });
+        this.connection.onReferences(this.onReferences);
+        // this.connection.onReferences(async (a, b, cc, d) => {
+        //     b.onCancellationRequested(() => {
+        //         console.log('onCancellationRequested');
+        //     });
 
-            const c = await this.connection.window.createWorkDoneProgress();
-            c.token.onCancellationRequested(() => {
+        //     const c = await this.connection.window.createWorkDoneProgress();
+        //     c.token.onCancellationRequested(() => {
 
-            });
-            console.log('c is', c);
-            c.begin('Searching files title', 0, 'Searching files message', true);
+        //     });
+        //     console.log('c is', c);
+        //     c.begin('Searching files title', 0, 'Searching files message', true);
 
-            // const f = createProgressHandler();
-            // d?.report([]);
-            for (let i = 0; i < 100; i++) {
-                c.report(i * 1);
-                await new Promise(resolve => setTimeout(resolve, 100));
-                if (b.isCancellationRequested || c.token.isCancellationRequested) {
-                    return undefined;
-                }
-            }
+        //     // const f = createProgressHandler();
+        //     // d?.report([]);
+        //     for (let i = 0; i < 100; i++) {
+        //         c.report(i * 1);
+        //         await new Promise(resolve => setTimeout(resolve, 100));
+        //         if (b.isCancellationRequested || c.token.isCancellationRequested) {
+        //             return undefined;
+        //         }
+        //     }
 
-            c.done();
-            return [];
-        });
+        //     c.done();
+        //     return [];
+        // });
         this.documents.listen(this.connection);
         this.downloader = new DocsDownloader(LSPServer.options.storageFsPath);
         this.workspace = new LSPWorkspace({
@@ -118,6 +118,7 @@ export class LSPServer {
                 await access(polCfg, F_OK);
                 await access(ecompileCfg, F_OK);
                 this.workspace.open(fsPath);
+                this.workspace.cacheScripts(()=>{});
                 console.log(`Successfully read ${ecompileCfg}`);
                 found = true;
             } catch (e) {
@@ -337,9 +338,9 @@ export class LSPServer {
         const position: Position = { line: line + 1, character: character + 1 };
         const document = this.sources.get(fsPath);
         if (document) {
-            const completion = document.references(position);
-            if (completion) {
-                return completion;
+            const references = document.references(position);
+            if (references) {
+                return references.map(x => ({...x, uri: URI.file(x.fsPath).toString()}));
             }
         }
         return null;
