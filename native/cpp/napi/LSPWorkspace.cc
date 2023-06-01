@@ -162,8 +162,8 @@ Napi::Function LSPWorkspace::GetClass( Napi::Env env )
         LSPWorkspace::InstanceAccessor( "workspaceRoot", &LSPWorkspace::GetWorkspaceRoot, nullptr ),
         LSPWorkspace::InstanceAccessor( "scripts", &LSPWorkspace::AutoCompiledScripts, nullptr ),
         LSPWorkspace::InstanceMethod( "cacheScripts", &LSPWorkspace::CacheCompiledScripts ),
-        LSPWorkspace::InstanceMethod( "getDocument", &LSPWorkspace::GetFromCache ),
-        LSPWorkspace::InstanceAccessor( "scripts", &LSPWorkspace::AutoCompiledScripts,
+        LSPWorkspace::InstanceMethod( "getDocument", &LSPWorkspace::GetDocument ),
+        LSPWorkspace::InstanceAccessor( "autoCompiledScripts", &LSPWorkspace::AutoCompiledScripts,
                                         nullptr ) } );
 }
 
@@ -195,7 +195,7 @@ void recurse_collect( const fs::path& basedir, std::set<std::string>* files_src,
 }
 
 
-Napi::Value LSPWorkspace::GetFromCache( const Napi::CallbackInfo& info )
+Napi::Value LSPWorkspace::GetDocument( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
   if ( info.Length() < 1 || !info[0].IsString() )
@@ -206,34 +206,25 @@ Napi::Value LSPWorkspace::GetFromCache( const Napi::CallbackInfo& info )
   }
 
   auto path = info[0].As<Napi::String>().Utf8Value();
-
+  auto existing = _cache.find( path );
+  if ( existing != _cache.end() )
   {
-    std::lock_guard<std::mutex> lock( _mutex_cache );
-    auto existing = _cache.find( path );
-    if ( existing != _cache.end() )
-    {
-      return existing->second.Value();
-    }
-    auto LSPWorkspace_ctor = env.GetInstanceData<Napi::Reference<Napi::Object>>()
-                                 ->Value()
-                                 .Get( "LSPDocument" )
-                                 .As<Napi::Function>();
-    auto document = LSPWorkspace_ctor.New( { Value(), Napi::String::New( env, path ) } );
-    _cache[path] = Persistent( document );
-    return document;
+    return existing->second.Value();
   }
+  auto LSPWorkspace_ctor = env.GetInstanceData<Napi::Reference<Napi::Object>>()
+                               ->Value()
+                               .Get( "LSPDocument" )
+                               .As<Napi::Function>();
+  auto document = LSPWorkspace_ctor.New( { Value(), Napi::String::New( env, path ) } );
+  _cache[path] = Persistent( document );
+  return document;
 }
 
 void LSPWorkspace::foreach_cache_entry( std::function<void( LSPDocument* )> callback )
 {
-  std::lock_guard<std::mutex> lock( _mutex_cache );
   for ( const auto& entry : _cache )
   {
     callback( LSPDocument::Unwrap( entry.second.Value() ) );
-    // cache_entry
-    // if ( _cache.find( path ) == _cache.end() )
-    //   _cache[path] =
-    //       Persistent( LSPWorkspace_ctor.New( { Value(), Napi::String::New( env, path ) } ) );
   }
 }
 
@@ -258,13 +249,8 @@ Napi::Value LSPWorkspace::CacheCompiledScripts( const Napi::CallbackInfo& info )
                                .Get( "LSPDocument" )
                                .As<Napi::Function>();
 
-  // auto foo = new TestWorker( info[0].As<Napi::Function>(), files );
-  // foo->Queue();
-  // return foo->Promise();
-
   for ( const auto& path : files )
   {
-    std::lock_guard<std::mutex> lock( _mutex_cache );
     if ( _cache.find( path ) == _cache.end() )
     {
       auto document = LSPWorkspace_ctor.New( { Value(), Napi::String::New( env, path ) } );
@@ -284,31 +270,22 @@ Napi::Value LSPWorkspace::AutoCompiledScripts( const Napi::CallbackInfo& info )
     return CompiledScripts.Value();
   }
 
-  std::set<std::string> files_src, files_inc;
+  std::set<std::string> files;
 
-  recurse_collect( fs::path( compilercfg.PolScriptRoot ), &files_src, &files_inc );
+  recurse_collect( fs::path( compilercfg.PolScriptRoot ), &files, &files );
   for ( const auto& pkg : Pol::Plib::systemstate.packages )
-    recurse_collect( fs::path( pkg->dir() ), &files_src, &files_inc );
+    recurse_collect( fs::path( pkg->dir() ), &files, &files );
 
   auto env = info.Env();
-  auto results_src = Napi::Array::New( env );
-  auto results_inc = Napi::Array::New( env );
-  auto push = results_src.Get( "push" ).As<Napi::Function>();
-  auto results = Napi::Object::New( env );
-  results["src"] = results_src;
-  results["inc"] = results_inc;
+  auto results = Napi::Array::New( env );
+  auto push = results.Get( "push" ).As<Napi::Function>();
 
-  for ( const auto& path : files_src )
+  for ( const auto& path : files )
   {
-    push.Call( results_src, { Napi::String::New( env, path ) } );
+    push.Call( results, { Napi::String::New( env, path ) } );
   }
 
-
-  for ( const auto& path : files_inc )
-  {
-    push.Call( results_inc, { Napi::String::New( env, path ) } );
-  }
-
+  results.Freeze();
   CompiledScripts.Reset( results );
   return results;
 }

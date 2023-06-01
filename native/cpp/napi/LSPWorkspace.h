@@ -33,7 +33,7 @@ public:
   Napi::Value GetWorkspaceRoot( const Napi::CallbackInfo& );
   Napi::Value AutoCompiledScripts( const Napi::CallbackInfo& );
   Napi::Value CacheCompiledScripts( const Napi::CallbackInfo& );
-  Napi::Value GetFromCache( const Napi::CallbackInfo& );
+  Napi::Value GetDocument( const Napi::CallbackInfo& );
 
   std::string get_contents( const std::string& pathname ) const override;
 

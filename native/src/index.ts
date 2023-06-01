@@ -31,8 +31,10 @@ export interface LSPWorkspace {
     getConfigValue(key: 'PackageRoot'): Array<string>;
     getConfigValue(key: 'IncludeDirectory' | 'ModuleDirectory' | 'PolScriptRoot'): string;
 	scripts: { inc: string[], src: string[] };
+	autoCompiledScripts: readonly string[];
 	getDocument(pathname: string): LSPDocument;
 	cacheScripts(...args: any[]): void;
+	updateCache: typeof updateCache;
 }
 
 export interface LSPDocument {
@@ -84,4 +86,59 @@ if (!filename) {
     throw new Error(`Unable to locate ${baseFilename}`);
 }
 
+export type UpdateCacheProgressCallback = (progress: { count: number, total: number }) => void;
 export const native = require(filename) as EscriptVscodeNative;
+native.LSPWorkspace.prototype.updateCache = updateCache;
+
+const updateCacheMap = new WeakMap<LSPWorkspace, { promise: Promise<boolean>, progresses: UpdateCacheProgressCallback[], signals: AbortSignal[] }>();
+
+function updateCache(this: LSPWorkspace, progress?: UpdateCacheProgressCallback, signal?: AbortSignal) {
+	const existing = updateCacheMap.get(this);
+	if (existing) {
+		const { promise, progresses } = existing;
+		if (progress) {
+			progresses.push(progress);
+		}
+		return promise.then((completed) => {
+			const existing = updateCacheMap.get(this);
+			if (existing) {
+				existing.progresses.length = 0;
+				existing.signals.length = 0;
+			}
+			return completed;
+		});
+	}
+
+	const update = async () => {
+		const { autoCompiledScripts } = this;
+		let count = 0;
+		const total = autoCompiledScripts.length;
+		for (const p of autoCompiledScripts) {
+			await new Promise(resolve => setImmediate(resolve));
+			const existing = updateCacheMap.get(this);
+			const canceled = Boolean(existing?.signals.some(signal => signal.aborted));
+
+			if (canceled) {
+				return false;
+			}
+
+			this.getDocument(p).analyze();
+			++count;
+			if (existing) {
+				existing.progresses.forEach(progress => progress({ count, total }));
+			}
+		}
+		return true;
+	}
+	const promise = update();
+	updateCacheMap.set(this, { promise, progresses: progress ? [progress] : [], signals: signal ? [signal] : [] });
+
+	return promise.then((completed) => {
+		const existing = updateCacheMap.get(this);
+		if (existing) {
+			existing.progresses.length = 0;
+			existing.signals.length = 0;
+		}
+		return completed;
+	});
+}

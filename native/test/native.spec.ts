@@ -64,7 +64,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         workspace.open(dir);
 
         // Done at textDocument/didOpen
-        const document = new LSPDocument(workspace, src);
+        const document = workspace.getDocument(src);
 
         // Done at textDocument/didChange
         text = 'var hello := foobar;';
@@ -183,7 +183,7 @@ describe('Hover - SRC', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getHover = (source: string, character: number) => {
@@ -305,7 +305,7 @@ describe('Hover - Module', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getHover = (source: string, character: number) => {
@@ -480,7 +480,7 @@ describe('Definition - SRC', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getDefinition = (source: string, character: number) => {
@@ -561,7 +561,7 @@ describe('Definition - Module', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getDefinition = (source: string, character: number) => {
@@ -605,7 +605,7 @@ describe('Completion', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getCompletion = (source: string, character: number, continueOnError?: boolean) => {
@@ -683,7 +683,7 @@ describe('Signature Help', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getSignatureHelp = (source: string, character: number) => {
@@ -860,7 +860,7 @@ describe('References - SRC', () => {
         });
         workspace.open(dir);
 
-        const document = new LSPDocument(workspace, src);
+        const document = workspace.getDocument(src);
         document.analyze();
         if (document.diagnostics().length) {
             throw new Error(inspect(document.diagnostics()));
@@ -937,3 +937,48 @@ describe('References - SRC', () => {
     });
 
 });
+
+describe('Workspace Cache', () => {
+    const getWorkspace = () => {
+        const workspace = new LSPWorkspace({
+            getContents: (pathname) => readFileSync(pathname, 'utf-8')
+        });
+        workspace.open(dir);
+        return workspace;
+    };
+
+    it('Does not block event loop', async () => {
+        const workspace = getWorkspace();
+
+        const start = Date.now();
+        const promise = workspace.updateCache();
+        let timeout = 0;
+        setTimeout(() => timeout = Date.now(), 10);
+        const result = await promise;
+        const end = Date.now()
+
+        expect(end).toBeGreaterThan(timeout);
+        expect(timeout).toBeGreaterThan(start);
+        expect(result).toBe(true);
+    });
+
+    it('Can cancel', async () => {
+        const workspace = getWorkspace();
+
+        const controller = new AbortController();
+        let lastProgress = { count: 0, total: 0 };
+
+        const p1 = workspace.updateCache((progress) => {
+            const { count, total } = lastProgress = progress;
+            if (count / total >= 0.5) {
+                controller.abort();
+            }
+        }, controller.signal);
+
+        const result = await p1;
+
+        expect(result).toBe(false);
+        expect(lastProgress.count / lastProgress.total).toBeGreaterThanOrEqual(0.5);
+    });
+});
+

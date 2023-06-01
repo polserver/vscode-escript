@@ -149,7 +149,7 @@ std::optional<ReferencesResult> ReferencesBuilder::get_variable(
     std::shared_ptr<Pol::Bscript::Compiler::Variable> variable )
 {
   auto ext = fs::path( variable->source_location.source_file_identifier->pathname ).extension();
-  auto is_source = !ext.compare( ".inc" );
+  auto is_source = !ext.compare( ".src" );
 
   if ( is_source )
   {
