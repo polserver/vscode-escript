@@ -16,7 +16,8 @@
 		"vscode": "^1.78.0"
 	},
 	"activationEvents": [
-		"onDebug"
+		"onDebug",
+		"onLanguage:escript"
 	],
 	"repository": {
 		"type": "git",
