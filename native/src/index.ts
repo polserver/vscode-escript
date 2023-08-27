@@ -44,10 +44,11 @@ export interface LSPDocument {
     diagnostics(): Diagnostic[];
     hover(position: Position): string | undefined;
     completion(position: Position): CompletionItem[];
-    definition(position: Position): { range: Range, fsPath: string } | undefined;
+    definition(position: Position, options?: { nameOnly?: boolean }): { range: Range, fsPath: string } | undefined;
     references(position: Position): { range: Range, fsPath: string }[] | undefined;
     signatureHelp(position: Position): SignatureHelp | undefined;
     tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
+    toStringTree(): string | undefined;
     references(position: Position): Location[] | undefined;
 }
 

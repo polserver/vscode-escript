@@ -19,4 +19,5 @@ const options = {
     storageFsPath: URI.parse(String(storageUri)).fsPath
 };
 
+console.log(`Escript Language Server started [pid ${process.pid}]`);
 new LSPServer(options).listen();

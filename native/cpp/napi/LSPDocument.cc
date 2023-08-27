@@ -8,6 +8,7 @@
 #include "LSPWorkspace.h"
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
+#include "bscript/compiler/ast/TopLevelStatements.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "bscript/compiler/file/SourceLocation.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
@@ -67,6 +68,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "definition", &LSPDocument::Definition ),
                         LSPDocument::InstanceMethod( "signatureHelp", &LSPDocument::SignatureHelp ),
                         LSPDocument::InstanceMethod( "references", &LSPDocument::References ),
+                        LSPDocument::InstanceMethod( "toStringTree", &LSPDocument::ToStringTree ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -278,6 +280,45 @@ Napi::Value LSPDocument::Definition( const Napi::CallbackInfo& info )
       return result;
     }
   }
+  return env.Undefined();
+}
+
+Napi::Value LSPDocument::ToStringTree( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( compiler_workspace )
+  {
+    std::stringstream ss;
+
+    for ( auto& constant : compiler_workspace->const_declarations )
+    {
+      ss << constant->to_string_tree() << "\n";
+    }
+
+    for ( auto& module_function : compiler_workspace->module_function_declarations )
+    {
+      ss << module_function->to_string_tree() << "\n";
+    }
+
+    if ( compiler_workspace->top_level_statements->children.size() )
+    {
+      ss << compiler_workspace->top_level_statements->to_string_tree() << "\n";
+    }
+
+    if ( auto& program = compiler_workspace->program )
+    {
+      ss << program->to_string_tree() << "\n";
+    }
+
+    for ( auto& user_function : compiler_workspace->user_functions )
+    {
+      ss << user_function->to_string_tree() << "\n";
+    }
+
+    return Napi::String::New( env, ss.str() );
+  }
+
   return env.Undefined();
 }
 

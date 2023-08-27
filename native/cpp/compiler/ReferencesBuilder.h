@@ -26,8 +26,11 @@ public:
   virtual std::optional<ReferencesResult> get_user_function(
       Pol::Bscript::Compiler::UserFunction* ) override;
 
+  virtual std::optional<ReferencesResult> get_constant(
+      Pol::Bscript::Compiler::ConstDeclaration* ) override;
+
 private:
-   LSPWorkspace* lsp_workspace;
+  LSPWorkspace* lsp_workspace;
 };
 
 }  // namespace VSCodeEscript::CompilerExt

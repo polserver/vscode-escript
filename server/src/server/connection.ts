@@ -1,4 +1,4 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, WorkDoneProgressReporter, CancellationToken } from 'vscode-languageserver/node';
+import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, WorkDoneProgressReporter, CancellationToken, WorkDoneProgressServerReporter } from 'vscode-languageserver/node';
 import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { promises, readFileSync } from 'fs';
@@ -118,8 +118,20 @@ export class LSPServer {
                 await access(polCfg, F_OK);
                 await access(ecompileCfg, F_OK);
                 this.workspace.open(fsPath);
-                this.workspace.cacheScripts(()=>{});
-                console.log(`Successfully read ${ecompileCfg}`);
+                console.log(`Successfully read ${ecompileCfg}. Loading cache...`);
+
+                // Must do next tick because `window/workDoneProgress/create` will not be registered yet.
+                process.nextTick(async () => {
+                    const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
+                    serverInitiatedReporter.begin('Workspace Cache');
+                    this.workspace.updateCache(({ count, total }) => {
+                        serverInitiatedReporter.report(100 * count / total, `Reading files ${count}/${total}`);
+                    }).then(() => {
+                        serverInitiatedReporter.done();
+                        console.log(`Cache loaded.`);
+                    });
+                });
+
                 found = true;
             } catch (e) {
                 console.error(`Error reading ${ecompileCfg}`, e);
@@ -177,7 +189,7 @@ export class LSPServer {
 
     private onDidOpen = async (e: TextDocumentChangeEvent<TextDocument>) => {
         const { fsPath } = URI.parse(e.document.uri);
-        this.sources.set(fsPath, new LSPDocument(this.workspace, fsPath));
+        this.sources.set(fsPath, this.workspace.getDocument(fsPath));
     };
 
     private onDidClose = async (e: TextDocumentChangeEvent<TextDocument>) => {
@@ -332,15 +344,41 @@ export class LSPServer {
         }
     };
 
-    private onReferences = async (params: ReferenceParams, other: any): Promise<Location[] | null> => {
+    private onReferences = async (params: ReferenceParams): Promise<Location[] | null | undefined> => {
         const { fsPath } = URI.parse(params.textDocument.uri);
         const { position: { line, character } } = params;
         const position: Position = { line: line + 1, character: character + 1 };
+
+        const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
+
+        serverInitiatedReporter.begin('References', undefined, undefined, true);
+
+        const controller = new AbortController();
+        serverInitiatedReporter.token.onCancellationRequested(() => {
+            controller.abort();
+        });
+
+        const loaded = await this.workspace.updateCache(({ count, total }) => {
+            serverInitiatedReporter.report(100 * count / total, `Waiting for workspace cache...`);
+        }, controller.signal);
+
+        serverInitiatedReporter.done();
+
+        if (!loaded) {
+            return undefined;
+        }
+
         const document = this.sources.get(fsPath);
         if (document) {
             const references = document.references(position);
             if (references) {
-                return references.map(x => ({...x, uri: URI.file(x.fsPath).toString()}));
+                if (params.context.includeDeclaration) {
+                    const definition = document.definition(position, { nameOnly: true });
+                    if (definition) {
+                        references.unshift(definition);
+                    }
+                }
+                return references.map(x => ({ ...x, uri: URI.file(x.fsPath).toString() }));
             }
         }
         return null;

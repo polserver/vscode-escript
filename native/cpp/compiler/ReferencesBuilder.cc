@@ -16,60 +16,6 @@ using namespace EscriptGrammar;
 namespace VSCodeEscript::CompilerExt
 {
 
-
-class VariableFinder : public NodeVisitor
-{
-public:
-  VariableFinder( std::shared_ptr<Pol::Bscript::Compiler::Variable> variable )
-      : variable( variable )
-  {
-  }
-
-  void visit_identifier( Identifier& node ) override
-  {
-    if ( node.variable == variable )
-    {
-      results.push_back( node.source_location );
-    }
-
-    visit_children( node );
-  };
-
-  std::vector<SourceLocation> results;
-
-  const std::shared_ptr<Pol::Bscript::Compiler::Variable> variable;
-};
-
-class UserFunctionFinder : public NodeVisitor
-{
-public:
-  UserFunctionFinder( ReferencesResult& results, UserFunction* user_function )
-      : results( results ), user_function( user_function )
-  {
-  }
-
-  void visit_function_call( FunctionCall& node ) override
-  {
-    if ( auto link = node.function_link )
-    {
-      if ( link->user_function() == user_function )
-      {
-        results.push_back( node.source_location );
-      }
-      // else if ( link->module_function_declaration() == user_function )
-      // {
-      //   results.push_back( node.source_location );
-      // }
-    }
-
-    visit_children( node );
-  };
-
-  ReferencesResult& results;
-
-  const UserFunction* user_function;
-};
-
 bool source_location_equal( const SourceLocation& a, const SourceLocation& b )
 {
   return a.range.start.line_number == b.range.start.line_number &&
@@ -78,6 +24,32 @@ bool source_location_equal( const SourceLocation& a, const SourceLocation& b )
          a.range.end.character_column == b.range.end.character_column &&
          a.source_file_identifier->pathname == b.source_file_identifier->pathname;
 }
+
+class GlobalVariableFinder : public NodeVisitor
+{
+public:
+  GlobalVariableFinder( ReferencesResult& results,
+                        std::shared_ptr<Pol::Bscript::Compiler::Variable> variable )
+      : results( results ), variable( variable )
+  {
+  }
+
+  void visit_identifier( Identifier& node ) override
+  {
+    if ( node.variable &&
+         source_location_equal( variable->source_location, node.variable->source_location ) )
+    {
+      results.push_back( node.source_location );
+    }
+
+    visit_children( node );
+  };
+
+  std::vector<SourceLocation>& results;
+
+  const std::shared_ptr<Pol::Bscript::Compiler::Variable> variable;
+};
+
 class GlobalUserFunctionFinder : public NodeVisitor
 {
 public:
@@ -97,8 +69,6 @@ public:
         {
           // We need to make a new location for only the method name, as FunctionCall source
           // location includes the arguments
-          // results.push_back( node.source_location );
-          // Position{}
 
           const auto& start = node.source_location.range.start;
           Range r{
@@ -107,20 +77,8 @@ public:
                                                                 node.method_name.length() ) } };
 
           results.push_back( SourceLocation( node.source_location.source_file_identifier, r ) );
-
-          // results.push_back(
-          //     SourceLocation( node.source_location.source_file_identifier,
-          //                     { { start.line_number, start.character_column },
-          //                       { start.line_number,
-          //                         static_cast<unsigned short>( start.character_column +
-          //                                                      node.method_name.length() ) } } )
-          //                                                      );
         }
       }
-      // else if ( link->module_function_declaration() == user_function )
-      // {
-      //   results.push_back( node.source_location );
-      // }
     }
 
     // for includess, the children of function calls are empty...?
@@ -138,6 +96,28 @@ public:
   const UserFunction* user_function;
 };
 
+class GlobalConstantFinder : public NodeVisitor
+{
+public:
+  GlobalConstantFinder( ReferencesResult& results, ConstDeclaration* const_decl )
+      : results( results ), const_decl( const_decl )
+  {
+  }
+
+  void visit_identifier( Identifier& node ) override
+  {
+    if ( !node.variable && node.name == const_decl->identifier )
+    {
+      results.push_back( node.source_location );
+    }
+
+    visit_children( node );
+  };
+
+  std::vector<SourceLocation>& results;
+
+  ConstDeclaration* const_decl;
+};
 
 ReferencesBuilder::ReferencesBuilder( CompilerWorkspace& workspace, LSPWorkspace* lsp_workspace,
                                       const Position& position )
@@ -151,19 +131,41 @@ std::optional<ReferencesResult> ReferencesBuilder::get_variable(
   auto ext = fs::path( variable->source_location.source_file_identifier->pathname ).extension();
   auto is_source = !ext.compare( ".src" );
 
+  ReferencesResult results;
   if ( is_source )
   {
-    VariableFinder foo( variable );
+    GlobalVariableFinder foo( results, variable );
     workspace.accept( foo );
-    return foo.results;
   }
   else
   {
-    // TODO check where this include file's variable is used in referenced includes _and_ all
-    // other srcs
+    GlobalVariableFinder foo( results, variable );
+    lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
+                                        { document->accept_visitor( foo ); } );
   }
+  return results;
+}
 
-  return std::nullopt;
+
+std::optional<ReferencesResult> ReferencesBuilder::get_constant(
+    Pol::Bscript::Compiler::ConstDeclaration* const_decl )
+{
+  auto ext = fs::path( const_decl->source_location.source_file_identifier->pathname ).extension();
+  auto is_source = !ext.compare( ".src" );
+
+  ReferencesResult results;
+  if ( is_source )
+  {
+    GlobalConstantFinder foo( results, const_decl );
+    workspace.accept( foo );
+  }
+  else
+  {
+    GlobalConstantFinder foo( results, const_decl );
+    lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
+                                        { document->accept_visitor( foo ); } );
+  }
+  return results;
 }
 
 std::optional<ReferencesResult> ReferencesBuilder::get_user_function( UserFunction* funct )
@@ -174,7 +176,7 @@ std::optional<ReferencesResult> ReferencesBuilder::get_user_function( UserFuncti
   ReferencesResult results;
   if ( is_source )
   {
-    UserFunctionFinder foo( results, funct );
+    GlobalUserFunctionFinder foo( results, funct );
     workspace.accept( foo );
   }
   else

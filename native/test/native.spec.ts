@@ -78,7 +78,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         diagnostics = document.diagnostics();
         expect(diagnostics).toHaveLength(0); // no diagnostics
 
-        expect(calls).toEqual(2);
+        expect(calls).toEqual(3);
     });
 
     it('Module compilation', () => {
@@ -100,7 +100,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
 
         // Done at textDocument/didOpen
         const pathname = 'basicio.em';
-        const document = new LSPDocument(workspace, pathname);
+        const document = workspace.getDocument(pathname);
 
         // Done at textDocument/didChange
         text = 'Print(anything);';
@@ -114,7 +114,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         diagnostics = document.diagnostics();
         expect(diagnostics).toHaveLength(1); // modules can't have statements
 
-        expect(calls).toEqual(2);
+        expect(calls).toEqual(3);
     });
 
     it('Can get dependents', () => {
@@ -137,7 +137,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
 
         workspace.open(dir);
 
-        const document = new LSPDocument(workspace, pathname);
+        const document = workspace.getDocument(pathname);
 
         document.analyze();
         const diagnostics = document.diagnostics();
@@ -845,11 +845,10 @@ describeLongTest('Actively typing sources', () => {
 });
 
 describe('References - SRC', () => {
-    const getReferences = (source: string, character: number, mocks: Record<string, string> = {}) => {
+    const getReferences = async (source: string, character: number, mocks: Record<string, string> = {}) => {
         const src = 'in-memory-file.src';
         const workspace = new LSPWorkspace({
             getContents(pathname) {
-                console.log(pathname);
                 if (pathname === src) {
                     return source;
                 } else if (basename(pathname) in mocks) {
@@ -859,6 +858,7 @@ describe('References - SRC', () => {
             }
         });
         workspace.open(dir);
+        await workspace.updateCache();
 
         const document = workspace.getDocument(src);
         document.analyze();
@@ -869,8 +869,8 @@ describe('References - SRC', () => {
         return document.references({ line: 1, character });
     };
 
-    it('Can get global variable across includes', () => {
-        const references = getReferences('include "testutil"; include "sysevent"; var globalInSource; globalInSource := 1; baz(); baz2();', 66, {
+    it('Can get global variable across includes', async () => {
+        const references = await getReferences('include "testutil"; include "sysevent"; var globalInSource; globalInSource := 1; baz(); baz2();', 66, {
             'testutil.inc': "function baz() foob; globalInSource; endfunction",
             'sysevent.inc': "function baz2() foob; globalInSource; endfunction",
         });
@@ -905,8 +905,8 @@ describe('References - SRC', () => {
         );
     });
 
-    it('Can get local varaibles', () => {
-        const references = getReferences('function bar() var foo := 1; if (foo) Print(foo + 3 * foo); endif endfunction bar();', 21);
+    it('Can get local variable', async () => {
+        const references = await getReferences('function bar() var foo := 1; if (foo) Print(foo + 3 * foo); endif endfunction bar();', 21);
         // console.log(inspect(references, undefined, Infinity))
         expect(references).toEqual([
             {
@@ -936,6 +936,25 @@ describe('References - SRC', () => {
         ]);
     });
 
+    it('Can get user functions', async () => {
+        const references = await getReferences('function bar() var foo := 1; if (foo) Print(foo + 3 * foo); endif endfunction if (bar()) bar(); endif', 10);
+        expect(references).toEqual([
+            {
+                range: {
+                    start: { line: 0, character: 82 },
+                    end: { line: 0, character: 87 }
+                },
+                fsPath: 'in-memory-file.src'
+            },
+            {
+                range: {
+                    start: { line: 0, character: 89 },
+                    end: { line: 0, character: 94 }
+                },
+                fsPath: 'in-memory-file.src'
+            }
+        ]);
+    });
 });
 
 describe('Workspace Cache', () => {
