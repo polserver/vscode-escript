@@ -79,6 +79,10 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
 endif()
 
+if(APPLE)
+  set(CMAKE_OSX_ARCHITECTURES x86_64;arm64)
+endif()
+
 if (NOT EXISTS "${BSCRIPT_LIB}")
   message("- will build libbscript")
   ExternalProject_Add(libbscript
