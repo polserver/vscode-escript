@@ -259,7 +259,7 @@ describe('Hover - SRC', () => {
 
     it('Can hover module function call', () => {
         const hover = getHover('print(1);', 3);
-        expect(hover).toEqual('(module function) Print(anything)');
+        expect(hover).toEqual("(module function) Print(anything, console_color := string-value(\"\"))");
     });
 
     it('Can hover struct init member', () => {
@@ -362,7 +362,7 @@ describe('Definition - SRC', () => {
             definition.fsPath = resolve(definition.fsPath);
         }
         expect(definition).toEqual({
-            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 18 } },
+            range: { start: { line: 9, character: 0 }, end: { line: 9, character: 37 } },
             fsPath
         });
     });
