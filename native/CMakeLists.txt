@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.9)
 cmake_policy(SET CMP0042 NEW)
 set (CMAKE_CXX_STANDARD 11)
 
+if(APPLE)
+  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+endif()
+
 include(ExternalProject)
 
 project (vscode-escript-native)
@@ -77,10 +81,6 @@ endif()
 if (MSVC)
   set(CMAKE_CXX_FLAGS_RELEASE "/MT")
   set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
-endif()
-
-if(APPLE)
-  set(CMAKE_OSX_ARCHITECTURES x86_64;arm64)
 endif()
 
 if (NOT EXISTS "${BSCRIPT_LIB}")
