@@ -46,16 +46,22 @@ export interface EscriptVscodeNative {
 	LSPDocument: LSPDocument;
 }
 
+const baseFilename = `vscode-escript-native.${process.platform}-${process.arch}.node`;
+
 const tries = [
-    [__dirname, '..', 'build', 'Debug', 'vscode-escript-native.node'],
-    [__dirname, '..', 'build', 'Release', 'vscode-escript-native.node'],
+	...(process.platform === 'darwin' ? [
+		[__dirname, '..', 'build', 'Debug', `vscode-escript-native.darwin-universal.node`],
+		[__dirname, '..', 'build', 'Release', `vscode-escript-native.darwin-universal.node`],
+	] : []),
+    [__dirname, '..', 'build', 'Debug', baseFilename],
+    [__dirname, '..', 'build', 'Release', baseFilename],
 ].map(segment => resolve(...segment));
 
 const filename = tries.find(filepath => existsSync(filepath));
 
 /* istanbul ignore next */
 if (!filename) {
-    throw new Error('Unable to locate vscode-escript-native.node');
+    throw new Error(`Unable to locate ${baseFilename}`);
 }
 
 export const native = require(filename) as EscriptVscodeNative;
