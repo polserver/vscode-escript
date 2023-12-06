@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.9)
 cmake_policy(SET CMP0042 NEW)
 set (CMAKE_CXX_STANDARD 11)
 
-if(APPLE AND DEFINED ENV{BUILD_OSX_UNIVERSAL_BINARY})
-  message("-- Building universal macOS binary")
+if(APPLE AND NOT DEFINED ENV{BUILD_OSX_SLIM_BINARY})
+  message("** Building universal macOS binary")
   set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
   set(BUILD_OSX_UNIVERSAL_BINARY TRUE)
   set(PIPED_OSX_ARCHITECTURES "arm64|x86_64") # For ExternalProject

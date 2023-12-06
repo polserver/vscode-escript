@@ -46,10 +46,6 @@ jobs:
           name: vscode-escript-native.win32-x64
           path: native/build/Release
 
-      - name: Display structure of downloaded files
-        run: ls -R
-        working-directory: native/build/Release
-
       - run: npx vsce package
 
       - name: Upload Extension Artifact
@@ -123,9 +119,7 @@ jobs:
         run: |
           echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
-      - run: BUILD_OSX_UNIVERSAL_BINARY=1 npm install
-
-      - run: npm run eslint
+      - run: npm install
 
       - run: npm test
 
@@ -134,3 +128,14 @@ jobs:
         with:
           name: vscode-escript-native.darwin-universal
           path: native/build/Release/vscode-escript-native.darwin-universal.node
+
+  lint:
+    name: Linter
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - run: npm install
+
+      - run: npm run eslint
