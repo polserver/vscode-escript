@@ -87,6 +87,8 @@ jobs:
 
       - run: npm install
 
+      - run: npm run eslint
+
       - run: npm test
 
       - name: Upload Extension Artifact
@@ -128,14 +130,3 @@ jobs:
         with:
           name: vscode-escript-native.darwin-universal
           path: native/build/Release/vscode-escript-native.darwin-universal.node
-
-  lint:
-    name: Linter
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - run: npm install
-
-      - run: npm run eslint
