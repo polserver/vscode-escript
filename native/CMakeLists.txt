@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.9)
 cmake_policy(SET CMP0042 NEW)
 set (CMAKE_CXX_STANDARD 11)
 
+if(APPLE AND NOT DEFINED ENV{BUILD_OSX_SLIM_BINARY})
+  message("** Building universal macOS binary")
+  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+  set(BUILD_OSX_UNIVERSAL_BINARY TRUE)
+  set(PIPED_OSX_ARCHITECTURES "arm64|x86_64") # For ExternalProject
+endif()
+
 include(ExternalProject)
 
 project (vscode-escript-native)
@@ -11,6 +18,25 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 file(GLOB_RECURSE SOURCE_FILES "cpp/*.cc" "cpp/*.h")
 add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${CMAKE_JS_SRC})
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
+
+if(APPLE)
+  set(PLATFORM darwin)
+elseif(WIN32)
+  set(PLATFORM win32)
+else()
+  set(PLATFORM linux)
+endif()
+
+if(BUILD_OSX_UNIVERSAL_BINARY)
+  set(ARCH universal)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm.*|ARM.*)")
+  set(ARCH arm64)
+else()
+  set(ARCH x64)
+endif()
+
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "vscode-escript-native.${PLATFORM}-${ARCH}")
+
 target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB})
 
 if(MSVC AND CMAKE_JS_NODELIB_DEF AND CMAKE_JS_NODELIB_TARGET)
@@ -79,12 +105,21 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
 endif()
 
-if (NOT EXISTS "${BSCRIPT_LIB}")
+set(SHOULD_BUILD_BSCRIPT FALSE)
+foreach(POLSERVER_LIB BSCRIPT_LIBS)
+  if (NOT EXISTS "${POLSERVER_LIB}")
+    set(SHOULD_BUILD_BSCRIPT TRUE)
+    break()
+  endif()
+endforeach()
+
+if (SHOULD_BUILD_BSCRIPT)
   message("- will build libbscript")
   ExternalProject_Add(libbscript
     SOURCE_DIR  ${BSCRIPT_SOURCE_DIR}
     PREFIX blinb
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DONLY_ECOMPILE=On
+    LIST_SEPARATOR |
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DONLY_ECOMPILE=On -DCMAKE_OSX_ARCHITECTURES=${PIPED_OSX_ARCHITECTURES}
 
     BINARY_DIR ${BSCRIPT_BUILD_DIR}
 

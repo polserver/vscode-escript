@@ -10,8 +10,9 @@ on:
 
 jobs:
   linux:
-    name: Test and Package [Linux]
+    name: Build and Test [Linux]; Package [Universal]
     runs-on: ubuntu-latest
+    needs: [windows, mac]
 
     steps:
       - uses: actions/checkout@v3
@@ -33,16 +34,38 @@ jobs:
 
       - run: npm test
 
+      - name: Download Temporary Artifact darwin-universal
+        uses: actions/download-artifact@v3
+        with:
+          name: vscode-escript-native.darwin-universal
+          path: native/build/Release
+
+      - name: Download Temporary Artifact win32-x64
+        uses: actions/download-artifact@v3
+        with:
+          name: vscode-escript-native.win32-x64
+          path: native/build/Release
+
       - run: npx vsce package
 
       - name: Upload Extension Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: escript-lsp-linux
+          name: escript-lsp-universal
           path: escript-lsp-*.vsix
 
+      - name: Delete Temporary Artifact darwin-universal
+        uses: geekyeggo/delete-artifact@v2
+        with:
+            name: vscode-escript-native.darwin-universal
+
+      - name: Delete Temporary Artifact win32-x64
+        uses: geekyeggo/delete-artifact@v2
+        with:
+            name: vscode-escript-native.win32-x64
+
   windows:
-    name: Test and Package [Windows]
+    name: Build and Test [Windows]
     runs-on: windows-latest
 
     steps:
@@ -64,18 +87,18 @@ jobs:
 
       - run: npm install
 
-      - run: npm test
+      - run: npm run eslint
 
-      - run: npx vsce package
+      - run: npm test
 
       - name: Upload Extension Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: escript-lsp-windows
-          path: escript-lsp-*.vsix
+          name: vscode-escript-native.win32-x64
+          path: native/build/Release/vscode-escript-native.win32-x64.node
 
   mac:
-    name: Test and Package [Mac]
+    name: Build and Test [Mac]
     runs-on: macos-latest
 
     steps:
@@ -100,14 +123,10 @@ jobs:
 
       - run: npm install
 
-      - run: npm run eslint
-
-      - run: npm test && echo npm run e2e
-
-      - run: npx vsce package
+      - run: npm test
 
       - name: Upload Extension Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: escript-lsp-osx
-          path: escript-lsp-*.vsix
+          name: vscode-escript-native.darwin-universal
+          path: native/build/Release/vscode-escript-native.darwin-universal.node
