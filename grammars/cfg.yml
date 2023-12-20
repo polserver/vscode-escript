@@ -12,6 +12,8 @@ patterns:
         name: punctuation.connector.cfgpol
       '3':
         name: string.unquoted.cfgpol
+  - match: ':([^:]*):.*'
+    name: variable.other.cfgpol
   - match: '(\/\/|#).*?($\n?|(?=\?&gt;))'
     name: comment.line.double-slash.cfgpol
   - match: '^(?!\s|{|}).+'
@@ -30,5 +32,3 @@ patterns:
     name: constant.language.cfgpol
   - match: '\b[^\d\W]+\b|\b\d+[^\d\W]+\b|\b[^\d\W]+\d+\b|[^\w\s_]+'
     name: string.value.cfgpol
-  - match: ':([^:]*):.*'
-    name: storage.modifier.package.cfgpol
