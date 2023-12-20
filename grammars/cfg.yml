@@ -29,6 +29,7 @@ repository:
 
   child-elem-begin:
     patterns:
+      - include: '#comment'
       - begin: (\w+)\s*(=)?\s*
         end: $
         beginCaptures:
