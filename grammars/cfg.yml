@@ -1,0 +1,27 @@
+
+scopeName: source.cfgpol
+uuid: e4a21776-f8a6-49c2-8484-286064e65964
+fileTypes:
+  - cfg
+name: CFG Penultima
+patterns:
+  - match: '(\/\/|#).*?($\n?|(?=\?&gt;))'
+    name: comment.line.double-slash.cfgpol
+  - match: '^(?!\s|{|}).+'
+    name: entity.name.namespace.cfgpol
+  - comment: Colorize any integer hexadecimal number
+    match: '0[xX][0-9a-fA-F]+'
+    name: constant.numeric.integer.hexadecimal.cfgpol
+  - comment: Colorize any numeric number and dice format
+    match: '\b(\d+|(\d+)d(\d+))\b'
+    name: constant.numeric.integer.decimal.cfgpol
+  - match: '\{|\}'
+    name: punctuation.bracket.cfgpol
+  - match: '(^\s*)([\w]+)([^\s]+)'
+    name: keyword.key.cfgpol
+  - match: '\b(:?true|false)\b'
+    name: constant.language.cfgpol
+  - match: '\b[^\d\W]+\b|\b\d+[^\d\W]+\b|\b[^\d\W]+\d+\b|[^\w\s_]+'
+    name: string.value.cfgpol
+  - match: ':([^:]*):.*'
+    name: storage.modifier.package.cfgpol
