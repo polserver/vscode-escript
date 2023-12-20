@@ -36,7 +36,17 @@
 					".inc",
 					".em"
 				],
-				"configuration": "./language-configuration.json"
+				"configuration": "./language-configurations/escript.json"
+			},
+			{
+				"id": "escriptcfg",
+				"aliases": [
+					"escriptcfg"
+				],
+				"extensions": [
+					".cfg"
+				],
+				"configuration": "./language-configurations/cfg.json"
 			}
 		],
 		"grammars": [
@@ -44,6 +54,11 @@
 				"language": "escript",
 				"scopeName": "source.escript",
 				"path": "./grammars/escript.json"
+			},
+			{
+				"language": "escriptcfg",
+				"scopeName": "source.escriptcfg",
+				"path": "./grammars/cfg.json"
 			}
 		],
 		"breakpoints": [
@@ -162,7 +177,7 @@
 		"clean": "rimraf client/out server/out grammars/escript.json",
 		"e2e": "cd client && npm test",
 		"test": "jest --coverage",
-		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json",
+		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json && js-yaml grammars/cfg.yml > grammars/cfg.json",
 		"eslint": "eslint \"**/*.{js,ts}\""
 	},
 	"dependencies": {
