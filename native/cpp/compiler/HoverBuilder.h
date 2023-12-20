@@ -3,6 +3,12 @@
 
 #include "SemanticContextBuilder.h"
 
+namespace Pol::Bscript::Compiler
+{
+class SourceLocation;
+class Node;
+}  // namespace Pol::Bscript::Compiler
+
 namespace VSCodeEscript::CompilerExt
 {
 class HoverBuilder : public SemanticContextBuilder<std::string>
@@ -33,6 +39,10 @@ public:
   virtual std::optional<std::string> get_program_parameter( const std::string& param ) override;
   virtual std::optional<std::string> get_member( const std::string& name ) override;
   virtual std::optional<std::string> get_method( const std::string& name ) override;
+
+private:
+  void append_comment( Pol::Bscript::Compiler::Node* node, std::string& result );
+  void append_comment( const Pol::Bscript::Compiler::SourceLocation& loc, std::string& result );
 };
 
 }  // namespace VSCodeEscript::CompilerExt
