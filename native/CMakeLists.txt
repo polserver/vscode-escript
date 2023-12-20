@@ -106,15 +106,15 @@ if (MSVC)
 endif()
 
 set(SHOULD_BUILD_BSCRIPT FALSE)
-foreach(POLSERVER_LIB BSCRIPT_LIBS)
+foreach(POLSERVER_LIB ${BSCRIPT_LIBS})
   if (NOT EXISTS "${POLSERVER_LIB}")
+    message("- will build bscript: ${POLSERVER_LIB} is missing")
     set(SHOULD_BUILD_BSCRIPT TRUE)
     break()
   endif()
 endforeach()
 
 if (SHOULD_BUILD_BSCRIPT)
-  message("- will build libbscript")
   ExternalProject_Add(libbscript
     SOURCE_DIR  ${BSCRIPT_SOURCE_DIR}
     PREFIX blinb
