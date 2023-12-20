@@ -29,7 +29,7 @@ jobs:
           path: native/polserver
           key: linux-polserver-full-${{ steps.get-ref.outputs.ref }}
 
-      - run: npm install
+      - run: npm install && npm run build
 
       - run: npm test
 
@@ -60,7 +60,7 @@ jobs:
           path: native/polserver
           key: windows-polserver-full-${{ steps.get-ref.outputs.ref }}
 
-      - run: npm install
+      - run: npm install && npm run build
 
       - run: npm run eslint
 
@@ -96,7 +96,7 @@ jobs:
         run: |
           echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
-      - run: npm install
+      - run: npm install && npm run build
 
       - run: npm test
 

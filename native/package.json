@@ -30,11 +30,10 @@
 		]
 	},
 	"scripts": {
-		"install": "cmake-js rebuild && tsc",
-		"rebuild": "cmake-js rebuild",
+		"build": "cmake-js build && tsc",
+		"rebuild": "cmake-js rebuild && tsc",
 		"clean": "cmake-js clean",
-		"build": "cmake-js build -D",
-		"build-debug": "cmake-js build -B RelWithDebInfo",
-		"rebuild-debug": "cmake-js rebuild -B RelWithDebInfo"
+		"build-debug": "cmake-js build -B RelWithDebInfo && tsc",
+		"rebuild-debug": "cmake-js rebuild -B RelWithDebInfo && tsc"
 	}
 }
