@@ -1,34 +1,61 @@
-name: CFG Penultima
-scopeName: source.cfgpol
+scopeName: source.escriptcfg
+uuid: e4a21776-f8a6-49c2-8484-286064e65964
 fileTypes:
   - cfg
-uuid: e4a21776-f8a6-49c2-8484-286064e65964
+name: CFG Penultima
+
 patterns:
-  - match: '(\b[\w]+\b)(=)(.+)'
-    captures:
-      '1':
-        name: keyword.key.cfgpol
-      '2':
-        name: punctuation.connector.cfgpol
-      '3':
-        name: string.unquoted.cfgpol
-  - match: ':([^:]*):.*'
-    name: variable.other.cfgpol
-  - match: '(\/\/|#).*?($\n?|(?=\?&gt;))'
-    name: comment.line.double-slash.cfgpol
-  - match: '^(?!\s|{|}).+'
-    name: entity.name.namespace.cfgpol
-  - comment: Colorize any integer hexadecimal number
-    match: '0[xX][0-9a-fA-F]+'
-    name: constant.numeric.integer.hexadecimal.cfgpol
-  - comment: Colorize any numeric number and dice format
-    match: '\b(\d+|(\d+)d(\d+))\b'
-    name: constant.numeric.integer.decimal.cfgpol
-  - match: '\{|\}'
-    name: punctuation.bracket.cfgpol
-  - match: '(^\s*)([\w]+)([^\s]+)'
-    name: keyword.key.cfgpol
-  - match: '\b(:?true|false)\b'
-    name: constant.language.cfgpol
-  - match: '\b[^\d\W]+\b|\b\d+[^\d\W]+\b|\b[^\d\W]+\d+\b|[^\w\s_]+'
-    name: string.value.cfgpol
+  - include: '#elem-begin'
+  - include: '#bracketed-section'
+  - include: '#comment'
+
+repository:
+  bracketed-section:
+    patterns:
+      - begin: (\{)
+        end: ^\s*(\})\s*((?:#|\/\/).*)?
+        beginCaptures:
+          '1': { name: punctuation.curlybrace.open.escriptcfg }
+        endCaptures:
+          '1': { name: punctuation.curlybrace.close.escriptcfg }
+          '2': { name: comment.line.escriptcfg }
+        patterns:
+          - include: '#child-elem-begin'
+
+  comment:
+    patterns:
+      - match: '(\/\/|#).*?($\n?|(?=\?&gt;))'
+        name: comment.line.double-slash.escriptcfg
+
+  child-elem-begin:
+    patterns:
+      - begin: (\w+)\s*(=)?\s*
+        end: $
+        beginCaptures:
+          '1': { name: entity.name.tag.escriptcfg }
+          '2': { name: keyword.operator.assignment.escriptcfg }
+        patterns:
+          - include: '#identifier'
+
+  elem-begin:
+    patterns:
+      - begin: (\w+)\s*(=)?\s*
+        end: $
+        beginCaptures:
+          '1': { name: entity.name.type.escriptcfg }
+          '2': { name: keyword.operator.assignment.escriptcfg }
+        patterns:
+          - include: '#identifier'
+
+  identifier:
+    patterns:
+      - comment: Colorize any integer hexadecimal number
+        match: '0[xX][0-9a-fA-F]+\s*$'
+        name: constant.numeric.integer.hexadecimal.escriptcfg
+      - comment: Colorize any numeric number and dice format
+        match: '\b(\d+|(\d+)d(\d+))\b\s*(#.*)?$'
+        name: constant.numeric.integer.decimal.escriptcfg
+      - match: ':([^:]*):.*'
+        name: storage.modifier.package.escriptcfg
+      - match: .+$
+        name: string.value.escriptcfg

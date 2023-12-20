@@ -36,17 +36,17 @@
 					".inc",
 					".em"
 				],
-				"configuration": "./language-configuration.json"
+				"configuration": "./language-configurations/escript.json"
 			},
 			{
-				"id": "cfgpol",
+				"id": "escriptcfg",
 				"aliases": [
-					"cfgpol"
+					"escriptcfg"
 				],
 				"extensions": [
 					".cfg"
 				],
-				"configuration": "./language-configuration.json"
+				"configuration": "./language-configurations/cfg.json"
 			}
 		],
 		"grammars": [
@@ -56,8 +56,8 @@
 				"path": "./grammars/escript.json"
 			},
 			{
-				"language": "cfgpol",
-				"scopeName": "source.cfgpol",
+				"language": "escriptcfg",
+				"scopeName": "source.escriptcfg",
 				"path": "./grammars/cfg.json"
 			}
 		],
