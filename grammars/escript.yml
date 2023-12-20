@@ -9,6 +9,7 @@ patterns:
 
   # This will... probably highlight comments inside strings?
   - include: '#comment'
+  - include: '#constantVariables'
 repository:
   compilationUnit:
     patterns:
@@ -125,6 +126,9 @@ repository:
   #           name: keyword.control.export.escript
   #     - name: storage.type.function.escript
   #       match: \bendfunction\b
+  constantVariables:
+    - name: constant.language.escript
+      match: "\\b[A-Z0-9_]+\\b"
   comment:
     patterns:
       - name: comment.block.escript
