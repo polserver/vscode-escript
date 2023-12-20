@@ -1,10 +1,17 @@
-
+name: CFG Penultima
 scopeName: source.cfgpol
-uuid: e4a21776-f8a6-49c2-8484-286064e65964
 fileTypes:
   - cfg
-name: CFG Penultima
+uuid: e4a21776-f8a6-49c2-8484-286064e65964
 patterns:
+  - match: '(\b[\w]+\b)(=)(.+)'
+    captures:
+      '1':
+        name: keyword.key.cfgpol
+      '2':
+        name: punctuation.connector.cfgpol
+      '3':
+        name: string.unquoted.cfgpol
   - match: '(\/\/|#).*?($\n?|(?=\?&gt;))'
     name: comment.line.double-slash.cfgpol
   - match: '^(?!\s|{|}).+'
