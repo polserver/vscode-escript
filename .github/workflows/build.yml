@@ -112,6 +112,23 @@ jobs:
     needs: [windows, mac, linux]
 
     steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Get polserver HEAD ref
+        id: get-ref
+        run: |
+          echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
+
+      - name: Cache polserver
+        uses: actions/cache@v3
+        with:
+          path: native/polserver
+          key: linux-polserver-full-${{ steps.get-ref.outputs.ref }}
+
+      - run: npm install
+
       - name: Download Temporary Artifact darwin-universal
         uses: actions/download-artifact@v3
         with:
