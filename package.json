@@ -170,10 +170,10 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run clean && npm run compile",
+		"vscode:prepublish": "npm run clean && npm run build",
 		"postinstall": "cd client && npm install && cd ../native && npm install && cd ../server && npm install",
 		"watch": "npm run grammar && tsc -b -w",
-		"compile": "npm run grammar && tsc -b",
+		"build": "npm run grammar && tsc -b && cd native && npm run build",
 		"clean": "rimraf client/out server/out grammars/escript.json",
 		"e2e": "cd client && npm test",
 		"test": "jest --coverage",
