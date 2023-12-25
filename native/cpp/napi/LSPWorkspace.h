@@ -4,6 +4,7 @@
 #include <map>
 #include <napi.h>
 #include <vector>
+#include <filesystem>
 
 #include "bscript/compiler/Profile.h"
 #include "bscript/compiler/file/SourceFileCache.h"
@@ -24,13 +25,16 @@ public:
   LSPWorkspace( const Napi::CallbackInfo& info );
   static Napi::Function GetClass( Napi::Env );
 
-  Napi::Value Read( const Napi::CallbackInfo& );
+  Napi::Value Open( const Napi::CallbackInfo& );
+  Napi::Value GetConfigValue( const Napi::CallbackInfo& );
+  Napi::Value GetWorkspaceRoot( const Napi::CallbackInfo& );
 
   std::string get_contents( const std::string& pathname ) const override;
 
   std::unique_ptr<Pol::Bscript::Compiler::Compiler> make_compiler();
 
 private:
+  std::filesystem::path _workspaceRoot;
   std::map<std::string, LSPDocument> _cache;
   Pol::Bscript::Compiler::Profile profile;
   Pol::Bscript::Compiler::SourceFileCache em_parse_tree_cache;

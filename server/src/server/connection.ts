@@ -3,28 +3,36 @@ import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { promises, readFileSync } from 'fs';
 import access = promises.access;
+import mkdir = promises.mkdir;
+
 import { join } from 'path';
 import { F_OK } from 'constants';
+import DocsDownloader from '../workspace/DocsDownloader';
 
 // vsce does not support symlinks
 // import { escript } from 'vscode-escript-native';
 const { native } = require('../../../native/out/index') as typeof import('vscode-escript-native');
 const { LSPWorkspace, LSPDocument } = native;
 
+type LSPServerOptions = {
+    storageFsPath: string;
+}
+
 export class LSPServer {
     private connection = createConnection(ProposedFeatures.all);
     private documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
     private workspace: typeof LSPWorkspace;
+    public static options: Readonly<LSPServerOptions>;
     private sources: Map<string, typeof LSPDocument> = new Map();
 
     public hasDiagnosticRelatedInformationCapability: boolean = false;
 
-    private static _instance: LSPServer | undefined;
-    public static get instance(): LSPServer {
-        return LSPServer._instance ?? (LSPServer._instance = new LSPServer());
-    }
 
-    private constructor() {
+    public constructor(options: LSPServerOptions) {
+        LSPServer.options = Object.freeze({...options});
+
+        console.log("Creating LSPServer with options", options);
+
         this.connection.onInitialize(this.onInitialize);
         this.documents.onDidOpen(this.onDidOpen);
         this.documents.onDidChangeContent(this.onDidChangeContent);
@@ -63,7 +71,7 @@ export class LSPServer {
             try {
                 await access(polCfg, F_OK);
                 await access(ecompileCfg, F_OK);
-                this.workspace.read(ecompileCfg);
+                this.workspace.open(fsPath);
                 console.log(`Successfully read ${ecompileCfg}`);
                 found = true;
             } catch (e) {
@@ -71,8 +79,19 @@ export class LSPServer {
             }
         }
 
-        if (!found) {
+        if (found) {
+            const downloader = new DocsDownloader(this.workspace);
+            downloader.start().catch(e => {
+                console.warn(`Could not download polserver documentation: ${e?.message ?? e}`)
+            });
+        } else {
             console.log(`Could not find pol.cfg;scripts/ecompile.cfg in [${workspaceFolders.map(x => x.uri).join(', ')}]`);
+        }
+
+        try {
+            await mkdir(LSPServer.options.storageFsPath, { recursive: true });
+        } catch (ex) {
+            console.error(`Could not create storage directory '${LSPServer.options.storageFsPath}': ${ex} `);
         }
 
         this.hasDiagnosticRelatedInformationCapability = Boolean(params.capabilities.textDocument?.publishDiagnostics?.relatedInformation);
@@ -135,7 +154,7 @@ export class LSPServer {
                 diagnostics
             });
 
-            for (const [ dependeePathname, dependeeDoc ] of this.sources.entries()) {
+            for (const [dependeePathname, dependeeDoc] of this.sources.entries()) {
                 if (dependeePathname !== fsPath && dependeeDoc.dependents().includes(fsPath)) {
                     const uri = URI.file(dependeePathname).toString();
                     dependeeDoc.analyze();

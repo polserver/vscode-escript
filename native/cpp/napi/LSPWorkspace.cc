@@ -1,5 +1,6 @@
 #include "LSPWorkspace.h"
 #include "LSPDocument.h"
+
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
@@ -7,7 +8,7 @@
 #include "bscript/compilercfg.h"
 #include "plib/pkg.h"
 #include "plib/systemstate.h"
-#include <filesystem>
+
 #include <napi.h>
 
 using namespace Pol::Bscript;
@@ -17,6 +18,7 @@ namespace VSCodeEscript
 LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
     : ObjectWrap( info ),
       SourceFileLoader(),
+      _workspaceRoot( "" ),
       em_parse_tree_cache( *this, profile ),
       inc_parse_tree_cache( *this, profile )
 {
@@ -36,18 +38,23 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
     Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
         .ThrowAsJavaScriptException();
   }
-
-  GetContents = Napi::Persistent( callback.As<Napi::Function>() );
+  else
+  {
+    GetContents = Napi::Persistent( callback.As<Napi::Function>() );
+  }
 }
 
 Napi::Function LSPWorkspace::GetClass( Napi::Env env )
 {
-  return DefineClass( env, "LSPWorkspace",
-                      { LSPWorkspace::InstanceMethod( "read", &LSPWorkspace::Read ) } );
+  return DefineClass(
+      env, "LSPWorkspace",
+      { LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
+        LSPWorkspace::InstanceMethod( "getConfigValue", &LSPWorkspace::GetConfigValue ),
+        LSPWorkspace::InstanceAccessor( "workspaceRoot", &LSPWorkspace::GetWorkspaceRoot,
+                                        nullptr ) } );
 }
 
-
-Napi::Value LSPWorkspace::Read( const Napi::CallbackInfo& info )
+Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
 
@@ -57,10 +64,12 @@ Napi::Value LSPWorkspace::Read( const Napi::CallbackInfo& info )
         .ThrowAsJavaScriptException();
   }
 
-  auto cfg = info[0].As<Napi::String>();
+  _workspaceRoot = std::filesystem::path( info[0].As<Napi::String>() );
+  std::string cfg( _workspaceRoot / "scripts" / "ecompile.cfg" );
+
   try
   {
-    compilercfg.Read( cfg.As<Napi::String>().Utf8Value() );
+    compilercfg.Read( cfg );
 
     Pol::Plib::systemstate.packages.clear();
     Pol::Plib::systemstate.packages_byname.clear();
@@ -75,10 +84,12 @@ Napi::Value LSPWorkspace::Read( const Napi::CallbackInfo& info )
   }
   catch ( const std::exception& ex )
   {
+    _workspaceRoot = "";
     Napi::Error::New( env, ex.what() ).ThrowAsJavaScriptException();
   }
   catch ( ... )
   {
+    _workspaceRoot = "";
     Napi::Error::New( env, "Unknown Error" ).ThrowAsJavaScriptException();
   }
 
@@ -99,5 +110,45 @@ std::unique_ptr<Compiler::Compiler> LSPWorkspace::make_compiler()
 {
   return std::make_unique<Compiler::Compiler>( *this, em_parse_tree_cache, inc_parse_tree_cache,
                                                profile );
+}
+
+Napi::Value LSPWorkspace::GetWorkspaceRoot( const Napi::CallbackInfo& info )
+{
+  return Napi::String::New( info.Env(), _workspaceRoot.generic_u8string() );
+}
+
+Napi::Value LSPWorkspace::GetConfigValue( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsString() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  auto key = info[0].As<Napi::String>().Utf8Value();
+  if ( key == "PackageRoot" )
+  {
+    auto values = Napi::Array::New( env );
+    auto push = values.Get( "push" ).As<Napi::Function>();
+    for ( auto const& packageRoot : compilercfg.PackageRoot )
+    {
+      push.Call( values, { Napi::String::New( env, packageRoot ) } );
+    }
+    return values;
+  }
+  if ( key == "IncludeDirectory" )
+    return Napi::String::New( env, compilercfg.IncludeDirectory );
+
+  if ( key == "ModuleDirectory" )
+    return Napi::String::New( env, compilercfg.ModuleDirectory );
+
+  if ( key == "PolScriptRoot" )
+    return Napi::String::New( env, compilercfg.PolScriptRoot );
+
+  Napi::Error::New( env, "Unknown key: " + key ).ThrowAsJavaScriptException();
+
+  return Napi::Value();
 }
 }  // namespace VSCodeEscript

@@ -1,3 +1,22 @@
 import { LSPServer } from './server/connection';
 
-LSPServer.instance.listen();
+import { parseArgs } from 'node:util';
+
+import { join } from 'path';
+import { URI } from 'vscode-uri';
+
+const { values: { storageUri = join(process.cwd(), '.escript-lsp') } } = parseArgs({
+    args: process.argv.slice(2),
+    strict: false,
+    options: {
+        'storageUri': {
+            type: 'string',
+        }
+    }
+});
+
+const options = {
+    storageFsPath: URI.parse(String(storageUri)).fsPath
+};
+
+new LSPServer(options).listen();
