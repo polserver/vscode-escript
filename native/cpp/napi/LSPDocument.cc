@@ -203,10 +203,10 @@ Napi::Value LSPDocument::Hover( const Napi::CallbackInfo& info )
         static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
 
     CompilerExt::HoverBuilder finder( *compiler_workspace, pos );
-    auto hover = finder.context();
-    if ( hover.has_value() )
+    auto result = finder.context();
+    if ( result.has_value() )
     {
-      return Napi::String::New( env, hover.value() );
+      return Napi::String::New( env, result.value().hover );
     }
   }
   return env.Undefined();
