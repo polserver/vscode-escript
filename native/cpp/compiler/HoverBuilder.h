@@ -9,6 +9,11 @@ class SourceLocation;
 class Node;
 }  // namespace Pol::Bscript::Compiler
 
+namespace VSCodeEscript
+{
+class LSPWorkspace;
+}
+
 namespace VSCodeEscript::CompilerExt
 {
 
@@ -35,7 +40,7 @@ struct HoverResult
 class HoverBuilder : public SemanticContextBuilder<HoverResult>
 {
 public:
-  HoverBuilder( Pol::Bscript::Compiler::CompilerWorkspace&,
+  HoverBuilder( VSCodeEscript::LSPWorkspace*, Pol::Bscript::Compiler::CompilerWorkspace&,
                 const Pol::Bscript::Compiler::Position& position );
 
   ~HoverBuilder() override = default;
@@ -65,6 +70,8 @@ private:
   HoverResult& append_comment( Pol::Bscript::Compiler::Node* node, HoverResult& result );
   HoverResult& append_comment( const Pol::Bscript::Compiler::SourceLocation& loc,
                                HoverResult& result );
+
+  VSCodeEscript::LSPWorkspace* _lsp_workspace;
 };
 
 }  // namespace VSCodeEscript::CompilerExt

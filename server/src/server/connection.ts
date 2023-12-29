@@ -24,12 +24,13 @@ export class LSPServer {
     private workspace: typeof LSPWorkspace;
     public static options: Readonly<LSPServerOptions>;
     private sources: Map<string, typeof LSPDocument> = new Map();
+    private downloader: DocsDownloader;
 
     public hasDiagnosticRelatedInformationCapability: boolean = false;
 
 
     public constructor(options: LSPServerOptions) {
-        LSPServer.options = Object.freeze({...options});
+        LSPServer.options = Object.freeze({ ...options });
 
         console.log("Creating LSPServer with options", options);
 
@@ -43,6 +44,7 @@ export class LSPServer {
         this.connection.onCompletion(this.onCompletion);
         this.connection.onSignatureHelp(this.onSignatureHelp);
         this.documents.listen(this.connection);
+        this.downloader = new DocsDownloader();
         this.workspace = new LSPWorkspace({
             getContents: (pathname) => {
                 const uri = URI.file(pathname).toString();
@@ -51,7 +53,8 @@ export class LSPServer {
                     return text;
                 }
                 return readFileSync(pathname, 'utf-8');
-            }
+            },
+            getXmlDocPath: this.downloader.getXmlDocPath.bind(this.downloader)
         });
     }
 
@@ -80,8 +83,7 @@ export class LSPServer {
         }
 
         if (found) {
-            const downloader = new DocsDownloader(this.workspace);
-            downloader.start().catch(e => {
+            this.downloader.start(this.workspace).catch(e => {
                 console.warn(`Could not download polserver documentation: ${e?.message ?? e}`)
             });
         } else {
@@ -205,9 +207,8 @@ export class LSPServer {
         if (document) {
             const hover = document.hover(position);
             if (hover) {
-                const value = '```\n' + hover + '\n```';
                 const contents: MarkupContent = {
-                    value,
+                    value: hover,
                     kind: 'markdown'
                 };
 

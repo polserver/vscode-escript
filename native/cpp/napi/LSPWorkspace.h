@@ -1,10 +1,11 @@
 #pragma once
 
 
+#include <filesystem>
 #include <map>
 #include <napi.h>
+#include <optional>
 #include <vector>
-#include <filesystem>
 
 #include "bscript/compiler/Profile.h"
 #include "bscript/compiler/file/SourceFileCache.h"
@@ -31,6 +32,8 @@ public:
 
   std::string get_contents( const std::string& pathname ) const override;
 
+  std::optional<std::string> get_xml_doc_path( const std::string& moduleEmFile ) const;
+
   std::unique_ptr<Pol::Bscript::Compiler::Compiler> make_compiler();
 
 private:
@@ -40,5 +43,6 @@ private:
   Pol::Bscript::Compiler::SourceFileCache em_parse_tree_cache;
   Pol::Bscript::Compiler::SourceFileCache inc_parse_tree_cache;
   Napi::FunctionReference GetContents;
+  Napi::FunctionReference GetXMLDocPath;
 };
 }  // namespace VSCodeEscript

@@ -202,7 +202,8 @@ Napi::Value LSPDocument::Hover( const Napi::CallbackInfo& info )
         static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
         static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
 
-    CompilerExt::HoverBuilder finder( *compiler_workspace, pos );
+    auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
+    CompilerExt::HoverBuilder finder( lsp_workspace, *compiler_workspace, pos );
     auto result = finder.context();
     if ( result.has_value() )
     {

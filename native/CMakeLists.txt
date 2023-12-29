@@ -74,6 +74,7 @@ if (WIN32)
     "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/plib.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/clib.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/format.lib"
+    "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/tinyxml.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/escriptgrammarlib.lib"
     "${BSCRIPT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/stackwalk.lib"
     "${BSCRIPT_SOURCE_DIR}/lib/antlr/install/lib/${ANTLR_LIB}"
@@ -92,6 +93,7 @@ else()
     "${BSCRIPT_SOURCE_DIR}/bin/libplib.a"
     "${BSCRIPT_SOURCE_DIR}/bin/libclib.a"
     "${BSCRIPT_SOURCE_DIR}/bin/libformat.a"
+    "${BSCRIPT_SOURCE_DIR}/bin/libtinyxml.a"
     "${BSCRIPT_SOURCE_DIR}/bin/libescriptgrammarlib.a"
     "${BSCRIPT_SOURCE_DIR}/lib/antlr/install/lib/libantlr4-runtime.a"
   )
@@ -156,5 +158,9 @@ if(MSVC)
         $<$<CONFIG:Release>:/MT> #--|
     )
 endif()
+
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+  TIXML_USE_STL
+)
 
 add_definitions(-DNAPI_VERSION=5)

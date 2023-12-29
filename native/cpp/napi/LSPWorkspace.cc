@@ -9,7 +9,6 @@
 #include "plib/pkg.h"
 #include "plib/systemstate.h"
 
-#include <napi.h>
 
 using namespace Pol::Bscript;
 
@@ -26,21 +25,28 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
 
   if ( info.Length() < 1 || !info[0].IsObject() )
   {
-    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments: arguments[0] is not an object" ) )
         .ThrowAsJavaScriptException();
   }
 
   auto config = info[0].As<Napi::Object>();
-  auto callback = config.Get( "getContents" );
+  auto getContents_cb = config.Get( "getContents" );
+  auto getXmlDocPath_cb = config.Get( "getXmlDocPath" );
 
-  if ( !callback.IsFunction() )
+  if ( !getContents_cb.IsFunction() )
   {
-    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments: getContents is not a function" ) )
+        .ThrowAsJavaScriptException();
+  }
+  else if ( !getXmlDocPath_cb.IsFunction() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments: getXmlDocPath is not a function" ) )
         .ThrowAsJavaScriptException();
   }
   else
   {
-    GetContents = Napi::Persistent( callback.As<Napi::Function>() );
+    GetContents = Napi::Persistent( getContents_cb.As<Napi::Function>() );
+    GetXMLDocPath = Napi::Persistent( getXmlDocPath_cb.As<Napi::Function>() );
   }
 }
 
@@ -105,6 +111,19 @@ std::string LSPWorkspace::get_contents( const std::string& pathname ) const
   }
   return value.As<Napi::String>().Utf8Value();
 }
+
+std::optional<std::string> LSPWorkspace::get_xml_doc_path( const std::string& moduleEmFile ) const
+{
+  auto value = GetXMLDocPath.Call( Value(), { Napi::String::New( Env(), moduleEmFile ) } );
+
+  if ( !value.IsString() )
+  {
+    return std::nullopt;
+  }
+
+  return value.As<Napi::String>().Utf8Value();
+}
+
 
 std::unique_ptr<Compiler::Compiler> LSPWorkspace::make_compiler()
 {
