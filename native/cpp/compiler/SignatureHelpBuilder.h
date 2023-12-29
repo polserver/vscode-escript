@@ -9,19 +9,29 @@
 #include <tuple>
 #include <vector>
 
+namespace VSCodeEscript
+{
+class LSPWorkspace;
+}
 namespace VSCodeEscript::CompilerExt
 {
+struct SignatureHelpParameter
+{
+  size_t start;
+  size_t end;
+  std::string documentation;
+};
 struct SignatureHelp
 {
   const std::string label;
-  const std::vector<std::tuple<size_t, size_t>> parameters;
+  const std::vector<SignatureHelpParameter> parameters;
   const size_t active_parameter;
 };
 
 class SignatureHelpBuilder
 {
 public:
-  SignatureHelpBuilder( Pol::Bscript::Compiler::CompilerWorkspace&,
+  SignatureHelpBuilder( LSPWorkspace* lsp_workspace, Pol::Bscript::Compiler::CompilerWorkspace&,
                         const Pol::Bscript::Compiler::Position& position );
 
   std::optional<SignatureHelp> context();
@@ -29,6 +39,7 @@ public:
 protected:
   Pol::Bscript::Compiler::CompilerWorkspace& workspace;
   Pol::Bscript::Compiler::Position position;
+  LSPWorkspace* _lsp_workspace;
 };
 
 }  // namespace VSCodeEscript::CompilerExt

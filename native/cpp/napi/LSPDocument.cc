@@ -331,7 +331,8 @@ Napi::Value LSPDocument::SignatureHelp( const Napi::CallbackInfo& info )
         static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
         static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() - 1 ) };
 
-    CompilerExt::SignatureHelpBuilder finder( *compiler_workspace, pos );
+    auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
+    CompilerExt::SignatureHelpBuilder finder( lsp_workspace, *compiler_workspace, pos );
     auto signatureHelp = finder.context();
     if ( signatureHelp.has_value() )
     {
@@ -351,19 +352,24 @@ Napi::Value LSPDocument::SignatureHelp( const Napi::CallbackInfo& info )
 
       const auto& parameters = signatureHelp->parameters;
 
-      std::for_each(
-          parameters.begin(), parameters.end(),
-          [&]( const auto& parameter )
-          {
-            auto signatureParameter = Napi::Object::New( env );
-            auto signatureLabel = Napi::Array::New( env );
+      std::for_each( parameters.begin(), parameters.end(),
+                     [&]( const auto& parameter )
+                     {
+                       auto signatureParameter = Napi::Object::New( env );
+                       auto signatureLabel = Napi::Array::New( env );
+                       auto signatureDoc = Napi::Object::New( env );
 
-            signatureParameter["label"] = signatureLabel;
+                       signatureDoc["kind"] = "markdown";
+                       signatureDoc["value"] = parameter.documentation;
 
-            push.Call( signatureLabel, { Napi::Number::New( env, std::get<0>( parameter ) ) } );
-            push.Call( signatureLabel, { Napi::Number::New( env, std::get<1>( parameter ) ) } );
-            push.Call( signatureParameters, { signatureParameter } );
-          } );
+                       signatureParameter["label"] = signatureLabel;
+                       signatureParameter["documentation"] = signatureDoc;
+
+                       push.Call( signatureLabel,
+                                  { Napi::Number::New( env, ( parameter.start ) ) } );
+                       push.Call( signatureLabel, { Napi::Number::New( env, ( parameter.end ) ) } );
+                       push.Call( signatureParameters, { signatureParameter } );
+                     } );
       return results;
     }
   }
