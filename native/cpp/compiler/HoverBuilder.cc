@@ -1,9 +1,12 @@
 #include "HoverBuilder.h"
+#include "../misc/XmlDocParser.h"
 #include "../napi/LSPWorkspace.h"
 
 #include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "clib/strutil.h"
+#include "compiler/file/SourceFile.h"
 
+#include <algorithm>
 #include <string>
 #include <tinyxml/tinyxml.h>
 
@@ -132,8 +135,9 @@ std::optional<HoverResult> HoverBuilder::get_module_function_parameter(
     hover += default_value->describe();
   }
   hover += "\n```";
-  HoverResult result{ HoverResult::SymbolType::MODULE_FUNCTION_PARAMETER, param->name, hover };
-  return append_comment( function_def, result );
+  HoverResult result{ HoverResult::SymbolType::MODULE_FUNCTION_PARAMETER, param->name, hover,
+                      function_def };
+  return append_comment( param, result );
 }
 
 
@@ -178,29 +182,6 @@ std::optional<HoverResult> HoverBuilder::get_method( const std::string& name )
   return HoverResult{ HoverResult::SymbolType::METHOD, name, hover };
 }
 
-std::string get_explain_string( TiXmlNode* node )
-{
-  std::string result;
-
-  for ( node = node->FirstChild(); node != nullptr; node = node->NextSibling() )
-  {
-    if ( node->Type() == TiXmlNode::TINYXML_TEXT )
-    {
-      result += node->ValueStr() + "\n";
-    }
-    else if ( node->Type() == TiXmlNode::TINYXML_ELEMENT && node->ValueStr() == "code" )
-    {
-      auto* codeText = node->FirstChild();
-
-      if ( codeText != nullptr && codeText->Type() == TiXmlNode::TINYXML_TEXT )
-      {
-        result += "```\n" + Pol::Clib::strtrim( codeText->ValueStr() ) + "\n```\n\n";
-      }
-    }
-  }
-  return result;
-}
-
 HoverResult& HoverBuilder::append_comment( const SourceLocation& source_location,
                                            HoverResult& result )
 {
@@ -224,81 +205,55 @@ HoverResult& HoverBuilder::append_comment( const SourceLocation& source_location
       comment += "\n" + token_text;
     }
   }
+
   if ( !comment.empty() )
   {
-    result.hover += "\n" + comment;
+    result.hover += "\n---\n```" + comment + "\n```";
   }
 
-  if ( result.type == HoverResult::SymbolType::MODULE_FUNCTION )
+  const auto& xmlDoc = _lsp_workspace->get_xml_doc_path( pathname );
+  if ( !xmlDoc.has_value() )
+    return result;
+
+  if ( result.type == HoverResult::SymbolType::MODULE_FUNCTION_PARAMETER )
   {
-    auto xmlDoc = _lsp_workspace->get_xml_doc_path( pathname );
-    if ( xmlDoc.has_value() )
+    auto parsed = XmlDocParser::parse_function( xmlDoc.value(), result.function_def->name );
+    if ( !parsed )
+      return result;
+
+    result.hover += "\ngot module function\n" + result.function_def->module_name + "\n";
+    const auto& params = parsed->parameters;
+    auto iter = std::find_if( params.begin(), params.end(),
+                              [&]( const auto& param ) { return param.name == result.symbol; } );
+
+    if ( iter != params.end() )
     {
-      TiXmlDocument file;
-      file.SetCondenseWhiteSpace( false );
-      if ( !file.LoadFile( xmlDoc.value() ) )
-        return result;
+      result.hover += "\n\n" + iter->value + "\n\n";
+    }
+  }
+  else if ( result.type == HoverResult::SymbolType::MODULE_FUNCTION )
+  {
+    auto parsed = XmlDocParser::parse_function( xmlDoc.value(), result.symbol );
+    if ( !parsed )
+      return result;
 
+    result.hover += "\n---\n" + parsed->explain;
+    if ( !parsed->returns.empty() )
+      result.hover += "\n\n_Returns_:\n\n- " + parsed->returns + "\n\n";
 
-      auto* node = file.FirstChild( "ESCRIPT" );
-      if ( !node )
-        return result;
-
-      TiXmlElement* functionNode = node->FirstChildElement( "function" );
-      while ( functionNode )
+    if ( !parsed->errors.empty() )
+    {
+      result.hover += "\n\n_Errors_:\n\n";
+      for ( const auto& error : parsed->errors )
       {
-        auto* functName = functionNode->Attribute( "name" );
-
-        if ( result.symbol == functName )
+        if ( error.length() > 2 && error.at( 0 ) == '"' && error.at( error.size() - 1 ) == '"' )
         {
-          result.hover += "\n\n";
-
-          for ( auto* child = functionNode->FirstChildElement(); child != nullptr;
-                child = child->NextSiblingElement() )
-          {
-            if ( child->ValueStr() == "explain" )
-            {
-              result.hover += get_explain_string( child );
-            }
-            else if ( child->ValueStr() == "return" )
-            {
-            }
-            else if ( child->ValueStr() == "error" )
-            {
-            }
-            else if ( child->ValueStr() == "parameter" )
-            {
-            }
-          }
-
-          // for ( const auto& explain : get_nodes_text( functionNode, "explain" ) )
-          // {
-          //   result.hover += "\n" + explain;
-          // }
-
-          // auto returns = get_nodes_text( functionNode, "return" );
-          // if ( !returns.empty() )
-          // {
-          //   result.hover += "\n\n_Returns_:";
-          //   for ( const auto& returnExpl : returns )
-          //   {
-          //     result.hover += "\n - " + returnExpl;
-          //   }
-          // }
-          // auto errors = get_nodes_text( functionNode, "error" );
-          // if ( !errors.empty() )
-          // {
-          //   result.hover += "\n\n_Errors_:";
-          //   for ( const auto& errorExpl : errors )
-          //   {
-          //     result.hover += "\n - " + errorExpl;
-          //   }
-          // }
-
-          break;
+          result.hover += "- " + error.substr( 1, error.size() - 2 ) + "\n\n";
         }
-
-        functionNode = functionNode->NextSiblingElement( "function" );
+        else
+        {
+          result.hover += "- " + error + "\n\n";
+        }
       }
     }
   }

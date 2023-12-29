@@ -5,6 +5,7 @@
 
 namespace Pol::Bscript::Compiler
 {
+class ModuleFunctionDeclaration;
 class SourceLocation;
 class Node;
 }  // namespace Pol::Bscript::Compiler
@@ -35,6 +36,7 @@ struct HoverResult
 
   std::string symbol;
   std::string hover;
+  Pol::Bscript::Compiler::ModuleFunctionDeclaration* function_def = nullptr;
 };
 
 class HoverBuilder : public SemanticContextBuilder<HoverResult>
