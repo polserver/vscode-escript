@@ -74,7 +74,7 @@ jobs:
 
   mac:
     name: Build and Test [Mac]
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
       - uses: actions/checkout@v3
@@ -95,6 +95,10 @@ jobs:
       - name: Set polserver Dependencies
         run: |
           echo "PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+
+      - name: Set MACOSX_DEPLOYMENT_TARGET
+        run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=13.3" >> $GITHUB_ENV
 
       - run: npm install && npm run build
 
