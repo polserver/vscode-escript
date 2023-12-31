@@ -2,30 +2,40 @@ import { spawn } from 'child_process';
 import * as os from 'os';
 import * as readline from 'readline';
 import { join, extname, basename } from 'path';
-import * as fsPromises from 'fs/promises';
-import readdir = fsPromises.readdir
-import copyFile = fsPromises.copyFile
-import mkdir = fsPromises.mkdir
-
+import { readdir, copyFile, mkdir, access } from 'fs/promises';
+import { createWriteStream, unlink } from 'fs';
+import * as http from 'http';
+import * as https from 'https';
+import { eachLimit } from 'async';
+import { F_OK } from 'constants';
 import type { LSPWorkspace } from 'vscode-escript-native';
 import { LSPServer } from '../server/connection';
 
 export default class DocsDownloader {
     private static readonly POL_REV_REGEX = /\(Rev. ([0-9a-fA-F]{9})\)/;
-    private polRevision: string | null = null;
+    public commitId: string | null = null;
     private workspace: LSPWorkspace | null = null;
 
     public constructor() { }
 
-    public async start(workspace: LSPWorkspace) {
+    public async start(workspace: LSPWorkspace, commitId: string | null = null) {
         this.workspace = workspace;
-        const commitId = await this.getPolRevision();
+        if (!commitId) {
+            console.log("DocsDownloader", "finding commit from pol executable")
+            commitId = await this.getPolRevision();
+            console.log("DocsDownloader", "found commit id", commitId);
+        } else {
+            console.log("DocsDownloader", "using provided commitId", commitId);
+        }
 
         if (commitId) {
+            const _commitId = commitId;
             const modules = await this.availableModules();
-            for (const moduleName of modules) {
-                this.downloadDoc(commitId, moduleName);
-            }
+            await eachLimit(modules, 5, (moduleName, cb) => {
+                this.downloadDoc(_commitId, moduleName)
+                    .then(_ => cb())
+                    .catch(e => cb(e));
+            });
         }
     }
 
@@ -34,7 +44,7 @@ export default class DocsDownloader {
             return null;
         }
 
-        const { polRevision: commitId } = this;
+        const { commitId: commitId } = this;
 
         if (commitId) {
             const moduleName = basename(moduleEmFile, extname(moduleEmFile));
@@ -54,9 +64,18 @@ export default class DocsDownloader {
             const outFile = join(outDir, `${moduleName}em.xml`);
 
             await mkdir(outDir, { recursive: true });
-            const localUri = `/Users/kevineady/UO/polserver/docs/docs.polserver.com/pol100/${moduleName}em.xml`;
-            console.log("copy", localUri, "to", outFile);
-            copyFile(localUri, outFile);
+
+            try {
+                await access(outFile, F_OK);
+                console.log("DocsDownloader", "already exists", outFile);
+            } catch {
+                // const localUri = `/Users/kevineady/UO/polserver/docs/docs.polserver.com/pol100/${moduleName}em.xml`;
+                // console.log("DocsDownloader", "copy", localUri, "to", outFile);
+                // await copyFile(localUri, outFile);
+                console.log("DocsDownloader", "download", uri, "to", outFile);
+                await this.download(uri, outFile);
+                console.log("DocsDownloader", "downloaded", uri);
+            }
         } catch (ex) {
             throw new Error(`Could not create storage folder for ${commitId}: ${ex}`);
         }
@@ -76,8 +95,8 @@ export default class DocsDownloader {
     private getPolRevision(): Promise<string | null> {
         const { workspace } = this;
 
-        if (this.polRevision !== null) {
-            return Promise.resolve(this.polRevision);
+        if (this.commitId !== null) {
+            return Promise.resolve(this.commitId);
         } else if (workspace === null) {
             return Promise.resolve(null);
         }
@@ -99,7 +118,7 @@ export default class DocsDownloader {
                 let matches = data.match(DocsDownloader.POL_REV_REGEX);
                 if (matches) {
                     clearTimeout(timeoutId);
-                    this.polRevision = matches[1];
+                    this.commitId = matches[1];
                     proc.kill('SIGKILL');
                 }
             });
@@ -109,8 +128,39 @@ export default class DocsDownloader {
             })
 
             proc.on('exit', () => {
-                resolve(this.polRevision);
+                resolve(this.commitId);
             });
+        });
+    }
+
+    private async download(url: string, filePath: string) {
+        const proto = !url.charAt(4).localeCompare('s') ? https : http;
+
+        return new Promise<void>((resolve, reject) => {
+            const file = createWriteStream(filePath);
+
+            const request = proto.get(url, response => {
+                if (response.statusCode !== 200) {
+                    unlink(filePath, () => {
+                        reject(new Error(`Failed to get '${url}' (${response.statusCode})`));
+                    });
+                    return;
+                }
+
+                response.pipe(file);
+            });
+
+            file.on('finish', () => resolve());
+
+            request.on('error', err => {
+                unlink(filePath, () => reject(err));
+            });
+
+            file.on('error', err => {
+                unlink(filePath, () => reject(err));
+            });
+
+            request.end();
         });
     }
 }

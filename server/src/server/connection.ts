@@ -18,6 +18,19 @@ type LSPServerOptions = {
     storageFsPath: string;
 }
 
+export interface DidChangeConfigurationParams {
+    configuration: ExtensionConfiguration
+}
+
+export interface InitializationOptions {
+    configuration: ExtensionConfiguration
+}
+
+export interface ExtensionConfiguration {
+    polCommitId: string;
+    showModuleFunctionComments: boolean;
+}
+
 export class LSPServer {
     private connection = createConnection(ProposedFeatures.all);
     private documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -43,6 +56,8 @@ export class LSPServer {
         this.connection.onDefinition(this.onDefinition);
         this.connection.onCompletion(this.onCompletion);
         this.connection.onSignatureHelp(this.onSignatureHelp);
+        this.connection.onNotification("didChangeConfiguration", this.onDidChangeConfiguration);
+
         this.documents.listen(this.connection);
         this.downloader = new DocsDownloader();
         this.workspace = new LSPWorkspace({
@@ -65,6 +80,8 @@ export class LSPServer {
     private onInitialize = async (params: InitializeParams): Promise<InitializeResult> => {
 
         const workspaceFolders = params.workspaceFolders ?? [];
+        const initializationOptions: InitializationOptions = params.initializationOptions;
+
         let found = false;
         for (const { uri } of workspaceFolders) {
             const { fsPath } = URI.parse(uri);
@@ -82,18 +99,18 @@ export class LSPServer {
             }
         }
 
-        if (found) {
-            this.downloader.start(this.workspace).catch(e => {
-                console.warn(`Could not download polserver documentation: ${e?.message ?? e}`)
-            });
-        } else {
-            console.log(`Could not find pol.cfg;scripts/ecompile.cfg in [${workspaceFolders.map(x => x.uri).join(', ')}]`);
-        }
-
         try {
             await mkdir(LSPServer.options.storageFsPath, { recursive: true });
         } catch (ex) {
             console.error(`Could not create storage directory '${LSPServer.options.storageFsPath}': ${ex} `);
+        }
+
+        if (found) {
+            this.downloader.start(this.workspace, initializationOptions.configuration.polCommitId).catch(e => {
+                console.warn(`Could not download polserver documentation: ${e?.message ?? e}`)
+            });
+        } else {
+            console.log(`Could not find pol.cfg;scripts/ecompile.cfg in [${workspaceFolders.map(x => x.uri).join(', ')}]`);
         }
 
         this.hasDiagnosticRelatedInformationCapability = Boolean(params.capabilities.textDocument?.publishDiagnostics?.relatedInformation);
@@ -257,5 +274,14 @@ export class LSPServer {
         const position: Position = { line: line + 1, character: character + 1 };
         const document = this.sources.get(fsPath);
         return document?.signatureHelp(position) ?? null;
+    };
+
+    private onDidChangeConfiguration = (params: DidChangeConfigurationParams): void => {
+        console.log("didChangeConfigurationParams", params);
+        if (params.configuration.polCommitId != this.downloader.commitId) {
+            this.downloader.start(this.workspace, params.configuration.polCommitId).catch(e => {
+                console.warn(`Could not download polserver documentation: ${e?.message ?? e}`)
+            });
+        }
     };
 }

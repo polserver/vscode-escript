@@ -52,6 +52,22 @@
 				"id": "escript-injection"
 			}
 		],
+		"configuration": {
+            "type": "object",
+            "title": "EScript",
+            "properties": {
+                "escript.showModuleFunctionComments": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show module function comments in documentation (hover, signature help)."
+                },
+                "escript.polCommitId": {
+                    "type": "string",
+                    "default": "",
+                    "description": "If set, use this specific POL commit (or tag) for documentation."
+                }
+			}
+		},
 		"grammars": [
 			{
 				"language": "escript",
