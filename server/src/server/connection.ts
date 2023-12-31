@@ -12,7 +12,8 @@ import DocsDownloader from '../workspace/DocsDownloader';
 // vsce does not support symlinks
 // import { escript } from 'vscode-escript-native';
 const { native } = require('../../../native/out/index') as typeof import('vscode-escript-native');
-const { LSPWorkspace, LSPDocument } = native;
+import type { ExtensionConfiguration } from 'vscode-escript-native';
+const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
 
 type LSPServerOptions = {
     storageFsPath: string;
@@ -24,11 +25,6 @@ export interface DidChangeConfigurationParams {
 
 export interface InitializationOptions {
     configuration: ExtensionConfiguration
-}
-
-export interface ExtensionConfiguration {
-    polCommitId: string;
-    showModuleFunctionComments: boolean;
 }
 
 export class LSPServer {
@@ -106,11 +102,17 @@ export class LSPServer {
         }
 
         if (found) {
-            this.downloader.start(this.workspace, initializationOptions.configuration.polCommitId).catch(e => {
+            this.downloader.start(this.workspace, initializationOptions?.configuration?.polCommitId).catch(e => {
                 console.warn(`Could not download polserver documentation: ${e?.message ?? e}`)
             });
         } else {
             console.log(`Could not find pol.cfg;scripts/ecompile.cfg in [${workspaceFolders.map(x => x.uri).join(', ')}]`);
+        }
+
+        try {
+            ExtensionConfiguration.setFromObject(initializationOptions?.configuration ?? {});
+        } catch (e) {
+            console.error("Error setting native configuration:", e);
         }
 
         this.hasDiagnosticRelatedInformationCapability = Boolean(params.capabilities.textDocument?.publishDiagnostics?.relatedInformation);
@@ -278,6 +280,13 @@ export class LSPServer {
 
     private onDidChangeConfiguration = (params: DidChangeConfigurationParams): void => {
         console.log("didChangeConfigurationParams", params);
+
+        try {
+            ExtensionConfiguration.setFromObject(params.configuration ?? {});
+        } catch (e) {
+            console.error("Error setting native configuration:", e);
+        }
+
         if (params.configuration.polCommitId != this.downloader.commitId) {
             this.downloader.start(this.workspace, params.configuration.polCommitId).catch(e => {
                 console.warn(`Could not download polserver documentation: ${e?.message ?? e}`)

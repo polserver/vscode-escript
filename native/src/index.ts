@@ -44,10 +44,17 @@ export interface LSPDocument {
     tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
 }
 
+export interface ExtensionConfiguration {
+    polCommitId: string;
+    showModuleFunctionComments: boolean;
+}
 
 export interface EscriptVscodeNative {
     LSPWorkspace: LSPWorkspace;
     LSPDocument: LSPDocument;
+    ExtensionConfiguration: {
+        setFromObject(settings: ExtensionConfiguration): void
+    }
 }
 
 const baseFilename = `vscode-escript-native.${process.platform}-${process.arch}.node`;

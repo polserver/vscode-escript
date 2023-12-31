@@ -18,14 +18,21 @@ export default class DocsDownloader {
 
     public constructor() { }
 
+    // TODO fix race conditions if multiple starts called (eg. from didChangeConfiguration)
     public async start(workspace: LSPWorkspace, commitId: string | null = null) {
         this.workspace = workspace;
+        if ((commitId === '' || commitId === null) && this.commitId) {
+            console.log("DocsDownloader", "using existing commit", this.commitId);
+            return;
+        }
+
         if (!commitId) {
             console.log("DocsDownloader", "finding commit from pol executable")
-            commitId = await this.getPolRevision();
+            this.commitId = commitId = await this.getPolRevision();
             console.log("DocsDownloader", "found commit id", commitId);
         } else {
             console.log("DocsDownloader", "using provided commitId", commitId);
+            this.commitId = commitId;
         }
 
         if (commitId) {

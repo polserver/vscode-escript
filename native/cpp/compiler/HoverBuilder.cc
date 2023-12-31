@@ -1,5 +1,6 @@
 #include "HoverBuilder.h"
 #include "../misc/XmlDocParser.h"
+#include "../napi/ExtensionConfig.h"
 #include "../napi/LSPWorkspace.h"
 
 #include "bscript/compiler/file/SourceFileIdentifier.h"
@@ -187,29 +188,34 @@ HoverResult& HoverBuilder::append_comment( const SourceLocation& source_location
 {
   std::string comment = "";
   const auto& pathname = source_location.source_file_identifier->pathname;
-  auto itr = workspace.builder_workspace.source_files.find( pathname );
-  auto tokens = workspace.source->get_all_tokens();
-  if ( itr != workspace.builder_workspace.source_files.end() )
+  if ( result.type != HoverResult::SymbolType::MODULE_FUNCTION ||
+       gExtensionConfiguration.showModuleFunctionComments )
   {
-    auto sf = itr->second;
-    auto hidden_tokens = sf->get_hidden_tokens_before( source_location.range.start );
-
-    for ( auto const* token : hidden_tokens )
+    auto itr = workspace.builder_workspace.source_files.find( pathname );
+    auto tokens = workspace.source->get_all_tokens();
+    if ( itr != workspace.builder_workspace.source_files.end() )
     {
-      auto token_text = Pol::Clib::strtrim( token->getText() );
-      if ( token_text.length() == 0 )
-      {
-        continue;
-      }
+      auto sf = itr->second;
+      auto hidden_tokens = sf->get_hidden_tokens_before( source_location.range.start );
 
-      comment += "\n" + token_text;
+      for ( auto const* token : hidden_tokens )
+      {
+        auto token_text = Pol::Clib::strtrim( token->getText() );
+        if ( token_text.length() == 0 )
+        {
+          continue;
+        }
+
+        comment += "\n" + token_text;
+      }
+    }
+
+    if ( !comment.empty() )
+    {
+      result.hover += "\n---\n```" + comment + "\n```";
     }
   }
 
-  if ( !comment.empty() )
-  {
-    result.hover += "\n---\n```" + comment + "\n```";
-  }
 
   const auto& xmlDoc = _lsp_workspace->get_xml_doc_path( pathname );
   if ( !xmlDoc.has_value() )
