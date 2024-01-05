@@ -8,6 +8,7 @@
 #include "compiler/file/SourceFile.h"
 
 #include <algorithm>
+#include <regex>
 #include <string>
 #include <tinyxml/tinyxml.h>
 
@@ -22,13 +23,20 @@ HoverBuilder::HoverBuilder( LSPWorkspace* lsp_workspace, CompilerWorkspace& work
 {
 }
 
+std::regex literal_tag_regex( "^(?:float|integer|string)-value\\((.*)\\)" );
+
+std::string replace_literal_tags( const std::string& input )
+{
+  return std::regex_replace( input, literal_tag_regex, "$1" );
+}
+
 std::optional<HoverResult> HoverBuilder::get_constant(
     Pol::Bscript::Compiler::ConstDeclaration* const_decl )
 {
-  std::string hover = "```\n(constant) ";
+  std::string hover = "```escriptdoc\n(constant) ";
   hover += const_decl->identifier;
   hover += " := ";
-  hover += const_decl->expression().describe();
+  hover += replace_literal_tags(const_decl->expression().describe());
   hover += "\n```";
   HoverResult result{ HoverResult::SymbolType::CONSTANT, const_decl->identifier, hover };
   return append_comment( const_decl, result );
@@ -37,10 +45,10 @@ std::optional<HoverResult> HoverBuilder::get_constant(
 std::optional<HoverResult> HoverBuilder::get_variable(
     std::shared_ptr<Pol::Bscript::Compiler::Variable> variable )
 {
-  std::string hover = "```(variable) ";
+  std::string hover = "```escriptdoc\n(variable) ";
   hover += variable->name;
+  hover += "\n```";
   HoverResult result{ HoverResult::SymbolType::VARIABLE, variable->name, hover };
-  hover += "```";
   return append_comment( variable->var_decl_location, result );
 }
 
@@ -65,7 +73,7 @@ std::string parameters_to_string(
     if ( default_value )
     {
       result += " := ";
-      result += default_value->describe();
+      result += replace_literal_tags(default_value->describe());
     }
   }
   return result;
@@ -74,7 +82,7 @@ std::string parameters_to_string(
 std::optional<HoverResult> HoverBuilder::get_module_function(
     ModuleFunctionDeclaration* function_def )
 {
-  std::string hover = "```\n(module function) ";
+  std::string hover = "```escriptdoc\n(module function) ";
   hover += function_def->name;
   hover += "(";
   hover += parameters_to_string( function_def->parameters() );
@@ -86,7 +94,7 @@ std::optional<HoverResult> HoverBuilder::get_module_function(
 std::optional<HoverResult> HoverBuilder::get_user_function(
     Pol::Bscript::Compiler::UserFunction* function_def )
 {
-  std::string hover = "```\n(user function) ";
+  std::string hover = "```escriptdoc\n(user function) ";
   hover += function_def->name;
   hover += "(";
   hover += parameters_to_string( function_def->parameters() );
@@ -98,7 +106,7 @@ std::optional<HoverResult> HoverBuilder::get_user_function(
 std::optional<HoverResult> HoverBuilder::get_program( const std::string& name,
                                                       Pol::Bscript::Compiler::Program* program )
 {
-  std::string hover = "```\n(program) ";
+  std::string hover = "```escriptdoc\n(program) ";
   hover += name;
   hover += "(";
   bool added = false;
@@ -128,12 +136,12 @@ std::optional<HoverResult> HoverBuilder::get_module_function_parameter(
     Pol::Bscript::Compiler::ModuleFunctionDeclaration* function_def,
     Pol::Bscript::Compiler::FunctionParameterDeclaration* param )
 {
-  std::string hover = "```\n(parameter) ";
+  std::string hover = "```escriptdoc\n(parameter) ";
   hover += param->name;
   if ( auto* default_value = param->default_value() )
   {
     hover += " := ";
-    hover += default_value->describe();
+    hover += replace_literal_tags(default_value->describe());
   }
   hover += "\n```";
   HoverResult result{ HoverResult::SymbolType::MODULE_FUNCTION_PARAMETER, param->name, hover,
@@ -146,12 +154,12 @@ std::optional<HoverResult> HoverBuilder::get_user_function_parameter(
     Pol::Bscript::Compiler::UserFunction* function_def,
     Pol::Bscript::Compiler::FunctionParameterDeclaration* param )
 {
-  std::string hover = "```\n(parameter) ";
+  std::string hover = "```escriptdoc\n(parameter) ";
   hover += param->name;
   if ( auto* default_value = param->default_value() )
   {
     hover += " := ";
-    hover += default_value->describe();
+    hover += replace_literal_tags(default_value->describe());
   }
   hover += "\n```";
   HoverResult result{ HoverResult::SymbolType::USER_FUNCTION_PARAMETER, param->name, hover };
@@ -160,7 +168,7 @@ std::optional<HoverResult> HoverBuilder::get_user_function_parameter(
 
 std::optional<HoverResult> HoverBuilder::get_program_parameter( const std::string& name )
 {
-  std::string hover = "```\n(program parameter) ";
+  std::string hover = "```escriptdoc\n(program parameter) ";
   hover += name;
   hover += "\n```";
   // TODO get comments on program parameters
@@ -169,7 +177,7 @@ std::optional<HoverResult> HoverBuilder::get_program_parameter( const std::strin
 
 std::optional<HoverResult> HoverBuilder::get_member( const std::string& name )
 {
-  std::string hover = "```\n(member) ";
+  std::string hover = "```escriptdoc\n(member) ";
   hover += name;
   hover += "\n```";
   return HoverResult{ HoverResult::SymbolType::MEMBER, name, hover };
@@ -177,7 +185,7 @@ std::optional<HoverResult> HoverBuilder::get_member( const std::string& name )
 
 std::optional<HoverResult> HoverBuilder::get_method( const std::string& name )
 {
-  std::string hover = "```\n(method) ";
+  std::string hover = "```escriptdoc\n(method) ";
   hover += name;
   hover += "\n```";
   return HoverResult{ HoverResult::SymbolType::METHOD, name, hover };
@@ -227,7 +235,6 @@ HoverResult& HoverBuilder::append_comment( const SourceLocation& source_location
     if ( !parsed )
       return result;
 
-    result.hover += "\ngot module function\n" + result.function_def->module_name + "\n";
     const auto& params = parsed->parameters;
     auto iter = std::find_if( params.begin(), params.end(),
                               [&]( const auto& param ) { return param.name == result.symbol; } );

@@ -2,10 +2,10 @@
 fileTypes: []
 injectionSelector: L:text.html.markdown
 patterns:
-- include: "#escript-code-block"
+- include: "#escriptdoc-code-block"
 repository:
-  escript-code-block:
-    begin: "(^|\\G)(\\s*)(\\`{3,}|~{3,})\\s*(?i:(escript)(\\s+[^`~]*)?$)"
+  escriptdoc-code-block:
+    begin: "(^|\\G)(\\s*)(\\`{3,}|~{3,})\\s*(?i:(escriptdoc)(\\s+[^`~]*)?$)"
     name: markup.fenced_code.block.markdown
     end: "(^|\\G)(\\2|\\s{0,3})(\\3)\\s*$"
     beginCaptures:
@@ -21,7 +21,7 @@ repository:
     patterns:
     - begin: "(^|\\G)(\\s*)(.*)"
       while: "(^|\\G)(?!\\s*([`~]{3,})\\s*$)"
-      contentName: meta.embedded.block.escript
+      contentName: meta.embedded.block.escriptdoc
       patterns:
-      - include: source.escript
-scopeName: markdown.escript.codeblock
+      - include: source.escriptdoc
+scopeName: markdown.escriptdoc.codeblock

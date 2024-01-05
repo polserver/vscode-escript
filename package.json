@@ -50,6 +50,9 @@
 			},
 			{
 				"id": "escript-injection"
+			},
+			{
+				"id": "escriptdoc"
 			}
 		],
 		"configuration": {
@@ -80,14 +83,19 @@
 				"path": "./grammars/cfg.json"
 			},
 			{
+				"language": "escriptdoc",
+				"scopeName": "source.escriptdoc",
+				"path": "./grammars/doc.json"
+			},
+			{
 				"language": "escript-injection",
-				"scopeName": "markdown.escript.codeblock",
+				"scopeName": "markdown.escriptdoc.codeblock",
 				"path": "./grammars/codeblock.json",
 				"injectTo": [
 					"text.html.markdown"
 				],
 				"embeddedLanguages": {
-					"meta.embedded.block.escript": "escript"
+					"meta.embedded.block.escriptdoc": "escriptdoc"
 				}
 			}
 		],
@@ -207,7 +215,7 @@
 		"clean": "rimraf client/out server/out grammars/escript.json",
 		"e2e": "cd client && npm test",
 		"test": "jest --coverage",
-		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json && js-yaml grammars/cfg.yml > grammars/cfg.json && js-yaml grammars/codeblock.yml > grammars/codeblock.json",
+		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json && js-yaml grammars/cfg.yml > grammars/cfg.json && js-yaml grammars/codeblock.yml > grammars/codeblock.json && js-yaml grammars/doc.yml > grammars/doc.json",
 		"eslint": "eslint \"**/*.{js,ts}\""
 	},
 	"dependencies": {
