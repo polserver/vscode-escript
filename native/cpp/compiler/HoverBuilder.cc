@@ -24,10 +24,17 @@ HoverBuilder::HoverBuilder( LSPWorkspace* lsp_workspace, CompilerWorkspace& work
 }
 
 std::regex literal_tag_regex( "^(?:float|integer|string)-value\\((.*)\\)" );
+std::regex comment_clean_regex( "^.*(\\*|\\/{2,})[ \t]*\\/*",
+                                std::regex_constants::syntax_option_type::multiline );
 
 std::string replace_literal_tags( const std::string& input )
 {
   return std::regex_replace( input, literal_tag_regex, "$1" );
+}
+
+std::string strip_comment_code( const std::string& comment )
+{
+  return Pol::Clib::strtrim( std::regex_replace( comment, comment_clean_regex, "" ) );
 }
 
 std::optional<HoverResult> HoverBuilder::get_constant(
@@ -36,7 +43,7 @@ std::optional<HoverResult> HoverBuilder::get_constant(
   std::string hover = "```escriptdoc\n(constant) ";
   hover += const_decl->identifier;
   hover += " := ";
-  hover += replace_literal_tags(const_decl->expression().describe());
+  hover += replace_literal_tags( const_decl->expression().describe() );
   hover += "\n```";
   HoverResult result{ HoverResult::SymbolType::CONSTANT, const_decl->identifier, hover };
   return append_comment( const_decl, result );
@@ -73,7 +80,7 @@ std::string parameters_to_string(
     if ( default_value )
     {
       result += " := ";
-      result += replace_literal_tags(default_value->describe());
+      result += replace_literal_tags( default_value->describe() );
     }
   }
   return result;
@@ -141,7 +148,7 @@ std::optional<HoverResult> HoverBuilder::get_module_function_parameter(
   if ( auto* default_value = param->default_value() )
   {
     hover += " := ";
-    hover += replace_literal_tags(default_value->describe());
+    hover += replace_literal_tags( default_value->describe() );
   }
   hover += "\n```";
   HoverResult result{ HoverResult::SymbolType::MODULE_FUNCTION_PARAMETER, param->name, hover,
@@ -159,7 +166,7 @@ std::optional<HoverResult> HoverBuilder::get_user_function_parameter(
   if ( auto* default_value = param->default_value() )
   {
     hover += " := ";
-    hover += replace_literal_tags(default_value->describe());
+    hover += replace_literal_tags( default_value->describe() );
   }
   hover += "\n```";
   HoverResult result{ HoverResult::SymbolType::USER_FUNCTION_PARAMETER, param->name, hover };
@@ -194,7 +201,6 @@ std::optional<HoverResult> HoverBuilder::get_method( const std::string& name )
 HoverResult& HoverBuilder::append_comment( const SourceLocation& source_location,
                                            HoverResult& result )
 {
-  std::string comment = "";
   const auto& pathname = source_location.source_file_identifier->pathname;
   if ( result.type != HoverResult::SymbolType::MODULE_FUNCTION ||
        gExtensionConfiguration.showModuleFunctionComments )
@@ -206,21 +212,15 @@ HoverResult& HoverBuilder::append_comment( const SourceLocation& source_location
       auto sf = itr->second;
       auto hidden_tokens = sf->get_hidden_tokens_before( source_location.range.start );
 
-      for ( auto const* token : hidden_tokens )
+      for ( auto rit = hidden_tokens.rbegin(); rit != hidden_tokens.rend(); ++rit )
       {
-        auto token_text = Pol::Clib::strtrim( token->getText() );
-        if ( token_text.length() == 0 )
+        auto token_text = Pol::Clib::strtrim( ( *rit )->getText() );
+        if ( token_text.length() > 0 )
         {
-          continue;
+          result.hover += "\n---\n" + strip_comment_code( token_text );
+          break;
         }
-
-        comment += "\n" + token_text;
       }
-    }
-
-    if ( !comment.empty() )
-    {
-      result.hover += "\n---\n```" + comment + "\n```";
     }
   }
 
