@@ -1,13 +1,15 @@
 import { resolve } from 'path';
-import { promises, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { LSPDocument, LSPWorkspace, native } from '../src/index';
 import { F_OK } from 'constants';
-import writeFile = promises.writeFile;
-import access = promises.access;
+// import writeFile = promises.writeFile;
+// import access = promises.access;
+import { writeFile, access, mkdir } from "fs/promises";
+import { dirname } from "path";
+
 const { LSPWorkspace, LSPDocument } = native;
 
 const dir = resolve(__dirname);
-const cfg = resolve(__dirname, 'scripts', 'ecompile.cfg');
 
 function toBeDefined<T>(val: T): asserts val is NonNullable<T> {
     if (val === undefined) { throw new Error('Value is undefined'); }
@@ -16,6 +18,7 @@ function toBeDefined<T>(val: T): asserts val is NonNullable<T> {
 const escriptdoc = (text: string) => "```escriptdoc\n" + text + "\n```";
 
 beforeAll(async () => {
+    const cfg = resolve(dir, 'scripts', 'ecompile.cfg');
     try {
         await access(cfg, F_OK);
     } catch {
@@ -24,6 +27,7 @@ beforeAll(async () => {
         const includeDirectory = resolve(polDirectory, 'scripts', 'include');
         const cfgText = `ModuleDirectory ${moduleDirectory}\nIncludeDirectory ${includeDirectory}\nPolScriptRoot ${polDirectory}\nPackageRoot ${polDirectory}\nDisplayWarnings 1\n`;
         try {
+            await mkdir(dirname(cfg), { recursive: true });
             await writeFile(cfg, cfgText, 'utf-8');
         } catch (e) {
             console.error(`Could not create ecompile.cfg: ${e instanceof Error ? e.message : e}`);
