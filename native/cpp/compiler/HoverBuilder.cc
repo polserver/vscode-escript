@@ -24,8 +24,7 @@ HoverBuilder::HoverBuilder( LSPWorkspace* lsp_workspace, CompilerWorkspace& work
 }
 
 std::regex literal_tag_regex( "^(?:float|integer|string)-value\\((.*)\\)" );
-std::regex comment_clean_regex( "^.*(\\*|\\/{2,})[ \t]*\\/*",
-                                std::regex_constants::syntax_option_type::multiline );
+std::regex comment_clean_regex( ".*(\\*|\\/{2,})[ \t]*\\/*" );
 
 std::string HoverBuilder::replace_literal_tags( const std::string& input )
 {
