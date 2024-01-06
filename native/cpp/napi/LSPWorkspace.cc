@@ -70,7 +70,7 @@ Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
   }
 
   _workspaceRoot = std::filesystem::u8path( info[0].As<Napi::String>().Utf8Value() );
-  std::string cfg( _workspaceRoot / "scripts" / "ecompile.cfg" );
+  std::string cfg( ( _workspaceRoot / "scripts" / "ecompile.cfg" ).u8string() );
 
   try
   {
