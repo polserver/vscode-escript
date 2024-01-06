@@ -41,7 +41,7 @@ export class LSPServer {
     public constructor(options: LSPServerOptions) {
         LSPServer.options = Object.freeze({ ...options });
 
-        console.log("Creating LSPServer with options", options);
+        console.log('Creating LSPServer with options', options);
 
         this.connection.onInitialize(this.onInitialize);
         this.documents.onDidOpen(this.onDidOpen);
@@ -52,7 +52,7 @@ export class LSPServer {
         this.connection.onDefinition(this.onDefinition);
         this.connection.onCompletion(this.onCompletion);
         this.connection.onSignatureHelp(this.onSignatureHelp);
-        this.connection.onNotification("didChangeConfiguration", this.onDidChangeConfiguration);
+        this.connection.onNotification('didChangeConfiguration', this.onDidChangeConfiguration);
 
         this.documents.listen(this.connection);
         this.downloader = new DocsDownloader();
@@ -103,7 +103,7 @@ export class LSPServer {
 
         if (found) {
             this.downloader.start(this.workspace, initializationOptions?.configuration?.polCommitId).catch(e => {
-                console.warn(`Could not download polserver documentation: ${e?.message ?? e}`)
+                console.warn(`Could not download polserver documentation: ${e?.message ?? e}`);
             });
         } else {
             console.log(`Could not find pol.cfg;scripts/ecompile.cfg in [${workspaceFolders.map(x => x.uri).join(', ')}]`);
@@ -112,7 +112,7 @@ export class LSPServer {
         try {
             ExtensionConfiguration.setFromObject(initializationOptions?.configuration ?? {});
         } catch (e) {
-            console.error("Error setting native configuration:", e);
+            console.error('Error setting native configuration:', e);
         }
 
         this.hasDiagnosticRelatedInformationCapability = Boolean(params.capabilities.textDocument?.publishDiagnostics?.relatedInformation);
@@ -279,17 +279,17 @@ export class LSPServer {
     };
 
     private onDidChangeConfiguration = (params: DidChangeConfigurationParams): void => {
-        console.log("didChangeConfigurationParams", params);
+        console.log('didChangeConfigurationParams', params);
 
         try {
             ExtensionConfiguration.setFromObject(params.configuration ?? {});
         } catch (e) {
-            console.error("Error setting native configuration:", e);
+            console.error('Error setting native configuration:', e);
         }
 
-        if (params.configuration.polCommitId != this.downloader.commitId) {
+        if (params.configuration.polCommitId !== this.downloader.commitId) {
             this.downloader.start(this.workspace, params.configuration.polCommitId).catch(e => {
-                console.warn(`Could not download polserver documentation: ${e?.message ?? e}`)
+                console.warn(`Could not download polserver documentation: ${e?.message ?? e}`);
             });
         }
     };

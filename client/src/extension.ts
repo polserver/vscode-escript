@@ -47,7 +47,7 @@ export function activate(context: ExtensionContext) {
             fileEvents: workspace.createFileSystemWatcher('**/*.{inc,em,src,cfg}')
         },
         initializationOptions: {
-            configuration: workspace.getConfiguration("escript")
+            configuration: workspace.getConfiguration('escript')
         }
     };
 
@@ -65,8 +65,8 @@ export function activate(context: ExtensionContext) {
     activatePolDebug(context);
 
     workspace.onDidChangeConfiguration(e => {
-        client.sendNotification("didChangeConfiguration", {
-            configuration: workspace.getConfiguration("escript")
+        client.sendNotification('didChangeConfiguration', {
+            configuration: workspace.getConfiguration('escript')
         });
     });
 }

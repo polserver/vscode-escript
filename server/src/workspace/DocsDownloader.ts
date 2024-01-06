@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import * as os from 'os';
 import * as readline from 'readline';
 import { join, extname, basename } from 'path';
-import { readdir, copyFile, mkdir, access } from 'fs/promises';
+import { readdir, mkdir, access } from 'fs/promises';
 import { createWriteStream, unlink } from 'fs';
 import * as http from 'http';
 import * as https from 'https';
@@ -22,16 +22,16 @@ export default class DocsDownloader {
     public async start(workspace: LSPWorkspace, commitId: string | null = null) {
         this.workspace = workspace;
         if ((commitId === '' || commitId === null) && this.commitId) {
-            console.log("DocsDownloader", "using existing commit", this.commitId);
+            console.log('DocsDownloader', 'using existing commit', this.commitId);
             return;
         }
 
         if (!commitId) {
-            console.log("DocsDownloader", "finding commit from pol executable")
+            console.log('DocsDownloader', 'finding commit from pol executable');
             this.commitId = commitId = await this.getPolRevision();
-            console.log("DocsDownloader", "found commit id", commitId);
+            console.log('DocsDownloader', 'found commit id', commitId);
         } else {
-            console.log("DocsDownloader", "using provided commitId", commitId);
+            console.log('DocsDownloader', 'using provided commitId', commitId);
             this.commitId = commitId;
         }
 
@@ -47,7 +47,7 @@ export default class DocsDownloader {
     }
 
     public getXmlDocPath(moduleEmFile: string): string | null {
-        if (extname(moduleEmFile).toLowerCase() !== ".em") {
+        if (extname(moduleEmFile).toLowerCase() !== '.em') {
             return null;
         }
 
@@ -55,8 +55,8 @@ export default class DocsDownloader {
 
         if (commitId) {
             const moduleName = basename(moduleEmFile, extname(moduleEmFile));
-            const docFile = join(LSPServer.options.storageFsPath, commitId, `${moduleName}em.xml`);;
-            console.log(`Returning docFile for ${moduleEmFile} => ${docFile}`)
+            const docFile = join(LSPServer.options.storageFsPath, commitId, `${moduleName}em.xml`);
+            console.log(`Returning docFile for ${moduleEmFile} => ${docFile}`);
             return docFile;
         }
 
@@ -74,14 +74,11 @@ export default class DocsDownloader {
 
             try {
                 await access(outFile, F_OK);
-                console.log("DocsDownloader", "already exists", outFile);
+                console.log('DocsDownloader', 'already exists', outFile);
             } catch {
-                // const localUri = `/Users/kevineady/UO/polserver/docs/docs.polserver.com/pol100/${moduleName}em.xml`;
-                // console.log("DocsDownloader", "copy", localUri, "to", outFile);
-                // await copyFile(localUri, outFile);
-                console.log("DocsDownloader", "download", uri, "to", outFile);
+                console.log('DocsDownloader', 'download', uri, 'to', outFile);
                 await this.download(uri, outFile);
-                console.log("DocsDownloader", "downloaded", uri);
+                console.log('DocsDownloader', 'downloaded', uri);
             }
         } catch (ex) {
             throw new Error(`Could not create storage folder for ${commitId}: ${ex}`);
@@ -93,7 +90,7 @@ export default class DocsDownloader {
 
         if (directory) {
             const files = await readdir(directory);
-            return files.reduce((p, c) => extname(c).toLocaleLowerCase() == '.em' ? (p.push(basename(c, extname(c))), p) : p, new Array<string>());
+            return files.reduce((p, c) => extname(c).toLocaleLowerCase() === '.em' ? (p.push(basename(c, extname(c))), p) : p, new Array<string>());
         }
 
         return Promise.resolve([]);
@@ -132,7 +129,7 @@ export default class DocsDownloader {
 
             proc.on('error', () => {
                 resolve(null);
-            })
+            });
 
             proc.on('exit', () => {
                 resolve(this.commitId);
