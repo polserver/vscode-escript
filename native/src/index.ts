@@ -21,7 +21,7 @@ export type SignatureHelp = {
 
 export type LSPWorkspaceConfig = {
     getContents: (pathname: string) => string;
-    getXmlDocPath: (moduleEmFile: string) => string | null;
+    getXmlDocPath?: (moduleEmFile: string) => string | null;
 }
 
 export interface LSPWorkspace {

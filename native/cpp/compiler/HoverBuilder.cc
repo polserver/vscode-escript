@@ -27,12 +27,12 @@ std::regex literal_tag_regex( "^(?:float|integer|string)-value\\((.*)\\)" );
 std::regex comment_clean_regex( "^.*(\\*|\\/{2,})[ \t]*\\/*",
                                 std::regex_constants::syntax_option_type::multiline );
 
-std::string replace_literal_tags( const std::string& input )
+std::string HoverBuilder::replace_literal_tags( const std::string& input )
 {
   return std::regex_replace( input, literal_tag_regex, "$1" );
 }
 
-std::string strip_comment_code( const std::string& comment )
+std::string HoverBuilder::strip_comment_code( const std::string& comment )
 {
   return Pol::Clib::strtrim( std::regex_replace( comment, comment_clean_regex, "" ) );
 }
@@ -80,7 +80,7 @@ std::string parameters_to_string(
     if ( default_value )
     {
       result += " := ";
-      result += replace_literal_tags( default_value->describe() );
+      result += HoverBuilder::replace_literal_tags( default_value->describe() );
     }
   }
   return result;

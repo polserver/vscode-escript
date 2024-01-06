@@ -2,6 +2,7 @@
 
 #include "../misc/XmlDocParser.h"
 #include "../napi/LSPWorkspace.h"
+#include "HoverBuilder.h"
 
 #include "bscript/compiler/ast/Expression.h"
 #include "bscript/compiler/ast/FunctionParameterDeclaration.h"
@@ -76,8 +77,10 @@ SignatureHelp make_signature_help(
     {
       auto default_description = default_value->describe();
       result += " := ";
-      result += default_description;
-      current_position += default_description.size() + 4;
+      auto default_description_formatted =
+          HoverBuilder::replace_literal_tags( default_description );
+      result += default_description_formatted;
+      current_position += default_description_formatted.size() + 4;
     }
   }
   result += ")";

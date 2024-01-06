@@ -357,13 +357,17 @@ Napi::Value LSPDocument::SignatureHelp( const Napi::CallbackInfo& info )
                      {
                        auto signatureParameter = Napi::Object::New( env );
                        auto signatureLabel = Napi::Array::New( env );
-                       auto signatureDoc = Napi::Object::New( env );
-
-                       signatureDoc["kind"] = "markdown";
-                       signatureDoc["value"] = parameter.documentation;
 
                        signatureParameter["label"] = signatureLabel;
-                       signatureParameter["documentation"] = signatureDoc;
+
+                       if ( !parameter.documentation.empty() )
+                       {
+                         auto signatureDoc = Napi::Object::New( env );
+
+                         signatureDoc["kind"] = "markdown";
+                         signatureDoc["value"] = parameter.documentation;
+                         signatureParameter["documentation"] = signatureDoc;
+                       }
 
                        push.Call( signatureLabel,
                                   { Napi::Number::New( env, ( parameter.start ) ) } );

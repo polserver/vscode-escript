@@ -68,6 +68,9 @@ public:
   virtual std::optional<HoverResult> get_member( const std::string& name ) override;
   virtual std::optional<HoverResult> get_method( const std::string& name ) override;
 
+  static std::string replace_literal_tags( const std::string& input );
+  static std::string strip_comment_code( const std::string& comment );
+
 private:
   HoverResult& append_comment( Pol::Bscript::Compiler::Node* node, HoverResult& result );
   HoverResult& append_comment( const Pol::Bscript::Compiler::SourceLocation& loc,

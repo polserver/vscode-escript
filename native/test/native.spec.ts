@@ -6,11 +6,14 @@ import writeFile = promises.writeFile;
 import access = promises.access;
 const { LSPWorkspace, LSPDocument } = native;
 
-const cfg = resolve(__dirname, 'ecompile.cfg');
+const dir = resolve(__dirname);
+const cfg = resolve(__dirname, 'scripts', 'ecompile.cfg');
 
 function toBeDefined<T>(val: T): asserts val is NonNullable<T> {
     if (val === undefined) { throw new Error('Value is undefined'); }
 }
+
+const escriptdoc = (text: string) => "```escriptdoc\n" + text + "\n```";
 
 beforeAll(async () => {
     try {
@@ -49,7 +52,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         // Done at textDocument/didOpen
         const document = new LSPDocument(workspace, src);
@@ -84,7 +87,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         // Done at textDocument/didOpen
         const pathname = 'basicio.em';
@@ -123,7 +126,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
             getContents
         });
 
-        workspace.read(cfg);
+        workspace.open(dir);
 
         const document = new LSPDocument(workspace, pathname);
 
@@ -161,7 +164,7 @@ describe('Hover - SRC', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -174,97 +177,97 @@ describe('Hover - SRC', () => {
 
     it('Can hover constant', () => {
         const hover = getHover('const hello := 1;', 8);
-        expect(hover).toEqual('(constant) hello := integer-value(1)');
+        expect(hover).toEqual(escriptdoc('(constant) hello := 1'))
     });
 
     it('Can hover variable', () => {
         const hover = getHover('var hello := 1;', 5);
-        expect(hover).toEqual('(variable) hello');
+        expect(hover).toEqual(escriptdoc('(variable) hello'))
     });
 
     it('Can hover user function declaration', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 11);
-        expect(hover).toEqual('(user function) foo(bar, baz := integer-value(1))');
+        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
     });
 
     it('Can hover foreach (loop identifier)', () => {
         const hover = getHover('const bar := 5; foreach foo in bar endforeach', 33);
-        expect(hover).toEqual('(constant) bar := integer-value(5)');
+        expect(hover).toEqual(escriptdoc('(constant) bar := 5'))
     });
 
     it('Can hover foreach (iterator identifier)', () => {
         const hover = getHover('foreach foo in (0) endforeach', 10);
-        expect(hover).toEqual('(variable) foo');
+        expect(hover).toEqual(escriptdoc('(variable) foo'))
     });
 
     it('Can hover enum declaration', () => {
         const hover = getHover('enum FOO BAR endenum', 11);
-        expect(hover).toEqual('(constant) BAR := integer-value(0)');
+        expect(hover).toEqual(escriptdoc('(constant) BAR := 0'))
     });
 
     it('Can hover switch label', () => {
         const hover = getHover('const foo := 5; case(5) foo: print(5); endcase', 26);
-        expect(hover).toEqual('(constant) foo := integer-value(5)');
+        expect(hover).toEqual(escriptdoc('(constant) foo := 5'))
     });
 
     it('Can hover basic for', () => {
         const hover = getHover('for foo := 1 to 5 endfor', 6);
-        expect(hover).toEqual('(variable) foo');
+        expect(hover).toEqual(escriptdoc('(variable) foo'))
     });
 
     it('Can hover program declaration', () => {
         const hover = getHover('program foo(bar, baz) endprogram', 10);
-        expect(hover).toEqual('(program) foo(bar, baz)');
+        expect(hover).toEqual(escriptdoc('(program) foo(bar, baz)'))
     });
 
     it('Can hover program parameter', () => {
         const hover = getHover('program foo(bar, baz) endprogram', 14);
-        expect(hover).toEqual('(program parameter) bar');
+        expect(hover).toEqual(escriptdoc('(program parameter) bar'))
     });
 
     it('Can hover function parameter (no default)', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 14);
-        expect(hover).toEqual('(parameter) bar');
+        expect(hover).toEqual(escriptdoc('(parameter) bar'))
     });
 
     it('Can hover function parameter (with default)', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 20);
-        expect(hover).toEqual('(parameter) baz := integer-value(1)');
+        expect(hover).toEqual(escriptdoc('(parameter) baz := 1'))
     });
 
     it('Can hover function reference', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction @Foo.call();', 42);
-        expect(hover).toEqual('(user function) foo(bar, baz := integer-value(1))');
+        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
     });
 
     it('Can hover primary', () => {
         const hover = getHover('const foo := 5; foo;', 18);
-        expect(hover).toEqual('(constant) foo := integer-value(5)');
+        expect(hover).toEqual(escriptdoc('(constant) foo := 5'))
     });
 
     it('Can hover navigation suffix', () => {
         const hover = getHover('var foo; foo.bar;', 15);
-        expect(hover).toEqual('(member) bar');
+        expect(hover).toEqual(escriptdoc('(member) bar'))
     });
 
     it('Can hover method', () => {
         const hover = getHover('var foo; foo.bar();', 15);
-        expect(hover).toEqual('(method) bar');
+        expect(hover).toEqual(escriptdoc('(method) bar'))
     });
 
     it('Can hover user function call', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction Foo(1);', 42);
-        expect(hover).toEqual('(user function) foo(bar, baz := integer-value(1))');
+        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
     });
 
     it('Can hover module function call', () => {
         const hover = getHover('print(1);', 3);
-        expect(hover).toEqual("(module function) Print(anything, console_color := string-value(\"\"))");
+        expect(hover).toEqual(escriptdoc("(module function) Print(anything, console_color := \"\")"))
     });
 
     it('Can hover struct init member', () => {
         const hover = getHover('var foo := struct{ bar := 3 };', 20);
-        expect(hover).toEqual('(member) bar');
+        expect(hover).toEqual(escriptdoc('(member) bar'))
     });
 });
 
@@ -283,7 +286,7 @@ describe('Hover - Module', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -296,17 +299,17 @@ describe('Hover - Module', () => {
 
     it('Can hover module function declaration', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 9);
-        expect(hover).toEqual('(module function) ModuleFunction(a, b := integer-value(5))');
+        expect(hover).toEqual(escriptdoc('(module function) ModuleFunction(a, b := 5)'))
     });
 
     it('Can hover module function parameter (no default)', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 19);
-        expect(hover).toEqual('(parameter) b := integer-value(5)');
+        expect(hover).toEqual(escriptdoc('(parameter) b := 5'))
     });
 
     it('Can hover module function parameter (with default)', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 16);
-        expect(hover).toEqual('(parameter) a');
+        expect(hover).toEqual(escriptdoc('(parameter) a'))
     });
 });
 
@@ -326,7 +329,7 @@ describe('Definition - SRC', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -407,7 +410,7 @@ describe('Definition - Module', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -451,7 +454,7 @@ describe('Completion', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -513,7 +516,7 @@ describe('Signature Help', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -528,12 +531,12 @@ describe('Signature Help', () => {
         const signatureHelp = getSignatureHelp('use uo; SendSysMessage();', 24);
         expect(signatureHelp).toEqual({
             'signatures': [{
-                'label': 'SendSysMessage(character, text, font := integer-value(3), color := integer-value(1000))',
+                'label': 'SendSysMessage(character, text, font := 3, color := 1000)',
                 'parameters': [
                     { 'label': [15, 24] },
                     { 'label': [26, 30] },
                     { 'label': [32, 36] },
-                    { 'label': [58, 63] }]
+                    { 'label': [43, 48] }]
             }],
             'activeSignature': 0,
             'activeParameter': 0
@@ -545,7 +548,7 @@ describe('Signature Help', () => {
 
         expect(signatureHelp).toEqual({
             'signatures': [{
-                'label': 'hello(foo, bar := integer-value(5))',
+                'label': 'hello(foo, bar := 5)',
                 'parameters': [
                     { 'label': [6, 9] },
                     { 'label': [11, 14] }]

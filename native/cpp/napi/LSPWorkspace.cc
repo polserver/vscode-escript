@@ -6,6 +6,7 @@
 #include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compilercfg.h"
+#include "napi.h"
 #include "plib/pkg.h"
 #include "plib/systemstate.h"
 
@@ -35,18 +36,16 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
 
   if ( !getContents_cb.IsFunction() )
   {
-    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments: getContents is not a function" ) )
-        .ThrowAsJavaScriptException();
-  }
-  else if ( !getXmlDocPath_cb.IsFunction() )
-  {
-    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments: getXmlDocPath is not a function" ) )
+    Napi::TypeError::New(
+        env, Napi::String::New( env, "Invalid arguments: getContents is not a function" ) )
         .ThrowAsJavaScriptException();
   }
   else
   {
     GetContents = Napi::Persistent( getContents_cb.As<Napi::Function>() );
-    GetXMLDocPath = Napi::Persistent( getXmlDocPath_cb.As<Napi::Function>() );
+
+    if ( getXmlDocPath_cb.IsFunction() )
+      GetXMLDocPath = Napi::Persistent( getXmlDocPath_cb.As<Napi::Function>() );
   }
 }
 
@@ -114,6 +113,9 @@ std::string LSPWorkspace::get_contents( const std::string& pathname ) const
 
 std::optional<std::string> LSPWorkspace::get_xml_doc_path( const std::string& moduleEmFile ) const
 {
+  if ( GetXMLDocPath.IsEmpty() )
+    return std::nullopt;
+
   auto value = GetXMLDocPath.Call( Value(), { Napi::String::New( Env(), moduleEmFile ) } );
 
   if ( !value.IsString() )
