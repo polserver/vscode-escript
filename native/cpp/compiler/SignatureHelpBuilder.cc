@@ -37,7 +37,7 @@ SignatureHelp make_signature_help(
   if ( function_def != nullptr )
   {
     auto pathname = function_def->module_name + ".em";
-    const auto& xmlDoc = lsp_workspace->get_xml_doc_path( pathname );
+    auto xmlDoc = lsp_workspace->get_xml_doc_path( pathname );
     if ( xmlDoc.has_value() )
       parsed = XmlDocParser::parse_function( xmlDoc.value(), function_name );
   }

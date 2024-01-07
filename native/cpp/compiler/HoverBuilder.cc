@@ -23,8 +23,8 @@ HoverBuilder::HoverBuilder( LSPWorkspace* lsp_workspace, CompilerWorkspace& work
 {
 }
 
-std::regex literal_tag_regex( "^(?:float|integer|string)-value\\((.*)\\)" );
-std::regex comment_clean_regex( ".*(\\*|\\/{2,})[ \t]*\\/*" );
+std::regex literal_tag_regex( R"###(^(?:float|integer|string)-value\((.*)\))###" );
+std::regex comment_clean_regex( R"###(.*(\*|\/{2,})[ \t]*\/*)###" );
 
 std::string HoverBuilder::replace_literal_tags( const std::string& input )
 {
@@ -224,7 +224,7 @@ HoverResult& HoverBuilder::append_comment( const SourceLocation& source_location
   }
 
 
-  const auto& xmlDoc = _lsp_workspace->get_xml_doc_path( pathname );
+  auto xmlDoc = _lsp_workspace->get_xml_doc_path( pathname );
   if ( !xmlDoc.has_value() )
     return result;
 
