@@ -1,9 +1,7 @@
-import { resolve } from 'path';
+import { basename, extname, resolve } from 'path';
 import { readFileSync } from 'fs';
 import { LSPDocument, LSPWorkspace, native } from '../src/index';
 import { F_OK } from 'constants';
-// import writeFile = promises.writeFile;
-// import access = promises.access;
 import { writeFile, access, mkdir } from "fs/promises";
 import { dirname } from "path";
 
@@ -16,6 +14,8 @@ function toBeDefined<T>(val: T): asserts val is NonNullable<T> {
 }
 
 const escriptdoc = (text: string) => "```escriptdoc\n" + text + "\n```";
+
+const xmlDocDir = resolve(__dirname, '..', 'polserver', 'docs', 'docs.polserver.com', 'pol100');
 
 beforeAll(async () => {
     const cfg = resolve(dir, 'scripts', 'ecompile.cfg');
@@ -317,6 +317,104 @@ describe('Hover - Module', () => {
     });
 });
 
+describe('Hover Docs', () => {
+    let document: LSPDocument;
+    let text: string;
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return text;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents,
+            getXmlDocPath(moduleEmFile) {
+                console.log("getXmlDocPath", moduleEmFile);
+                if (extname(moduleEmFile).toLowerCase() !== '.em') {
+                    return null;
+                }
+                const result = resolve(xmlDocDir, basename(moduleEmFile, '.em') + "em.xml");
+                console.log("result", result);
+                return result;
+            }
+        });
+        workspace.open(dir);
+
+        document = new LSPDocument(workspace, src);
+    });
+
+    afterAll(() => {
+    });
+
+    const getHover = (source: string, character: number) => {
+        text = source;
+        document.analyze();
+        return document.hover({ line: 1, character });
+    };
+
+    it('Can hover module functions with XML docs', () => {
+        const hover = getHover('use uo; CreateItemInBackpack( "of_character", "objtype", amount := 1, x := -1, y := -1 );', 15);
+        const expected = `\`\`\`escriptdoc
+(module function) CreateItemInBackpack(of_character, objtype, amount := 1, x := -1, y := -1)
+\`\`\`
+---
+Creates an item in a character's backpack. Notes: Adds to an existing stack in the top level of the container, if an appropriate stack can be found (meaning, can hold the new amount, the existing item stack has color equal to its itemdesc.cfg color property AND has equal CProps as its itemdesc.cfg entry (not counting locally and globally ignored cprops).  If no appropritate stack is found, creates a new stack. Runs the item's create script, if any.Calls the container's canInsert and onInsert scripts, if any.
+
+_Returns_:
+
+- Item Reference on success
+
+_Errors_:
+
+- A parameter was invalid.
+- Character has no backpack.
+- That item is not stackable.  Create one at a time.
+- That container is full
+- Failed to create that item type`
+        expect(hover?.trim()).toEqual(expected);
+    });
+
+    it('Can hover user functions with multi-line comment docs', () => {
+        const hover = getHover(`foo();
+/**
+ * My test function
+ *
+ * second line
+ *
+ * third line
+ */
+function foo() endfunction`, 2);
+
+        const expected = `\`\`\`escriptdoc
+(user function) foo()
+\`\`\`
+---
+My test function
+
+second line
+
+third line`;
+
+        expect(hover?.trim()).toEqual(expected);
+    });
+
+    it('Can hover user functions with single-line comment docs', () => {
+        const hover = getHover(`foo();
+// My test function with single comment line
+function foo() endfunction`, 2);
+
+        const expected = `\`\`\`escriptdoc
+(user function) foo()
+\`\`\`
+---
+My test function with single comment line`;
+
+        expect(hover?.trim()).toEqual(expected);
+    });
+});
 
 describe('Definition - SRC', () => {
     let document: LSPDocument;
@@ -575,7 +673,7 @@ describe('Signature Help', () => {
             [ 76, 'Trim',  1 ]
         ] as const;
 
-        for (const [character, expectedFunctionName, activeParameter ] of where) {
+        for (const [character, expectedFunctionName, activeParameter] of where) {
             const signatureHelp = getSignatureHelp('compare("hello", "there", substrreplace("abc", "def", 5123), trim("hello",0x03));', character);
             toBeDefined(signatureHelp);
             expect(signatureHelp.signatures).toHaveLength(1);

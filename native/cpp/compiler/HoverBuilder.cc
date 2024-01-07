@@ -251,20 +251,20 @@ HoverResult& HoverBuilder::append_comment( const SourceLocation& source_location
 
     result.hover += "\n---\n" + parsed->explain;
     if ( !parsed->returns.empty() )
-      result.hover += "\n\n_Returns_:\n\n- " + parsed->returns + "\n\n";
+      result.hover += "\n\n_Returns_:\n\n- " + parsed->returns + "\n";
 
     if ( !parsed->errors.empty() )
     {
-      result.hover += "\n\n_Errors_:\n\n";
+      result.hover += "\n_Errors_:\n\n";
       for ( const auto& error : parsed->errors )
       {
         if ( error.length() > 2 && error.at( 0 ) == '"' && error.at( error.size() - 1 ) == '"' )
         {
-          result.hover += "- " + error.substr( 1, error.size() - 2 ) + "\n\n";
+          result.hover += "- " + error.substr( 1, error.size() - 2 ) + "\n";
         }
         else
         {
-          result.hover += "- " + error + "\n\n";
+          result.hover += "- " + error + "\n";
         }
       }
     }
