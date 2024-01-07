@@ -55,7 +55,7 @@ export class LSPServer {
         this.connection.onNotification('didChangeConfiguration', this.onDidChangeConfiguration);
 
         this.documents.listen(this.connection);
-        this.downloader = new DocsDownloader();
+        this.downloader = new DocsDownloader(LSPServer.options.storageFsPath);
         this.workspace = new LSPWorkspace({
             getContents: (pathname) => {
                 const uri = URI.file(pathname).toString();
@@ -102,7 +102,7 @@ export class LSPServer {
         }
 
         if (found) {
-            this.downloader.start(this.workspace, initializationOptions?.configuration?.polCommitId).catch(e => {
+            this.downloader.start(this.workspace.workspaceRoot, this.workspace.getConfigValue('ModuleDirectory'), initializationOptions?.configuration?.polCommitId).catch(e => {
                 console.warn(`Could not download polserver documentation: ${e?.message ?? e}`);
             });
         } else {
@@ -288,7 +288,7 @@ export class LSPServer {
         }
 
         if (params.configuration.polCommitId !== this.downloader.commitId) {
-            this.downloader.start(this.workspace, params.configuration.polCommitId).catch(e => {
+            this.downloader.start(this.workspace.workspaceRoot, this.workspace.getConfigValue('ModuleDirectory'), params.configuration.polCommitId).catch(e => {
                 console.warn(`Could not download polserver documentation: ${e?.message ?? e}`);
             });
         }

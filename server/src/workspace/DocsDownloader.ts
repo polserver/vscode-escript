@@ -1,43 +1,44 @@
 import { spawn } from 'child_process';
 import * as os from 'os';
 import * as readline from 'readline';
-import { join, extname, basename } from 'path';
+import { join, extname, basename, dirname } from 'path';
 import { readdir, mkdir, access } from 'fs/promises';
 import { createWriteStream, unlink } from 'fs';
 import * as http from 'http';
 import * as https from 'https';
 import { eachLimit } from 'async';
 import { F_OK } from 'constants';
-import type { LSPWorkspace } from 'vscode-escript-native';
-import { LSPServer } from '../server/connection';
 
 export default class DocsDownloader {
     private static readonly POL_REV_REGEX = /\(Rev. ([0-9a-fA-F]{9})\)/;
     public commitId: string | null = null;
-    private workspace: LSPWorkspace | null = null;
 
-    public constructor() { }
+    public constructor(private storageFsPath: string, private logging = true) { }
+
+    private log(...args: any[]) {
+        if (this.logging)
+        {console.log(...args);}
+    }
 
     // TODO fix race conditions if multiple starts called (eg. from didChangeConfiguration)
-    public async start(workspace: LSPWorkspace, commitId: string | null = null) {
-        this.workspace = workspace;
+    public async start(workspaceRoot: string, moduleDirectory: string, commitId: string | null = null) {
         if ((commitId === '' || commitId === null) && this.commitId) {
-            console.log('DocsDownloader', 'using existing commit', this.commitId);
+            this.log('DocsDownloader', 'using existing commit', this.commitId);
             return;
         }
 
         if (!commitId) {
-            console.log('DocsDownloader', 'finding commit from pol executable');
-            this.commitId = commitId = await this.getPolRevision();
-            console.log('DocsDownloader', 'found commit id', commitId);
+            this.log('DocsDownloader', 'finding commit from pol executable');
+            this.commitId = commitId = await this.getPolRevision(workspaceRoot);
+            this.log('DocsDownloader', 'found commit id', commitId);
         } else {
-            console.log('DocsDownloader', 'using provided commitId', commitId);
+            this.log('DocsDownloader', 'using provided commitId', commitId);
             this.commitId = commitId;
         }
 
         if (commitId) {
             const _commitId = commitId;
-            const modules = await this.availableModules();
+            const modules = await this.availableModules(moduleDirectory);
             await eachLimit(modules, 5, (moduleName, cb) => {
                 this.downloadDoc(_commitId, moduleName)
                     .then(_ => cb())
@@ -55,8 +56,8 @@ export default class DocsDownloader {
 
         if (commitId) {
             const moduleName = basename(moduleEmFile, extname(moduleEmFile));
-            const docFile = join(LSPServer.options.storageFsPath, commitId, `${moduleName}em.xml`);
-            console.log(`Returning docFile for ${moduleEmFile} => ${docFile}`);
+            const docFile = join(this.storageFsPath, commitId, `${moduleName}em.xml`);
+            this.log(`Returning docFile for ${moduleEmFile} => ${docFile}`);
             return docFile;
         }
 
@@ -67,46 +68,36 @@ export default class DocsDownloader {
         const uri = `https://raw.githubusercontent.com/polserver/polserver/${commitId}/docs/docs.polserver.com/pol100/${moduleName}em.xml`;
 
         try {
-            const outDir = join(LSPServer.options.storageFsPath, commitId);
+            const outDir = join(this.storageFsPath, commitId);
             const outFile = join(outDir, `${moduleName}em.xml`);
 
             await mkdir(outDir, { recursive: true });
 
             try {
                 await access(outFile, F_OK);
-                console.log('DocsDownloader', 'already exists', outFile);
+                this.log('DocsDownloader', 'already exists', outFile);
             } catch {
-                console.log('DocsDownloader', 'download', uri, 'to', outFile);
+                this.log('DocsDownloader', 'download', uri, 'to', outFile);
                 await this.download(uri, outFile);
-                console.log('DocsDownloader', 'downloaded', uri);
+                this.log('DocsDownloader', 'downloaded', uri);
             }
         } catch (ex) {
             throw new Error(`Could not create storage folder for ${commitId}: ${ex}`);
         }
     }
 
-    private async availableModules(): Promise<Array<string>> {
-        const directory = this.workspace?.getConfigValue('ModuleDirectory');
-
-        if (directory) {
-            const files = await readdir(directory);
-            return files.reduce((p, c) => extname(c).toLocaleLowerCase() === '.em' ? (p.push(basename(c, extname(c))), p) : p, new Array<string>());
-        }
-
-        return Promise.resolve([]);
+    private async availableModules(moduleDirectory: string): Promise<Array<string>> {
+        const files = await readdir(moduleDirectory);
+        return files.reduce((p, c) => extname(c).toLocaleLowerCase() === '.em' ? (p.push(basename(c, extname(c))), p) : p, new Array<string>());
     }
 
-    private getPolRevision(): Promise<string | null> {
-        const { workspace } = this;
-
+    private getPolRevision(workspaceRoot: string): Promise<string | null> {
         if (this.commitId !== null) {
             return Promise.resolve(this.commitId);
-        } else if (workspace === null) {
-            return Promise.resolve(null);
         }
 
         return new Promise<string | null>((resolve) => {
-            const polPath = join(workspace.workspaceRoot, `pol${process.platform === 'win32' ? '.exe' : ''}`);
+            const polPath = join(workspaceRoot, `pol${process.platform === 'win32' ? '.exe' : ''}`);
 
             const proc = spawn(polPath, {
                 cwd: os.tmpdir()
@@ -141,30 +132,34 @@ export default class DocsDownloader {
         const proto = !url.charAt(4).localeCompare('s') ? https : http;
 
         return new Promise<void>((resolve, reject) => {
-            const file = createWriteStream(filePath);
+            mkdir(dirname(filePath), { recursive: true })
+                .then(() => {
+                    const file = createWriteStream(filePath);
 
-            const request = proto.get(url, response => {
-                if (response.statusCode !== 200) {
-                    unlink(filePath, () => {
-                        reject(new Error(`Failed to get '${url}' (${response.statusCode})`));
+                    const request = proto.get(url, {}, response => {
+                        if (response.statusCode !== 200) {
+                            unlink(filePath, () => {
+                                reject(new Error(`Failed to get '${url}' (${response.statusCode})`));
+                            });
+                            return;
+                        }
+
+                        response.pipe(file);
                     });
-                    return;
-                }
 
-                response.pipe(file);
-            });
+                    file.on('finish', () => resolve());
 
-            file.on('finish', () => resolve());
+                    request.on('error', err => {
+                        unlink(filePath, () => reject(err));
+                    });
 
-            request.on('error', err => {
-                unlink(filePath, () => reject(err));
-            });
+                    file.on('error', err => {
+                        unlink(filePath, () => reject(err));
+                    });
 
-            file.on('error', err => {
-                unlink(filePath, () => reject(err));
-            });
-
-            request.end();
+                    request.end();
+                })
+                .catch(e => reject(e));
         });
     }
 }
