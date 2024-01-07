@@ -22,7 +22,7 @@ std::string get_node_string( TiXmlNode* node )
 
       if ( codeText != nullptr && codeText->Type() == TiXmlNode::TINYXML_TEXT )
       {
-        result += "\n```\n" + Pol::Clib::strtrim( codeText->ValueStr() ) + "\n```";
+        result += "\n```\n" + Pol::Clib::strtrim( codeText->ValueStr() ) + "\n```\n";
       }
     }
   }
