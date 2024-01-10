@@ -37,6 +37,8 @@ public:
   std::unique_ptr<Pol::Bscript::Compiler::Compiler> make_compiler();
 
 private:
+  void make_absolute( std::string& path );
+
   std::filesystem::path _workspaceRoot;
   std::map<std::string, LSPDocument> _cache;
   Pol::Bscript::Compiler::Profile profile;
