@@ -47,8 +47,30 @@
 					".cfg"
 				],
 				"configuration": "./language-configurations/cfg.json"
+			},
+			{
+				"id": "escript-injection"
+			},
+			{
+				"id": "escriptdoc"
 			}
 		],
+		"configuration": {
+            "type": "object",
+            "title": "EScript",
+            "properties": {
+                "escript.showModuleFunctionComments": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show module function comments in documentation (hover, signature help)."
+                },
+                "escript.polCommitId": {
+                    "type": "string",
+                    "default": "",
+                    "description": "If set, use this specific POL commit (or tag) for documentation."
+                }
+			}
+		},
 		"grammars": [
 			{
 				"language": "escript",
@@ -59,6 +81,22 @@
 				"language": "escriptcfg",
 				"scopeName": "source.escriptcfg",
 				"path": "./grammars/cfg.json"
+			},
+			{
+				"language": "escriptdoc",
+				"scopeName": "source.escriptdoc",
+				"path": "./grammars/doc.json"
+			},
+			{
+				"language": "escript-injection",
+				"scopeName": "markdown.escriptdoc.codeblock",
+				"path": "./grammars/codeblock.json",
+				"injectTo": [
+					"text.html.markdown"
+				],
+				"embeddedLanguages": {
+					"meta.embedded.block.escriptdoc": "escriptdoc"
+				}
 			}
 		],
 		"breakpoints": [
@@ -177,7 +215,7 @@
 		"clean": "rimraf client/out server/out grammars/escript.json",
 		"e2e": "cd client && npm test",
 		"test": "jest --coverage",
-		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json && js-yaml grammars/cfg.yml > grammars/cfg.json",
+		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json && js-yaml grammars/cfg.yml > grammars/cfg.json && js-yaml grammars/codeblock.yml > grammars/codeblock.json && js-yaml grammars/doc.yml > grammars/doc.json",
 		"eslint": "eslint \"**/*.{js,ts}\""
 	},
 	"dependencies": {

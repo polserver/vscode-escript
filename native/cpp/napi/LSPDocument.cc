@@ -202,11 +202,12 @@ Napi::Value LSPDocument::Hover( const Napi::CallbackInfo& info )
         static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
         static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
 
-    CompilerExt::HoverBuilder finder( *compiler_workspace, pos );
-    auto hover = finder.context();
-    if ( hover.has_value() )
+    auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
+    CompilerExt::HoverBuilder finder( lsp_workspace, *compiler_workspace, pos );
+    auto result = finder.context();
+    if ( result.has_value() )
     {
-      return Napi::String::New( env, hover.value() );
+      return Napi::String::New( env, result.value().hover );
     }
   }
   return env.Undefined();
@@ -330,7 +331,8 @@ Napi::Value LSPDocument::SignatureHelp( const Napi::CallbackInfo& info )
         static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
         static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() - 1 ) };
 
-    CompilerExt::SignatureHelpBuilder finder( *compiler_workspace, pos );
+    auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
+    CompilerExt::SignatureHelpBuilder finder( lsp_workspace, *compiler_workspace, pos );
     auto signatureHelp = finder.context();
     if ( signatureHelp.has_value() )
     {
@@ -350,19 +352,28 @@ Napi::Value LSPDocument::SignatureHelp( const Napi::CallbackInfo& info )
 
       const auto& parameters = signatureHelp->parameters;
 
-      std::for_each(
-          parameters.begin(), parameters.end(),
-          [&]( const auto& parameter )
-          {
-            auto signatureParameter = Napi::Object::New( env );
-            auto signatureLabel = Napi::Array::New( env );
+      std::for_each( parameters.begin(), parameters.end(),
+                     [&]( const auto& parameter )
+                     {
+                       auto signatureParameter = Napi::Object::New( env );
+                       auto signatureLabel = Napi::Array::New( env );
 
-            signatureParameter["label"] = signatureLabel;
+                       signatureParameter["label"] = signatureLabel;
 
-            push.Call( signatureLabel, { Napi::Number::New( env, std::get<0>( parameter ) ) } );
-            push.Call( signatureLabel, { Napi::Number::New( env, std::get<1>( parameter ) ) } );
-            push.Call( signatureParameters, { signatureParameter } );
-          } );
+                       if ( !parameter.documentation.empty() )
+                       {
+                         auto signatureDoc = Napi::Object::New( env );
+
+                         signatureDoc["kind"] = "markdown";
+                         signatureDoc["value"] = parameter.documentation;
+                         signatureParameter["documentation"] = signatureDoc;
+                       }
+
+                       push.Call( signatureLabel,
+                                  { Napi::Number::New( env, ( parameter.start ) ) } );
+                       push.Call( signatureLabel, { Napi::Number::New( env, ( parameter.end ) ) } );
+                       push.Call( signatureParameters, { signatureParameter } );
+                     } );
       return results;
     }
   }

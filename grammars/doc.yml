@@ -1,0 +1,91 @@
+---
+# `strings` and `numbers` shamelessly ripped from https://raw.githubusercontent.com/microsoft/vscode-textmate/main/test-cases/themes/syntaxes/c.json
+scopeName: source.escriptdoc
+name: EScript Markdown Documentation
+
+patterns:
+  - include: '#symbolType'
+  - include: '#moduleUnit'
+  - include: '#functionDef'
+  - include: '#closeParen'
+  - include: '#variable'
+  - include: '#assignment'
+  - include: '#strings'
+  - include: '#numbers'
+
+repository:
+  symbolType:
+    patterns:
+      - comment: Symbol type (module function, user function, variable, ...)
+        match: '^(\()([^)]+)(\))'
+        captures:
+          '1': { name: meta.parens.escriptdoc }
+          '2': { name: entity.name.type.escriptdoc }
+          '3': { name: meta.parens.escriptdoc }
+  functionDef:
+    patterns:
+      - comment: Functions (module, user)
+        match: '([a-zA-Z$_][0-9a-zA-Z$_]*)(\()'
+        captures:
+          '1': { name: entity.name.function.escriptdoc }
+          '2': { name: meta.function.definition.parameters.escriptdoc }
+  variable:
+    patterns:
+      - comment: Variables and parameters
+        match: '([a-zA-Z$_][0-9a-zA-Z$_]*)'
+        captures:
+          '1': { name: meta.definition.variable.name.escriptdoc }
+  assignment:
+    patterns:
+      - comment: Assignment
+        match: :=
+        captures:
+          '0': { name: keyword.operator.escriptdoc }
+  closeParen:
+    patterns:
+      - comment: Close parenthesis
+        match: '\)'
+        captures:
+          '0': { name: keyword.operator.escriptdoc }
+  strings:
+    patterns:
+    - begin: "\""
+      beginCaptures:
+        '0':
+          name: punctuation.definition.string.begin.escriptdoc
+      end: "\""
+      endCaptures:
+        '0':
+          name: punctuation.definition.string.end.escriptdoc
+      name: string.quoted.double.escriptdoc
+      patterns:
+      - include: "#string_escaped_char"
+    - begin: "'"
+      beginCaptures:
+        '0':
+          name: punctuation.definition.string.begin.escriptdoc
+      end: "'"
+      endCaptures:
+        '0':
+          name: punctuation.definition.string.end.escriptdoc
+      name: string.quoted.single.escriptdoc
+      patterns:
+      - include: "#string_escaped_char"
+  string_escaped_char:
+    patterns:
+    - match: |-
+        (?x)\\ (
+        \\             |
+        [abefnprtv'"?]   |
+        [0-3]\d{,2}     |
+        [4-7]\d?        |
+        x[a-fA-F0-9]{,2} |
+        u[a-fA-F0-9]{,4} |
+        U[a-fA-F0-9]{,8} )
+      name: constant.character.escape.escriptdoc
+    - match: "\\\\."
+      name: invalid.illegal.unknown-escape.escriptdoc
+  numbers:
+    patterns:
+    - match: "\\b((0(x|X)[0-9a-fA-F]*)|(0(b|B)[01]*)|(([0-9]+\\.?[0-9]*)|(\\.[0-9]+))((e|E)(\\+|-)?[0-9]+)?)(L|l|UL|ul|u|U|F|f|ll|LL|ull|ULL)?\\b"
+      name: constant.numeric.escriptdoc

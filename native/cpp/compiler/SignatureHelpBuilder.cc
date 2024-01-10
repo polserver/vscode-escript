@@ -1,5 +1,9 @@
 #include "SignatureHelpBuilder.h"
 
+#include "../misc/XmlDocParser.h"
+#include "../napi/LSPWorkspace.h"
+#include "HoverBuilder.h"
+
 #include "bscript/compiler/ast/Expression.h"
 #include "bscript/compiler/ast/FunctionParameterDeclaration.h"
 #include "bscript/compiler/ast/ModuleFunctionDeclaration.h"
@@ -11,22 +15,33 @@ using namespace EscriptGrammar;
 
 namespace VSCodeEscript::CompilerExt
 {
-SignatureHelpBuilder::SignatureHelpBuilder( CompilerWorkspace& workspace, const Position& position )
-    : workspace( workspace ), position( position )
+SignatureHelpBuilder::SignatureHelpBuilder( LSPWorkspace* lsp_workspace,
+                                            CompilerWorkspace& workspace, const Position& position )
+    : _lsp_workspace( lsp_workspace ), workspace( workspace ), position( position )
 {
 }
 
 SignatureHelp make_signature_help(
-    const std::string& function_name,
+    LSPWorkspace* lsp_workspace, const std::string& function_name,
     std::vector<std::reference_wrapper<FunctionParameterDeclaration>> params,
-    size_t active_parameter )
+    size_t active_parameter, ModuleFunctionDeclaration* function_def )
 {
   bool added = false;
   std::string result = function_name + "(";
-  std::vector<std::tuple<size_t, size_t>> parameters;
+  std::unique_ptr<XmlDocParser> parsed;
+  std::vector<SignatureHelpParameter> parameters;
   parameters.reserve( params.size() );
 
   size_t current_position = result.size();
+
+  if ( function_def != nullptr )
+  {
+    auto pathname = function_def->module_name + ".em";
+    auto xmlDoc = lsp_workspace->get_xml_doc_path( pathname );
+    if ( xmlDoc.has_value() )
+      parsed = XmlDocParser::parse_function( xmlDoc.value(), function_name );
+  }
+
   for ( const auto& param_ref : params )
   {
     auto& param = param_ref.get();
@@ -41,8 +56,20 @@ SignatureHelp make_signature_help(
     }
     result += param.name;
 
-    parameters.push_back(
-        std::make_tuple( current_position, current_position + param.name.size() ) );
+    std::string documentation;
+    if ( parsed )
+    {
+      auto iter = std::find_if( parsed->parameters.begin(), parsed->parameters.end(),
+                                [&]( const auto& p ) { return param.name == p.name; } );
+
+      if ( iter != parsed->parameters.end() )
+      {
+        documentation = iter->value;
+      }
+    }
+
+    parameters.push_back( SignatureHelpParameter{
+        current_position, current_position + param.name.size(), documentation } );
     current_position += param.name.size();
 
     auto* default_value = param.default_value();
@@ -50,8 +77,10 @@ SignatureHelp make_signature_help(
     {
       auto default_description = default_value->describe();
       result += " := ";
-      result += default_description;
-      current_position += default_description.size() + 4;
+      auto default_description_formatted =
+          HoverBuilder::replace_literal_tags( default_description );
+      result += default_description_formatted;
+      current_position += default_description_formatted.size() + 4;
     }
   }
   result += ")";
@@ -102,14 +131,16 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
                   if ( auto* module_function =
                            workspace.scope_tree.find_module_function( function_name ) )
                   {
-                    return make_signature_help( module_function->name,
-                                                module_function->parameters(), current_param );
+                    return make_signature_help( _lsp_workspace, module_function->name,
+                                                module_function->parameters(), current_param,
+                                                module_function );
                   }
                   else if ( auto* user_function =
                                 workspace.scope_tree.find_user_function( function_name ) )
                   {
-                    return make_signature_help( user_function->name, user_function->parameters(),
-                                                current_param );
+                    return make_signature_help( _lsp_workspace, user_function->name,
+                                                user_function->parameters(), current_param,
+                                                nullptr );
                   }
                 }
               }

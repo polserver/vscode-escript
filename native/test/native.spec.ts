@@ -1,18 +1,24 @@
-import { resolve } from 'path';
-import { promises, readFileSync } from 'fs';
+import { basename, extname, resolve } from 'path';
+import { readFileSync } from 'fs';
 import { LSPDocument, LSPWorkspace, native } from '../src/index';
 import { F_OK } from 'constants';
-import writeFile = promises.writeFile;
-import access = promises.access;
+import { writeFile, access, mkdir } from "fs/promises";
+import { dirname } from "path";
+
 const { LSPWorkspace, LSPDocument } = native;
 
-const cfg = resolve(__dirname, 'ecompile.cfg');
+const dir = resolve(__dirname);
 
 function toBeDefined<T>(val: T): asserts val is NonNullable<T> {
     if (val === undefined) { throw new Error('Value is undefined'); }
 }
 
+const escriptdoc = (text: string) => "```escriptdoc\n" + text + "\n```";
+
+const xmlDocDir = resolve(__dirname, '..', 'polserver', 'docs', 'docs.polserver.com', 'pol100');
+
 beforeAll(async () => {
+    const cfg = resolve(dir, 'scripts', 'ecompile.cfg');
     try {
         await access(cfg, F_OK);
     } catch {
@@ -21,6 +27,7 @@ beforeAll(async () => {
         const includeDirectory = resolve(polDirectory, 'scripts', 'include');
         const cfgText = `ModuleDirectory ${moduleDirectory}\nIncludeDirectory ${includeDirectory}\nPolScriptRoot ${polDirectory}\nPackageRoot ${polDirectory}\nDisplayWarnings 1\n`;
         try {
+            await mkdir(dirname(cfg), { recursive: true });
             await writeFile(cfg, cfgText, 'utf-8');
         } catch (e) {
             console.error(`Could not create ecompile.cfg: ${e instanceof Error ? e.message : e}`);
@@ -49,7 +56,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         // Done at textDocument/didOpen
         const document = new LSPDocument(workspace, src);
@@ -84,7 +91,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         // Done at textDocument/didOpen
         const pathname = 'basicio.em';
@@ -123,7 +130,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
             getContents
         });
 
-        workspace.read(cfg);
+        workspace.open(dir);
 
         const document = new LSPDocument(workspace, pathname);
 
@@ -161,7 +168,7 @@ describe('Hover - SRC', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -174,97 +181,97 @@ describe('Hover - SRC', () => {
 
     it('Can hover constant', () => {
         const hover = getHover('const hello := 1;', 8);
-        expect(hover).toEqual('(constant) hello := integer-value(1)');
+        expect(hover).toEqual(escriptdoc('(constant) hello := 1'))
     });
 
     it('Can hover variable', () => {
         const hover = getHover('var hello := 1;', 5);
-        expect(hover).toEqual('(variable) hello');
+        expect(hover).toEqual(escriptdoc('(variable) hello'))
     });
 
     it('Can hover user function declaration', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 11);
-        expect(hover).toEqual('(user function) foo(bar, baz := integer-value(1))');
+        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
     });
 
     it('Can hover foreach (loop identifier)', () => {
         const hover = getHover('const bar := 5; foreach foo in bar endforeach', 33);
-        expect(hover).toEqual('(constant) bar := integer-value(5)');
+        expect(hover).toEqual(escriptdoc('(constant) bar := 5'))
     });
 
     it('Can hover foreach (iterator identifier)', () => {
         const hover = getHover('foreach foo in (0) endforeach', 10);
-        expect(hover).toEqual('(variable) foo');
+        expect(hover).toEqual(escriptdoc('(variable) foo'))
     });
 
     it('Can hover enum declaration', () => {
         const hover = getHover('enum FOO BAR endenum', 11);
-        expect(hover).toEqual('(constant) BAR := integer-value(0)');
+        expect(hover).toEqual(escriptdoc('(constant) BAR := 0'))
     });
 
     it('Can hover switch label', () => {
         const hover = getHover('const foo := 5; case(5) foo: print(5); endcase', 26);
-        expect(hover).toEqual('(constant) foo := integer-value(5)');
+        expect(hover).toEqual(escriptdoc('(constant) foo := 5'))
     });
 
     it('Can hover basic for', () => {
         const hover = getHover('for foo := 1 to 5 endfor', 6);
-        expect(hover).toEqual('(variable) foo');
+        expect(hover).toEqual(escriptdoc('(variable) foo'))
     });
 
     it('Can hover program declaration', () => {
         const hover = getHover('program foo(bar, baz) endprogram', 10);
-        expect(hover).toEqual('(program) foo(bar, baz)');
+        expect(hover).toEqual(escriptdoc('(program) foo(bar, baz)'))
     });
 
     it('Can hover program parameter', () => {
         const hover = getHover('program foo(bar, baz) endprogram', 14);
-        expect(hover).toEqual('(program parameter) bar');
+        expect(hover).toEqual(escriptdoc('(program parameter) bar'))
     });
 
     it('Can hover function parameter (no default)', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 14);
-        expect(hover).toEqual('(parameter) bar');
+        expect(hover).toEqual(escriptdoc('(parameter) bar'))
     });
 
     it('Can hover function parameter (with default)', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 20);
-        expect(hover).toEqual('(parameter) baz := integer-value(1)');
+        expect(hover).toEqual(escriptdoc('(parameter) baz := 1'))
     });
 
     it('Can hover function reference', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction @Foo.call();', 42);
-        expect(hover).toEqual('(user function) foo(bar, baz := integer-value(1))');
+        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
     });
 
     it('Can hover primary', () => {
         const hover = getHover('const foo := 5; foo;', 18);
-        expect(hover).toEqual('(constant) foo := integer-value(5)');
+        expect(hover).toEqual(escriptdoc('(constant) foo := 5'))
     });
 
     it('Can hover navigation suffix', () => {
         const hover = getHover('var foo; foo.bar;', 15);
-        expect(hover).toEqual('(member) bar');
+        expect(hover).toEqual(escriptdoc('(member) bar'))
     });
 
     it('Can hover method', () => {
         const hover = getHover('var foo; foo.bar();', 15);
-        expect(hover).toEqual('(method) bar');
+        expect(hover).toEqual(escriptdoc('(method) bar'))
     });
 
     it('Can hover user function call', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction Foo(1);', 42);
-        expect(hover).toEqual('(user function) foo(bar, baz := integer-value(1))');
+        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
     });
 
     it('Can hover module function call', () => {
         const hover = getHover('print(1);', 3);
-        expect(hover).toEqual("(module function) Print(anything, console_color := string-value(\"\"))");
+        expect(hover).toEqual(escriptdoc("(module function) Print(anything, console_color := \"\")"))
     });
 
     it('Can hover struct init member', () => {
         const hover = getHover('var foo := struct{ bar := 3 };', 20);
-        expect(hover).toEqual('(member) bar');
+        expect(hover).toEqual(escriptdoc('(member) bar'))
     });
 });
 
@@ -283,7 +290,7 @@ describe('Hover - Module', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -296,20 +303,118 @@ describe('Hover - Module', () => {
 
     it('Can hover module function declaration', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 9);
-        expect(hover).toEqual('(module function) ModuleFunction(a, b := integer-value(5))');
+        expect(hover).toEqual(escriptdoc('(module function) ModuleFunction(a, b := 5)'))
     });
 
     it('Can hover module function parameter (no default)', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 19);
-        expect(hover).toEqual('(parameter) b := integer-value(5)');
+        expect(hover).toEqual(escriptdoc('(parameter) b := 5'))
     });
 
     it('Can hover module function parameter (with default)', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 16);
-        expect(hover).toEqual('(parameter) a');
+        expect(hover).toEqual(escriptdoc('(parameter) a'))
     });
 });
 
+describe('Hover Docs', () => {
+    let document: LSPDocument;
+    let text: string;
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return text;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents,
+            getXmlDocPath(moduleEmFile) {
+                console.log("getXmlDocPath", moduleEmFile);
+                if (extname(moduleEmFile).toLowerCase() !== '.em') {
+                    return null;
+                }
+                const result = resolve(xmlDocDir, basename(moduleEmFile, '.em') + "em.xml");
+                console.log("result", result);
+                return result;
+            }
+        });
+        workspace.open(dir);
+
+        document = new LSPDocument(workspace, src);
+    });
+
+    afterAll(() => {
+    });
+
+    const getHover = (source: string, character: number) => {
+        text = source;
+        document.analyze();
+        return document.hover({ line: 1, character });
+    };
+
+    it('Can hover module functions with XML docs', () => {
+        const hover = getHover('use uo; CreateItemInBackpack( "of_character", "objtype", amount := 1, x := -1, y := -1 );', 15);
+        const expected = `\`\`\`escriptdoc
+(module function) CreateItemInBackpack(of_character, objtype, amount := 1, x := -1, y := -1)
+\`\`\`
+---
+Creates an item in a character's backpack. Notes: Adds to an existing stack in the top level of the container, if an appropriate stack can be found (meaning, can hold the new amount, the existing item stack has color equal to its itemdesc.cfg color property AND has equal CProps as its itemdesc.cfg entry (not counting locally and globally ignored cprops).  If no appropritate stack is found, creates a new stack. Runs the item's create script, if any.Calls the container's canInsert and onInsert scripts, if any.
+
+_Returns_:
+
+- Item Reference on success
+
+_Errors_:
+
+- A parameter was invalid.
+- Character has no backpack.
+- That item is not stackable.  Create one at a time.
+- That container is full
+- Failed to create that item type`
+        expect(hover?.trim()).toEqual(expected);
+    });
+
+    it('Can hover user functions with multi-line comment docs', () => {
+        const hover = getHover(`foo();
+/**
+ * My test function
+ *
+ * second line
+ *
+ * third line
+ */
+function foo() endfunction`, 2);
+
+        const expected = `\`\`\`escriptdoc
+(user function) foo()
+\`\`\`
+---
+My test function
+
+second line
+
+third line`;
+
+        expect(hover?.trim()).toEqual(expected);
+    });
+
+    it('Can hover user functions with single-line comment docs', () => {
+        const hover = getHover(`foo();
+// My test function with single comment line
+function foo() endfunction`, 2);
+
+        const expected = `\`\`\`escriptdoc
+(user function) foo()
+\`\`\`
+---
+My test function with single comment line`;
+
+        expect(hover?.trim()).toEqual(expected);
+    });
+});
 
 describe('Definition - SRC', () => {
     let document: LSPDocument;
@@ -326,7 +431,7 @@ describe('Definition - SRC', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -407,7 +512,7 @@ describe('Definition - Module', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -451,7 +556,7 @@ describe('Completion', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -513,7 +618,7 @@ describe('Signature Help', () => {
         const workspace = new LSPWorkspace({
             getContents
         });
-        workspace.read(cfg);
+        workspace.open(dir);
 
         document = new LSPDocument(workspace, src);
     });
@@ -528,12 +633,12 @@ describe('Signature Help', () => {
         const signatureHelp = getSignatureHelp('use uo; SendSysMessage();', 24);
         expect(signatureHelp).toEqual({
             'signatures': [{
-                'label': 'SendSysMessage(character, text, font := integer-value(3), color := integer-value(1000))',
+                'label': 'SendSysMessage(character, text, font := 3, color := 1000)',
                 'parameters': [
                     { 'label': [15, 24] },
                     { 'label': [26, 30] },
                     { 'label': [32, 36] },
-                    { 'label': [58, 63] }]
+                    { 'label': [43, 48] }]
             }],
             'activeSignature': 0,
             'activeParameter': 0
@@ -545,7 +650,7 @@ describe('Signature Help', () => {
 
         expect(signatureHelp).toEqual({
             'signatures': [{
-                'label': 'hello(foo, bar := integer-value(5))',
+                'label': 'hello(foo, bar := 5)',
                 'parameters': [
                     { 'label': [6, 9] },
                     { 'label': [11, 14] }]
@@ -568,7 +673,7 @@ describe('Signature Help', () => {
             [ 76, 'Trim',  1 ]
         ] as const;
 
-        for (const [character, expectedFunctionName, activeParameter ] of where) {
+        for (const [character, expectedFunctionName, activeParameter] of where) {
             const signatureHelp = getSignatureHelp('compare("hello", "there", substrreplace("abc", "def", 5123), trim("hello",0x03));', character);
             toBeDefined(signatureHelp);
             expect(signatureHelp.signatures).toHaveLength(1);

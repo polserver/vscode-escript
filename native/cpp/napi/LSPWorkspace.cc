@@ -1,14 +1,15 @@
 #include "LSPWorkspace.h"
 #include "LSPDocument.h"
+
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compilercfg.h"
+#include "napi.h"
 #include "plib/pkg.h"
 #include "plib/systemstate.h"
-#include <filesystem>
-#include <napi.h>
+
 
 using namespace Pol::Bscript;
 
@@ -17,6 +18,7 @@ namespace VSCodeEscript
 LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
     : ObjectWrap( info ),
       SourceFileLoader(),
+      _workspaceRoot( "" ),
       em_parse_tree_cache( *this, profile ),
       inc_parse_tree_cache( *this, profile )
 {
@@ -24,30 +26,40 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
 
   if ( info.Length() < 1 || !info[0].IsObject() )
   {
-    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments: arguments[0] is not an object" ) )
         .ThrowAsJavaScriptException();
   }
 
   auto config = info[0].As<Napi::Object>();
-  auto callback = config.Get( "getContents" );
+  auto getContents_cb = config.Get( "getContents" );
+  auto getXmlDocPath_cb = config.Get( "getXmlDocPath" );
 
-  if ( !callback.IsFunction() )
+  if ( !getContents_cb.IsFunction() )
   {
-    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+    Napi::TypeError::New(
+        env, Napi::String::New( env, "Invalid arguments: getContents is not a function" ) )
         .ThrowAsJavaScriptException();
   }
+  else
+  {
+    GetContents = Napi::Persistent( getContents_cb.As<Napi::Function>() );
 
-  GetContents = Napi::Persistent( callback.As<Napi::Function>() );
+    if ( getXmlDocPath_cb.IsFunction() )
+      GetXMLDocPath = Napi::Persistent( getXmlDocPath_cb.As<Napi::Function>() );
+  }
 }
 
 Napi::Function LSPWorkspace::GetClass( Napi::Env env )
 {
-  return DefineClass( env, "LSPWorkspace",
-                      { LSPWorkspace::InstanceMethod( "read", &LSPWorkspace::Read ) } );
+  return DefineClass(
+      env, "LSPWorkspace",
+      { LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
+        LSPWorkspace::InstanceMethod( "getConfigValue", &LSPWorkspace::GetConfigValue ),
+        LSPWorkspace::InstanceAccessor( "workspaceRoot", &LSPWorkspace::GetWorkspaceRoot,
+                                        nullptr ) } );
 }
 
-
-Napi::Value LSPWorkspace::Read( const Napi::CallbackInfo& info )
+Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
 
@@ -57,10 +69,12 @@ Napi::Value LSPWorkspace::Read( const Napi::CallbackInfo& info )
         .ThrowAsJavaScriptException();
   }
 
-  auto cfg = info[0].As<Napi::String>();
+  _workspaceRoot = std::filesystem::u8path( info[0].As<Napi::String>().Utf8Value() );
+  std::string cfg( ( _workspaceRoot / "scripts" / "ecompile.cfg" ).u8string() );
+
   try
   {
-    compilercfg.Read( cfg.As<Napi::String>().Utf8Value() );
+    compilercfg.Read( cfg );
 
     Pol::Plib::systemstate.packages.clear();
     Pol::Plib::systemstate.packages_byname.clear();
@@ -75,10 +89,12 @@ Napi::Value LSPWorkspace::Read( const Napi::CallbackInfo& info )
   }
   catch ( const std::exception& ex )
   {
+    _workspaceRoot = "";
     Napi::Error::New( env, ex.what() ).ThrowAsJavaScriptException();
   }
   catch ( ... )
   {
+    _workspaceRoot = "";
     Napi::Error::New( env, "Unknown Error" ).ThrowAsJavaScriptException();
   }
 
@@ -95,9 +111,65 @@ std::string LSPWorkspace::get_contents( const std::string& pathname ) const
   return value.As<Napi::String>().Utf8Value();
 }
 
+std::optional<std::string> LSPWorkspace::get_xml_doc_path( const std::string& moduleEmFile ) const
+{
+  if ( GetXMLDocPath.IsEmpty() )
+    return std::nullopt;
+
+  auto value = GetXMLDocPath.Call( Value(), { Napi::String::New( Env(), moduleEmFile ) } );
+
+  if ( !value.IsString() )
+  {
+    return std::nullopt;
+  }
+
+  return value.As<Napi::String>().Utf8Value();
+}
+
+
 std::unique_ptr<Compiler::Compiler> LSPWorkspace::make_compiler()
 {
   return std::make_unique<Compiler::Compiler>( *this, em_parse_tree_cache, inc_parse_tree_cache,
                                                profile );
+}
+
+Napi::Value LSPWorkspace::GetWorkspaceRoot( const Napi::CallbackInfo& info )
+{
+  return Napi::String::New( info.Env(), _workspaceRoot.generic_u8string() );
+}
+
+Napi::Value LSPWorkspace::GetConfigValue( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsString() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  auto key = info[0].As<Napi::String>().Utf8Value();
+  if ( key == "PackageRoot" )
+  {
+    auto values = Napi::Array::New( env );
+    auto push = values.Get( "push" ).As<Napi::Function>();
+    for ( auto const& packageRoot : compilercfg.PackageRoot )
+    {
+      push.Call( values, { Napi::String::New( env, packageRoot ) } );
+    }
+    return values;
+  }
+  if ( key == "IncludeDirectory" )
+    return Napi::String::New( env, compilercfg.IncludeDirectory );
+
+  if ( key == "ModuleDirectory" )
+    return Napi::String::New( env, compilercfg.ModuleDirectory );
+
+  if ( key == "PolScriptRoot" )
+    return Napi::String::New( env, compilercfg.PolScriptRoot );
+
+  Napi::Error::New( env, "Unknown key: " + key ).ThrowAsJavaScriptException();
+
+  return Napi::Value();
 }
 }  // namespace VSCodeEscript
