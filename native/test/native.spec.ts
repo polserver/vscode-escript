@@ -3,11 +3,14 @@ import { readFileSync } from 'fs';
 import { LSPDocument, LSPWorkspace, native } from '../src/index';
 import { F_OK } from 'constants';
 import { writeFile, access, mkdir } from "fs/promises";
-import { dirname } from "path";
+import { dirname, join } from "path";
 
 const { LSPWorkspace, LSPDocument } = native;
 
 const dir = resolve(__dirname);
+
+// Uses relative path
+const moduleDirectory = join('..', 'polserver', 'pol-core', 'support', 'scripts');
 
 function toBeDefined<T>(val: T): asserts val is NonNullable<T> {
     if (val === undefined) { throw new Error('Value is undefined'); }
@@ -22,7 +25,6 @@ beforeAll(async () => {
     try {
         await access(cfg, F_OK);
     } catch {
-        const moduleDirectory = resolve(__dirname, '..', 'polserver', 'pol-core', 'support', 'scripts');
         const polDirectory = resolve(__dirname, '..', 'polserver', 'testsuite', 'pol');
         const includeDirectory = resolve(polDirectory, 'scripts', 'include');
         const cfgText = `ModuleDirectory ${moduleDirectory}\nIncludeDirectory ${includeDirectory}\nPolScriptRoot ${polDirectory}\nPackageRoot ${polDirectory}\nDisplayWarnings 1\n`;
@@ -150,6 +152,14 @@ describe('vscode-escript-native LSPWorkspace', () => {
             basicioMod,
             incname,
         ]);
+    });
+
+    it('Can use relative paths', () => {
+        const workspace = new LSPWorkspace({
+            getContents: () => ''
+        });
+        workspace.open(dir);
+        expect(resolve(workspace.getConfigValue('ModuleDirectory'))).toEqual(resolve(dir, moduleDirectory));
     });
 });
 
@@ -332,12 +342,10 @@ describe('Hover Docs', () => {
         const workspace = new LSPWorkspace({
             getContents,
             getXmlDocPath(moduleEmFile) {
-                console.log("getXmlDocPath", moduleEmFile);
                 if (extname(moduleEmFile).toLowerCase() !== '.em') {
                     return null;
                 }
                 const result = resolve(xmlDocDir, basename(moduleEmFile, '.em') + "em.xml");
-                console.log("result", result);
                 return result;
             }
         });

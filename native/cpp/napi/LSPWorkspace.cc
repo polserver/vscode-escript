@@ -76,6 +76,15 @@ Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
   {
     compilercfg.Read( cfg );
 
+    make_absolute( compilercfg.ModuleDirectory );
+    make_absolute( compilercfg.PolScriptRoot );
+    make_absolute( compilercfg.IncludeDirectory );
+
+    for ( std::string& packageRoot : compilercfg.PackageRoot )
+    {
+      make_absolute( packageRoot );
+    }
+
     Pol::Plib::systemstate.packages.clear();
     Pol::Plib::systemstate.packages_byname.clear();
 
@@ -99,6 +108,15 @@ Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
   }
 
   return Napi::Value();
+}
+
+void LSPWorkspace::make_absolute( std::string& path )
+{
+  std::filesystem::path filepath( path );
+  if ( filepath.is_relative() )
+  {
+    path = ( _workspaceRoot / filepath ).u8string();
+  }
 }
 
 std::string LSPWorkspace::get_contents( const std::string& pathname ) const
