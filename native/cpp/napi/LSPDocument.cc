@@ -156,7 +156,14 @@ Napi::Value LSPDocument::Tokens( const Napi::CallbackInfo& info )
       push.Call( semTok, { Napi::Number::New( env, token.character_column - 1 ) } );
       push.Call( semTok, { Napi::Number::New( env, token.length ) } );
       push.Call( semTok, { Napi::Number::New( env, static_cast<unsigned int>( token.type ) ) } );
-      push.Call( semTok, { Napi::Number::New( env, 0 ) } );
+
+      int modifiers = 0;
+      for ( auto const& modifier : token.modifiers )
+      {
+        modifiers += ( 1 << static_cast<unsigned int>( modifier ) );
+      }
+      push.Call( semTok, { Napi::Number::New( env, modifiers ) } );
+
       push.Call( results, { semTok } );
     }
   }
