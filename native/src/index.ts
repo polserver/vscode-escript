@@ -34,7 +34,7 @@ export interface LSPWorkspace {
 
 export interface LSPDocument {
     new(workspace: LSPWorkspace, pathname: string): LSPDocument;
-    analyze(): void;
+    analyze(continueOnError?: boolean): void;
     dependents(): string[];
     diagnostics(): Diagnostic[];
     hover(position: Position): string | undefined;

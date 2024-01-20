@@ -569,16 +569,14 @@ describe('Completion', () => {
         document = new LSPDocument(workspace, src);
     });
 
-    const getCompletion = (source: string, character: number) => {
+    const getCompletion = (source: string, character: number, continueOnError?: boolean) => {
         text = source;
-        document.analyze();
+        document.analyze(continueOnError);
         return document.completion({ line: 1, character });
     };
 
     it('Can complete module functions from parser-invalid source when continueAnalysisOnError is true', () => {
-        const oldValue = ExtensionConfiguration.get('continueAnalysisOnError');
-        ExtensionConfiguration.setFromObject({ continueAnalysisOnError: true });
-        const hover = getCompletion('use uo; ListItems', 17);
+        const hover = getCompletion('use uo; ListItems', 17, true);
         expect(hover).toEqual([
             { label: 'ListItemsAtLocation', kind: 3 },
             { label: 'ListItemsInBoxOfObjType', kind: 3 },
@@ -586,15 +584,11 @@ describe('Completion', () => {
             { label: 'ListItemsNearLocationOfType', kind: 3 },
             { label: 'ListItemsNearLocationWithFlag', kind: 3 }
         ]);
-        ExtensionConfiguration.setFromObject({ continueAnalysisOnError: oldValue });
     });
 
     it('Can not complete module functions from parser-invalid source when continueAnalysisOnError is false', () => {
-        const oldValue = ExtensionConfiguration.get('continueAnalysisOnError');
-        ExtensionConfiguration.setFromObject({ continueAnalysisOnError: false });
-        const hover = getCompletion('use uo; ListItems', 17);
+        const hover = getCompletion('use uo; ListItems', 17, false);
         expect(hover).toEqual([]);
-        ExtensionConfiguration.setFromObject({ continueAnalysisOnError: oldValue });
     });
 
     it('Can complete module functions', () => {
