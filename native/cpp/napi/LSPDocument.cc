@@ -3,6 +3,7 @@
 #include "../compiler/DefinitionBuilder.h"
 #include "../compiler/HoverBuilder.h"
 #include "../compiler/SignatureHelpBuilder.h"
+#include "ExtensionConfig.h"
 #include "LSPWorkspace.h"
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
@@ -83,7 +84,9 @@ Napi::Value LSPDocument::Analyze( const Napi::CallbackInfo& info )
       compiler->set_include_compile_mode();
     }
 
-    compiler_workspace = compiler->analyze( pathname, *report, type == LSPDocumentType::EM );
+    bool continue_on_error = false;
+    compiler_workspace =
+        compiler->analyze( pathname, *report, type == LSPDocumentType::EM, continue_on_error );
     return env.Undefined();
   }
   catch ( const std::exception& ex )
