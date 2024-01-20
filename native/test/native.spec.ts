@@ -5,7 +5,7 @@ import { F_OK } from 'constants';
 import { writeFile, access, mkdir } from "fs/promises";
 import { dirname, join } from "path";
 
-const { LSPWorkspace, LSPDocument } = native;
+const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
 
 const dir = resolve(__dirname);
 
@@ -574,6 +574,28 @@ describe('Completion', () => {
         document.analyze();
         return document.completion({ line: 1, character });
     };
+
+    it('Can complete module functions from parser-invalid source when continueAnalysisOnError is true', () => {
+        const oldValue = ExtensionConfiguration.get('continueAnalysisOnError');
+        ExtensionConfiguration.setFromObject({ continueAnalysisOnError: true });
+        const hover = getCompletion('use uo; ListItems', 17);
+        expect(hover).toEqual([
+            { label: 'ListItemsAtLocation', kind: 3 },
+            { label: 'ListItemsInBoxOfObjType', kind: 3 },
+            { label: 'ListItemsNearLocation', kind: 3 },
+            { label: 'ListItemsNearLocationOfType', kind: 3 },
+            { label: 'ListItemsNearLocationWithFlag', kind: 3 }
+        ]);
+        ExtensionConfiguration.setFromObject({ continueAnalysisOnError: oldValue });
+    });
+
+    it('Can not complete module functions from parser-invalid source when continueAnalysisOnError is false', () => {
+        const oldValue = ExtensionConfiguration.get('continueAnalysisOnError');
+        ExtensionConfiguration.setFromObject({ continueAnalysisOnError: false });
+        const hover = getCompletion('use uo; ListItems', 17);
+        expect(hover).toEqual([]);
+        ExtensionConfiguration.setFromObject({ continueAnalysisOnError: oldValue });
+    });
 
     it('Can complete module functions', () => {
         const hover = getCompletion('use uo; ListItems;', 17);

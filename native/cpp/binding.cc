@@ -17,6 +17,8 @@ Napi::Object Init( Napi::Env env, Napi::Object exports )
   auto ExtensionConfiguration = Napi::Object::New( env );
   ExtensionConfiguration["setFromObject"] =
       Napi::Function::New( env, &VSCodeEscript::ExtensionConfiguration::SetFromObject );
+  ExtensionConfiguration["get"] =
+      Napi::Function::New( env, &VSCodeEscript::ExtensionConfiguration::Get );
   exports.Set( Napi::String::New( env, "ExtensionConfiguration" ), ExtensionConfiguration );
 
   return exports;
