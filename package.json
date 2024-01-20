@@ -64,6 +64,11 @@
                     "default": false,
                     "description": "Show module function comments in documentation (hover, signature help)."
                 },
+                "escript.continueAnalysisOnError": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Continue analysis even on parser errors. This allows symbols (variables, functions, function parameters, ...) to be available for extension features (hover, signature help, ...).\n\n**CAUTION**: This feature is still under experimentation and may cause unexpected crashes. If extension fails, please report an issue and disable this feature."
+                },
                 "escript.polCommitId": {
                     "type": "string",
                     "default": "",

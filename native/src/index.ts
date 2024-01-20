@@ -34,7 +34,7 @@ export interface LSPWorkspace {
 
 export interface LSPDocument {
     new(workspace: LSPWorkspace, pathname: string): LSPDocument;
-    analyze(): void;
+    analyze(continueOnError?: boolean): void;
     dependents(): string[];
     diagnostics(): Diagnostic[];
     hover(position: Position): string | undefined;
@@ -47,13 +47,17 @@ export interface LSPDocument {
 export interface ExtensionConfiguration {
     polCommitId: string;
     showModuleFunctionComments: boolean;
+    continueAnalysisOnError: boolean;
 }
 
 export interface EscriptVscodeNative {
     LSPWorkspace: LSPWorkspace;
     LSPDocument: LSPDocument;
     ExtensionConfiguration: {
-        setFromObject(settings: ExtensionConfiguration): void
+        setFromObject(settings: Partial<ExtensionConfiguration>): void
+        get(setting: 'polCommitId'): string;
+        get(setting: 'showModuleFunctionComments'): boolean;
+        get(setting: 'continueAnalysisOnError'): boolean;
     }
 }
 

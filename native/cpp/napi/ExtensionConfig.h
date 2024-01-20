@@ -12,9 +12,11 @@ public:
   ExtensionConfiguration();
 
   static Napi::Value SetFromObject( const Napi::CallbackInfo& info );
+  static Napi::Value Get( const Napi::CallbackInfo& info );
 
   std::string polCommitId;
   bool showModuleFunctionComments;
+  bool continueAnalysisOnError;
 };
 
 extern ExtensionConfiguration gExtensionConfiguration;

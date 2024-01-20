@@ -84,7 +84,9 @@ Napi::Value LSPDocument::Analyze( const Napi::CallbackInfo& info )
       compiler->set_include_compile_mode();
     }
 
-    bool continue_on_error = false;
+    bool continue_on_error =
+        info.Length() > 0 && info[0].IsBoolean() ? info[0].As<Napi::Boolean>().Value() : true;
+
     compiler_workspace =
         compiler->analyze( pathname, *report, type == LSPDocumentType::EM, continue_on_error );
     return env.Undefined();

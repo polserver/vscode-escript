@@ -167,7 +167,7 @@ export class LSPServer {
             if (!document) {
                 throw new Error('Document not opened');
             }
-            document.analyze();
+            document.analyze(this.configuration?.continueAnalysisOnError);
             const diagnostics = document.diagnostics();
 
             this.connection.sendDiagnostics({

@@ -5,7 +5,7 @@ import { F_OK } from 'constants';
 import { writeFile, access, mkdir } from "fs/promises";
 import { dirname, join } from "path";
 
-const { LSPWorkspace, LSPDocument } = native;
+const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
 
 const dir = resolve(__dirname);
 
@@ -569,11 +569,27 @@ describe('Completion', () => {
         document = new LSPDocument(workspace, src);
     });
 
-    const getCompletion = (source: string, character: number) => {
+    const getCompletion = (source: string, character: number, continueOnError?: boolean) => {
         text = source;
-        document.analyze();
+        document.analyze(continueOnError);
         return document.completion({ line: 1, character });
     };
+
+    it('Can complete module functions from parser-invalid source when continueAnalysisOnError is true', () => {
+        const hover = getCompletion('use uo; ListItems', 17, true);
+        expect(hover).toEqual([
+            { label: 'ListItemsAtLocation', kind: 3 },
+            { label: 'ListItemsInBoxOfObjType', kind: 3 },
+            { label: 'ListItemsNearLocation', kind: 3 },
+            { label: 'ListItemsNearLocationOfType', kind: 3 },
+            { label: 'ListItemsNearLocationWithFlag', kind: 3 }
+        ]);
+    });
+
+    it('Can not complete module functions from parser-invalid source when continueAnalysisOnError is false', () => {
+        const hover = getCompletion('use uo; ListItems', 17, false);
+        expect(hover).toEqual([]);
+    });
 
     it('Can complete module functions', () => {
         const hover = getCompletion('use uo; ListItems;', 17);
