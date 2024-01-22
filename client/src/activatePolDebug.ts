@@ -71,8 +71,8 @@ class PolDebugConfigurationProvider implements vscode.DebugConfigurationProvider
                         const running: vscode.QuickPickItem[] = [];
                         const sleeping: vscode.QuickPickItem[] = [];
 
-                        for (const { id, program, state } of processes) {
-                            const item: vscode.QuickPickItem = { kind: vscode.QuickPickItemKind.Default, label: `${id} ${program}` };
+                        for (const { id, script, state } of processes) {
+                            const item: vscode.QuickPickItem = { kind: vscode.QuickPickItemKind.Default, label: `${id} ${script}` };
 
                             if (state === 2) {
                                 debugging.push(item);
