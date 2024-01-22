@@ -24,11 +24,14 @@ HoverBuilder::HoverBuilder( LSPWorkspace* lsp_workspace, CompilerWorkspace& work
 }
 
 std::regex literal_tag_regex( R"###(^(?:float|integer|string)-value\((.*)\))###" );
+std::regex functioncall_tag_regex( R"###(^function-call\((.*)\))###" );
 std::regex comment_clean_regex( R"###(.*(\*|\/{2,})[ \t]*\/*)###" );
 
 std::string HoverBuilder::replace_literal_tags( const std::string& input )
 {
-  return std::regex_replace( input, literal_tag_regex, "$1" );
+  std::string output = std::regex_replace( input, literal_tag_regex, "$1" );
+  output = std::regex_replace( output, functioncall_tag_regex, "$1()" );
+  return output;
 }
 
 std::string HoverBuilder::strip_comment_code( const std::string& comment )
