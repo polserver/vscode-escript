@@ -26,14 +26,13 @@ class PolDebugAdapterTracker implements vscode.DebugAdapterTracker {
     }
 }
 
+const srcToEcl = (src: string) => String(src ?? '')
+    .replace(/\\/g, '/') // POL only uses forward slashes
+    .replace(/\.src$/, '.ecl'); // Replace .src with .ecl
+
 class PolDebugConfigurationProvider implements vscode.DebugConfigurationProvider {
     async resolveDebugConfigurationWithSubstitutedVariables(_: vscode.WorkspaceFolder | undefined, config: vscode.DebugConfiguration): Promise<vscode.DebugConfiguration> {
-        const { host, port, password, pid, request, script } = config;
-
-        if (!host) {
-            vscode.window.showErrorMessage(`Missing "host" property in debug configuration.`).then(_ => { });
-            return undefined;
-        }
+        const { host = '127.0.0.1', port, password, pid, request, script } = config;
 
         if (!port) {
             vscode.window.showErrorMessage(`Missing "port" property in debug configuration.`).then(_ => { });
@@ -47,9 +46,7 @@ class PolDebugConfigurationProvider implements vscode.DebugConfigurationProvider
             }
 
             if (!pid) {
-                const filter = String(script ?? '')
-                    .replace(/\\/g, '/') // POL only uses forward slashes
-                    .replace(/\.src$/, '.ecl'); // Replace .src with .ecl
+                const filter = srcToEcl(script);
 
                 let client: PolDebugClient;
                 try {
@@ -131,6 +128,7 @@ class PolDebugConfigurationProvider implements vscode.DebugConfigurationProvider
                 vscode.window.showErrorMessage(`The "script" property is required in debug configuration for launching.`).then(_ => { });
                 return undefined;
             }
+            config.script = srcToEcl(script);
         }
 
         return config;
