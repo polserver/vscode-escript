@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,4 +21,4 @@ jobs:
             fileName: "*.vsix"
 
       - name: Publish
-        run: echo npx vsce publish -p ${{ secrets.VSCE_PAT }} -i ${{ fromJson(steps.release-download.outputs.downloaded_files)[0] }}
+        run: npx vsce publish -p ${{ secrets.VSCE_PAT }} -i ${{ fromJson(steps.release-download.outputs.downloaded_files)[0] }}
