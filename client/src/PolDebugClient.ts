@@ -23,7 +23,7 @@ interface PolProcessListResponse extends Response {
 	body: {
 		processes: Array<{
 			id: number;
-			program: string;
+			script: string;
 			state: number;
 		}>
 	}

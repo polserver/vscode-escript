@@ -119,7 +119,6 @@
 				"configurationAttributes": {
 					"launch": {
 						"required": [
-							"host",
 							"port",
 							"script"
 						],
@@ -145,6 +144,11 @@
 							"arg": {
 								"type": "string",
 								"description": "Packed argument to send to program"
+							},
+							"stopAtEntry": {
+								"type": "boolean",
+								"description": "If true, the debugger should stop at the entrypoint of the target. Defaults to false.",
+								"default": false
 							}
 						}
 					},
@@ -170,7 +174,7 @@
 							},
 							"pid": {
 								"type": "number",
-								"description": "Process id",
+								"description": "Process id. If none provided, a list of processes matching property `script` will be displayed to choose from.",
 								"default": 0
 							},
 							"script": {
@@ -189,7 +193,7 @@
 							"name": "Attach to script",
 							"request": "attach",
 							"host": "127.0.0.1",
-							"port": 0,
+							"port": 5002,
 							"password": "",
 							"pid": 0,
 							"script": "^\"\\${relativeFile}\""
@@ -203,9 +207,10 @@
 							"name": "Launch script",
 							"request": "launch",
 							"host": "127.0.0.1",
-							"port": 0,
+							"port": 5002,
 							"password": "",
-							"script": "^\"\\${relativeFile}\""
+							"script": "^\"\\${relativeFile}\"",
+							"stopAtEntry": false
 						}
 					}
 				]
