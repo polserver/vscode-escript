@@ -1,11 +1,13 @@
 import { basename, extname, resolve } from 'path';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { LSPDocument, LSPWorkspace, native } from '../src/index';
 import { F_OK } from 'constants';
 import { writeFile, access, mkdir } from "fs/promises";
 import { dirname, join } from "path";
 
 const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
+
+const describeLongTest = process.env['JEST_RUN_LONG_TESTS'] ? describe : describe.skip;
 
 const dir = resolve(__dirname);
 
@@ -708,4 +710,99 @@ describe('Signature Help', () => {
             expect(signatureHelp.activeParameter).toEqual(activeParameter);
         }
     });
+});
+
+describeLongTest('Actively typing sources', () => {
+    class DynamicDocument {
+        tokens: Array<string>;
+        index: number;
+        text: string;
+        document: LSPDocument;
+
+        constructor(data: string, index = 0) {
+            const regex = /([^\s]+)|\n/g;
+            this.tokens = data.match(regex) ?? [];
+
+            this.index = index;
+            this.text = this.tokens.slice(0, index).join(" ");
+
+            const dir = __dirname;
+            const src = 'in-memory-file.src';
+            let calls = 0;
+            const getContents = (pathname: string) => {
+                if (pathname === src) {
+                    if (this.index < this.tokens.length) {
+                        this.text += " " + this.tokens[this.index];
+                        this.index++;
+                    }
+                    return this.text;
+                }
+                return readFileSync(pathname, 'utf-8');
+            };
+
+            const workspace = new LSPWorkspace({
+                getContents
+            });
+            workspace.open(dir);
+
+            this.document = new LSPDocument(workspace, src);
+        }
+
+        finished() {
+            return this.index >= this.tokens.length;
+        }
+
+        analyze() {
+            this.document.analyze();
+            return this.document.diagnostics();
+        }
+    }
+
+    // Node 18.15.0 (which vscode uses as of 1.85.1) does not have the
+    // `recursive` option for readdir, so must be implemented manually.
+    const readDirectoryRecursive = (directory: string) => {
+        try {
+            let files = Array<string>();
+
+            const entries = readdirSync(directory, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const fullPath = join(directory, entry.name);
+
+                if (entry.isDirectory()) {
+                    const subdirectoryFiles = readDirectoryRecursive(fullPath);
+                    files = files.concat(subdirectoryFiles);
+                } else {
+                    files.push(fullPath);
+                }
+            }
+
+            return files;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    for (const folder of ['escript', 'pol']) {
+        const scriptsDir = resolve(__dirname, '..', 'polserver', 'testsuite', folder);
+        const files = readDirectoryRecursive(scriptsDir);
+        for (const basefile of files) {
+            if (extname(basefile) !== '.src') continue;
+            const file = resolve(scriptsDir, basefile);
+            const data = readFileSync(file, 'utf-8');
+            const doc = new DynamicDocument(data, 0);
+            it(`Processing ${file}`, () => {
+                const process = () => {
+                    while (!doc.finished()) {
+                        try {
+                            doc.analyze();
+                        } catch (e) {
+                            throw new Error(`Error on ${file} [index: ${doc.index}]: ${e instanceof Error ? e.message : e}\n\n${doc.text}`);
+                        }
+                    }
+                };
+                expect(process).not.toThrow();
+            });
+        }
+    }
 });
