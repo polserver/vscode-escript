@@ -8,10 +8,17 @@
 			"url": "https://github.com/polserver"
 		}
 	],
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"publisher": "polserver",
-	"categories": [],
-	"keywords": [],
+	"icon": "icon.png",
+	"categories": [
+		"Programming Languages"
+	],
+	"keywords": [
+		"POL",
+		"polserver",
+		"Escript"
+	],
 	"engines": {
 		"vscode": "^1.78.0"
 	},
@@ -126,7 +133,7 @@
 							"host": {
 								"type": "string",
 								"description": "Debug server host",
-								"default": "localhost"
+								"default": "127.0.0.1"
 							},
 							"port": {
 								"type": "number",
@@ -154,14 +161,13 @@
 					},
 					"attach": {
 						"required": [
-							"host",
 							"port"
 						],
 						"properties": {
 							"host": {
 								"type": "string",
 								"description": "Debug server host",
-								"default": "localhost"
+								"default": "127.0.0.1"
 							},
 							"port": {
 								"type": "number",
