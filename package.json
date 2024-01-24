@@ -63,24 +63,24 @@
 			}
 		],
 		"configuration": {
-            "type": "object",
-            "title": "EScript",
-            "properties": {
-                "escript.showModuleFunctionComments": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Show module function comments in documentation (hover, signature help)."
-                },
-                "escript.continueAnalysisOnError": {
-                    "type": "boolean",
-                    "default": true,
-                    "markdownDescription": "Continue analysis even on parser errors. This allows symbols (variables, functions, function parameters, ...) to be available for extension features (hover, signature help, ...).\n\n**CAUTION**: This feature is still under experimentation and may cause unexpected crashes. If extension fails, please report an issue and disable this feature."
-                },
-                "escript.polCommitId": {
-                    "type": "string",
-                    "default": "",
-                    "description": "If set, use this specific POL commit (or tag) for documentation."
-                }
+			"type": "object",
+			"title": "EScript",
+			"properties": {
+				"escript.showModuleFunctionComments": {
+					"type": "boolean",
+					"default": false,
+					"description": "Show module function comments in documentation (hover, signature help)."
+				},
+				"escript.continueAnalysisOnError": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Continue analysis even on parser errors. This allows symbols (variables, functions, function parameters, ...) to be available for extension features (hover, signature help, ...).\n\n**CAUTION**: This feature is still under experimentation and may cause unexpected crashes. If extension fails, please report an issue and disable this feature."
+				},
+				"escript.polCommitId": {
+					"type": "string",
+					"default": "",
+					"description": "If set, use this specific POL commit (or tag) for documentation."
+				}
 			}
 		},
 		"grammars": [
@@ -230,8 +230,8 @@
 		"build": "npm run grammar && tsc -b && cd native && npm run build",
 		"clean": "rimraf client/out server/out grammars/escript.json",
 		"e2e": "cd client && npm test",
-		"test": "JEST_RUN_LONG_TESTS=1 jest --coverage",
-		"test-all": "JEST_RUN_LONG_TESTS=1 jest --coverage",
+		"test": "cross-env JEST_RUN_LONG_TESTS=1 jest --coverage",
+		"test-all": "cross-env JEST_RUN_LONG_TESTS=1 jest --coverage",
 		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json && js-yaml grammars/cfg.yml > grammars/cfg.json && js-yaml grammars/codeblock.yml > grammars/codeblock.json && js-yaml grammars/doc.yml > grammars/doc.json",
 		"eslint": "eslint \"**/*.{js,ts}\""
 	},
@@ -243,6 +243,7 @@
 		"@types/mock-fs": "^4.13.1",
 		"@types/node": "^20.2.4",
 		"@typescript-eslint/parser": "^5.59.7",
+		"cross-env": "^7.0.3",
 		"eslint": "^8.41.0",
 		"jest": "^29.5.0",
 		"js-yaml": "^4.1.0",
