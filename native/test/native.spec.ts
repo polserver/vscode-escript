@@ -2,7 +2,7 @@ import { basename, extname, resolve } from 'path';
 import { readFileSync, readdirSync } from 'fs';
 import { LSPDocument, LSPWorkspace, native } from '../src/index';
 import { F_OK } from 'constants';
-import { writeFile, access, mkdir } from "fs/promises";
+import { writeFile, access, mkdir, readFile } from "fs/promises";
 import { dirname, join } from "path";
 
 const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
@@ -789,9 +789,9 @@ describeLongTest('Actively typing sources', () => {
         for (const basefile of files) {
             if (extname(basefile) !== '.src') continue;
             const file = resolve(scriptsDir, basefile);
-            const data = readFileSync(file, 'utf-8');
-            const doc = new DynamicDocument(data, 0);
-            it(`Processing ${file}`, () => {
+            it(`Processing ${file}`, async () => {
+                const data = await readFile(file, 'utf-8');
+                const doc = new DynamicDocument(data, 0);
                 const process = () => {
                     while (!doc.finished()) {
                         try {
