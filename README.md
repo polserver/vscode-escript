@@ -74,6 +74,71 @@ supports the following features:
 
 ![Debugger](doc-assets/debugger.png)
 
+#### Launch Script
+
+Example launch configuration to run the current script in the Visual Studio Code
+editor:
+
+```json
+{
+  "type": "pol",
+    "request": "launch",
+    "name": "Launch current script",
+    "port": 5002,
+    "script": "${relativeFile}",
+    "stopAtEntry": true
+}
+```
+
+#### Attach to Script
+
+Example launch configuration to attach to the current script in the Visual Studio Code
+editor, displaying a PID selection of multiple scripts found:
+
+```json
+{
+    "type": "pol",
+    "request": "attach",
+    "name": "Attach to script",
+    "port": 5002,
+
+    "pid": 0,
+    // if "pid" not provided, must provide "script":
+    "script": "${relativeFile}"
+}
+```
+
+### Tips and Tricks
+
+- To constantly refresh a compiled program from disk, add this to the top of
+  your source file:
+
+  ```
+  use polsys;
+  Unload_Scripts(GetProcess().name);
+  ```
+
+- To launch interactive scripts (eg. item use scripts), provide values for
+  parameters that are not passed, eg.:
+
+  ```
+  program use_script(who, item)
+    if (!who) who := SystemFindObjectBySerial(123, SYSFIND_SEARCH_OFFLINE_MOBILES); endif
+    if (!item) item := SystemFindObjectBySerial(789); endif
+
+    // ... rest of use script ...
+  endprogram
+  ```
+
+### Notes
+
+- Currently, the debugger cannot determine that a source file does not match the
+  current compiled file. Please ensure your source scripts and compiled programs
+  are in-sync.
+- Attaching to a script currently sleeping (eg. `Sleep()`, `Wait_For_Event()`)
+  will not wake the script. The function call must complete in order for the
+  debugger to break.
+
 ## Troubleshooting/bugs
 
 The extension uses a built-in version of the Escript compiler, and may crash
