@@ -3,9 +3,9 @@
 #include "../napi/ExtensionConfig.h"
 #include "../napi/LSPWorkspace.h"
 
+#include "bscript/compiler/file/SourceFile.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "clib/strutil.h"
-#include "compiler/file/SourceFile.h"
 
 #include <algorithm>
 #include <regex>
