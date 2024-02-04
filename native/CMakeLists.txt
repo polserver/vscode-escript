@@ -70,8 +70,7 @@ endif()
 
 # since external prjs are always build, disable pol related ones
 # eg Curl
-set(BUILD_ALL OFF CACHE BOOL "do not add every ext prj" FORCE)
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/polserver")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/polserver" EXCLUDE_FROM_ALL)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
   bscript

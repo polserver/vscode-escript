@@ -97,7 +97,7 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
     // Loop the source from the end to find the token containing our position
     for ( auto rit = tokens.rbegin(); rit != tokens.rend(); ++rit )
     {
-      token = rit->get();
+      token = *rit;
       Pol::Bscript::Compiler::Range range( token );
 
       // We found the token
@@ -124,7 +124,7 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
               // Get the identifier before this last open parenthesis
               if ( ++rit != tokens.rend() )
               {
-                token = rit->get();
+                token = *rit;
                 if ( token->getType() == EscriptLexer::IDENTIFIER )
                 {
                   auto function_name = token->getText();
@@ -161,7 +161,7 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
           }
           // FIXME improvement add other checks to bail-out fast, eg `if` cannot occur here.
           ++rit;
-        } while ( rit != tokens.rend() && ( token = rit->get() ) );
+        } while ( rit != tokens.rend() && ( token = *rit ) );
 
         // No need to continue trying anything else, as the token was in range but everything failed
         return {};
