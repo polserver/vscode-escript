@@ -26,7 +26,7 @@ jobs:
       - name: Cache polserver
         uses: actions/cache@v3
         with:
-          path: native/polserver
+          path: native/build/polserver
           key: linux-polserver-full-${{ steps.get-ref.outputs.ref }}
 
       - run: npm install && npm run build
@@ -57,7 +57,7 @@ jobs:
       - name: Cache polserver
         uses: actions/cache@v3
         with:
-          path: native/polserver
+          path: native/build/polserver
           key: windows-polserver-full-${{ steps.get-ref.outputs.ref }}
 
       - run: npm install && npm run build
@@ -89,7 +89,7 @@ jobs:
       - name: Cache polserver
         uses: actions/cache@v3
         with:
-          path: native/polserver
+          path: native/build/polserver
           key: mac-polserver-full-${{ steps.get-ref.outputs.ref }}
 
       - name: Set polserver Dependencies
@@ -128,7 +128,7 @@ jobs:
       - name: Cache polserver
         uses: actions/cache@v3
         with:
-          path: native/polserver
+          path: native/build/polserver
           key: linux-polserver-full-${{ steps.get-ref.outputs.ref }}
 
       - run: npm install
