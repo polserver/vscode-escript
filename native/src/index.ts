@@ -41,6 +41,7 @@ export interface LSPDocument {
     completion(position: Position): CompletionItem[];
     definition(position: Position): { range: Range, fsPath: string } | undefined;
     signatureHelp(position: Position): SignatureHelp | undefined;
+    toAST(): string; // throws
     tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
 }
 
@@ -66,9 +67,11 @@ const baseFilename = `vscode-escript-native.${process.platform}-${process.arch}.
 const tries = [
     ...(process.platform === 'darwin' ? [
         [__dirname, '..', 'build', 'Debug', `vscode-escript-native.darwin-universal.node`],
+        [__dirname, '..', 'build', 'RelWithDebInfo', `vscode-escript-native.darwin-universal.node`],
         [__dirname, '..', 'build', 'Release', `vscode-escript-native.darwin-universal.node`],
     ] : []),
     [__dirname, '..', 'build', 'Debug', baseFilename],
+    [__dirname, '..', 'build', 'RelWithDebInfo', baseFilename],
     [__dirname, '..', 'build', 'Release', baseFilename],
 ].map(segment => resolve(...segment));
 
@@ -76,7 +79,7 @@ const filename = tries.find(filepath => existsSync(filepath));
 
 /* istanbul ignore next */
 if (!filename) {
-    throw new Error(`Unable to locate ${baseFilename}`);
+    throw new Error(`Unable to locate ${baseFilename}, tried ${tries.join('; ')}`);
 }
 
 export const native = require(filename) as EscriptVscodeNative;

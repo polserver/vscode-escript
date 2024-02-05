@@ -1,5 +1,5 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp } from 'vscode-languageserver/node';
-import { Position, TextDocument } from 'vscode-languageserver-textdocument';
+import { createConnection, TextDocuments, DocumentFormattingParams, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp } from 'vscode-languageserver/node';
+import { Position, TextDocument, TextEdit } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { promises, readFileSync } from 'fs';
 import access = promises.access;
@@ -51,6 +51,7 @@ export class LSPServer {
         this.documents.onDidClose(this.onDidClose);
         this.connection.languages.semanticTokens.on(this.onSemanticTokens);
         this.connection.onHover(this.onHover);
+        // this.connection.onDocumentFormatting(this.onDocumentFormatting);
         this.connection.onDefinition(this.onDefinition);
         this.connection.onCompletion(this.onCompletion);
         this.connection.onSignatureHelp(this.onSignatureHelp);
@@ -119,6 +120,7 @@ export class LSPServer {
 
         const result: InitializeResult = {
             capabilities: {
+                documentFormattingProvider: true,
                 textDocumentSync: TextDocumentSyncKind.Incremental,
                 hoverProvider: true,
                 definitionProvider: true,
@@ -235,6 +237,18 @@ export class LSPServer {
                     contents
                 };
             }
+        }
+        return null;
+    };
+
+    private onDocumentFormatting = async (params: DocumentFormattingParams): Promise<TextEdit[] | null | undefined> => {
+        const { fsPath } = URI.parse(params.textDocument.uri);
+        const document = this.sources.get(fsPath);
+        if (document) {
+            const ast = document.toAST();
+            var foo = 'got ast: ' + ast;
+            debugger;
+
         }
         return null;
     };

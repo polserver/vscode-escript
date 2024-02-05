@@ -230,7 +230,7 @@
 		"build": "npm run grammar && tsc -b && cd native && npm run build",
 		"clean": "rimraf client/out server/out grammars/escript.json",
 		"e2e": "cd client && npm test",
-		"test": "jest --coverage",
+		"test": "cross-env NODE_OPTIONS='--experimental-vm-modules' jest --coverage",
 		"test-all": "cross-env JEST_RUN_LONG_TESTS=1 jest --coverage",
 		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json && js-yaml grammars/cfg.yml > grammars/cfg.json && js-yaml grammars/codeblock.yml > grammars/codeblock.json && js-yaml grammars/doc.yml > grammars/doc.json",
 		"eslint": "eslint \"**/*.{js,ts}\""

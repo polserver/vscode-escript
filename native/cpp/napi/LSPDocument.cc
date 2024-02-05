@@ -7,10 +7,18 @@
 #include "LSPWorkspace.h"
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
+#include "bscript/compiler/file/SourceFile.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "bscript/compiler/file/SourceLocation.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
 #include "clib/strutil.h"
+
+#ifdef USE_BSCRIPT_AST_BUILDER
+#include "bscript/compiler/astbuilder/JsonAstBuilder.h"
+#else
+#include "../compiler/JsonAstBuilder.h"
+#endif
+
 #include <filesystem>
 
 using namespace Pol::Bscript;
@@ -61,6 +69,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "completion", &LSPDocument::Completion ),
                         LSPDocument::InstanceMethod( "definition", &LSPDocument::Definition ),
                         LSPDocument::InstanceMethod( "signatureHelp", &LSPDocument::SignatureHelp ),
+                        LSPDocument::InstanceMethod( "toAST", &LSPDocument::ToAST ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -390,6 +399,46 @@ Napi::Value LSPDocument::SignatureHelp( const Napi::CallbackInfo& info )
     }
   }
   return env.Undefined();
+}
+
+Napi::Value LSPDocument::ToAST( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
+  auto compiler = lsp_workspace->make_compiler();
+
+  if ( type == LSPDocumentType::INC )
+  {
+    compiler->set_include_compile_mode();
+  }
+
+  auto ast_reporter = std::make_unique<Compiler::DiagnosticReporter>();
+  auto ast_report = std::make_unique<Compiler::Report>( *ast_reporter );
+
+  try
+  {
+#ifdef USE_BSCRIPT_AST_BUILDER
+    Compiler::Profile ast_profile;
+    Pol::Bscript::Compiler::JsonAstBuilder builder( *lsp_workspace, ast_profile, *ast_report );
+    auto ast_str = builder.build( pathname, type == LSPDocumentType::EM );
+    return Napi::String::New( env, ast_str );
+#else
+    CompilerExt::JsonAstBuilder builder( env );
+    auto ast = builder.get_ast( *lsp_workspace, pathname, type == LSPDocumentType::EM );
+    return ast;
+#endif
+  }
+  catch ( const std::exception& ex )
+  {
+    Napi::Error::New( env, ex.what() ).ThrowAsJavaScriptException();
+    return Napi::Value();
+  }
+  catch ( ... )
+  {
+    Napi::Error::New( env, "Unknown Error" ).ThrowAsJavaScriptException();
+    return Napi::Value();
+  }
 }
 
 }  // namespace VSCodeEscript
