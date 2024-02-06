@@ -426,6 +426,42 @@ My test function with single comment line`;
     });
 });
 
+describe('Tokens - SRC', () => {
+    let document: LSPDocument;
+    let text: string;
+
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return text;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.open(dir);
+
+        document = new LSPDocument(workspace, src);
+    });
+
+    const getTokens = (source: string) => {
+        text = source;
+        document.analyze();
+        return document.tokens();
+    };
+
+    it('Handles new line with LF', () => {
+        const textLF = '"foo\nbar";\n1;\n2;\n\n"foo\nbar\n\nbaz";';
+        const textCRLF = textLF.replace(/\n/g, '\r\n');
+        const tokensLF = getTokens(textLF)
+        const tokensCRLF = getTokens(textCRLF)
+        expect(tokensLF).toEqual(tokensCRLF);
+    })
+});
+
 describe('Definition - SRC', () => {
     let document: LSPDocument;
     let text: string;
