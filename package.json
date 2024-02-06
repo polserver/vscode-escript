@@ -1,6 +1,6 @@
 {
 	"name": "escript-lsp",
-	"version": "0.11.1",
+	"version": "0.11.2",
 	"description": "EScript for Visual Studio Code. Provides code completion, navigation, and more.",
 	"contributors": [
 		{
