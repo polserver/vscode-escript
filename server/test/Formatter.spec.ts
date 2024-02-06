@@ -71,13 +71,26 @@ describe.skip('Manual formatting test', () => {
         const srcname = '/Users/kevineady/UO/ModernDistro/scripts/test.src';
         // const srcname = '/Users/kevineady/UO/ModernDistro/scripts/modules/file.em';
         // const text = 'print($"{{{{{"-"}}}}}!{{{"-"}}}");';
-        const text = undefined;
-        // const text = `use basic;
+        // const text = 'foo;\nbar;';
+        const text = `
+        case (1)
+        1:
+        2:
+        print("hello");
 
-        // if (1)
-        //     print( "hello world" );
-        // endif
-        // ;
+        print("hello");
+
+        print("hello");
+        3:
+
+        4:
+        print("hello");
+
+        print("hello");
+
+        print("hello");
+        endcase
+        `;
 
         // // note the semicolon up there, after the endif
 

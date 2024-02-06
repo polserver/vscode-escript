@@ -401,9 +401,9 @@ antlrcpp::Any JsonAstBuilder::visitExplicitDictInitializer(
     EscriptGrammar::EscriptParser::ExplicitDictInitializerContext* ctx )
 {
   bool is_short = !ctx->dictInitializer();
-  return new_node( ctx, "dictionary-expression",     //
-                   "entries", visitChildren( ctx ),  //
-                   "short", is_short                 //
+  return new_node( ctx, "dictionary-expression",      //
+                   "elements", visitChildren( ctx ),  //
+                   "short", is_short                  //
   );
 }
 
@@ -411,9 +411,9 @@ antlrcpp::Any JsonAstBuilder::visitExplicitErrorInitializer(
     EscriptGrammar::EscriptParser::ExplicitErrorInitializerContext* ctx )
 {
   bool is_short = !ctx->structInitializer();
-  return new_node( ctx, "error-expression",          //
-                   "members", visitChildren( ctx ),  //
-                   "short", is_short                 //
+  return new_node( ctx, "error-expression",           //
+                   "elements", visitChildren( ctx ),  //
+                   "short", is_short                  //
   );
 }
 
@@ -431,9 +431,9 @@ antlrcpp::Any JsonAstBuilder::visitExplicitStructInitializer(
     EscriptGrammar::EscriptParser::ExplicitStructInitializerContext* ctx )
 {
   bool is_short = !ctx->structInitializer();
-  return new_node( ctx, "struct-expression",         //
-                   "members", visitChildren( ctx ),  //
-                   "short", is_short                 //
+  return new_node( ctx, "struct-expression",          //
+                   "elements", visitChildren( ctx ),  //
+                   "short", is_short                  //
   );
 }
 
@@ -537,7 +537,9 @@ antlrcpp::Any JsonAstBuilder::visitForeachIterableExpression(
 {
   if ( auto parExpression = ctx->parExpression() )
   {
-    return visitExpression( parExpression->expression() );
+    return add( visitExpression( parExpression->expression() ),  //
+                "parenthesized", true                            //
+    );
   }
   else if ( auto functionCall = ctx->functionCall() )
   {
@@ -788,11 +790,10 @@ antlrcpp::Any JsonAstBuilder::visitRepeatStatement(
   bool parenthesized = expression->primary() && expression->primary()->parExpression();
   auto test = visitExpression( expression );
 
-  return new_node( ctx, "repeat-statement",        //
-                   "label", label,                 //
-                   "body", body,                   //
-                   "test", test,                   //
-                   "parenthesized", parenthesized  //
+  return new_node( ctx, "repeat-statement",  //
+                   "label", label,           //
+                   "body", body,             //
+                   "test", test              //
   );
 }
 

@@ -1,6 +1,12 @@
-import { AstPath, Doc, Parser, Printer, Options, doc } from 'prettier';
+import { AstPath, Doc, Parser, Printer, Options, doc, util } from 'prettier';
 
+
+const { isNextLineEmpty } = util;
 const { group, join, indent, dedent, line, softline, hardline } = doc.builders;
+
+function hasComment(node: ASTNode): boolean {
+    return Boolean(node?.comments?.length);
+}
 
 interface ASTNodeInterface {
     'end': {
@@ -14,7 +20,8 @@ interface ASTNodeInterface {
         'line_number': number,
         'token_index': number
         'index': number
-    }
+    },
+    comments?: Array<ASTCommentNode | ASTLineCommentNode>
 }
 
 interface ASTExpressionNode extends ASTNodeInterface {
@@ -29,7 +36,7 @@ interface ASTFileNode extends ASTNodeInterface {
 
 interface ASTVarStatementNode extends ASTNodeInterface {
     type: 'var-statement'
-    declarations: ASTNode[]
+    declarations: ASTVarDeclarationNode[]
 }
 
 interface ASTConstStatementNode extends ASTNodeInterface {
@@ -101,18 +108,18 @@ interface ASTExitStatementNode extends ASTNodeInterface {
 interface ASTDictionaryExpressionNode extends ASTExpressionNode {
     type: 'dictionary-expression'
     short: boolean;
-    entries: ASTDictionaryInitializerNode[]
+    elements: ASTDictionaryInitializerNode[]
 }
 
 interface ASTErrorExpressionNode extends ASTExpressionNode {
     type: 'error-expression'
-    members: ASTStructInitializerNode[]
+    elements: ASTStructInitializerNode[]
     short: boolean
 }
 
 interface ASTStructExpressionNode extends ASTExpressionNode {
     type: 'struct-expression'
-    members: ASTStructInitializerNode[]
+    elements: ASTStructInitializerNode[]
     short: boolean
 }
 
@@ -167,7 +174,6 @@ interface ASTForeachStatementNode extends ASTNodeInterface {
     identifier: ASTIdentifierNode
     expression: ASTNode
     label: null | ASTIdentifierNode
-    parenthesized: boolean;
     body: ASTNode[]
 }
 
@@ -243,7 +249,6 @@ interface ASTRepeatStatementNode extends ASTNodeInterface {
     type: 'repeat-statement'
     test: ASTNode
     body: ASTNode[]
-    parenthesized: boolean
     label: null | ASTIdentifierNode
 }
 
@@ -386,6 +391,21 @@ export const parsers: { [name: string]: Parser } = {
     },
 };
 
+const printSequence = (path: AstPath<ASTNode>, options: Options, print: (path: AstPath<ASTNode>) => Doc, property: any, joiner: Doc = []): Doc[] => {
+    return path.map(({ isLast, node }) => {
+        const printed = print(undefined as any);
+
+        const { originalText } = options;
+        if (typeof originalText === 'string') {
+            if (!isLast && isNextLineEmpty(originalText, parsers.escript.locEnd(node))) {
+                return [printed, joiner, hardline];
+            }
+        }
+
+        return [printed, isLast ? [] : joiner];
+    }, property);
+};
+
 export const printers: { [name: string]: Printer<ASTNode> } = {
     escript: {
         // handleComments: {
@@ -425,8 +445,8 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
         print(
             path: AstPath<ASTNode>,
             options: Options,
-            print: (path: AstPath<ASTNode>) => Doc
-        ): Doc[] {
+            print // : (path: AstPath<ASTNode>) => Doc
+        ): Doc {
             const { node } = path;
             if (node === null) {
                 return [];
@@ -434,7 +454,7 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
 
             switch (node.type) {
             case 'file':
-                return join(hardline, path.map(print, 'body'));
+                return join(hardline, printSequence(path, options, print, 'body'));
 
             case 'expression-statement':
                 return [group([path.call(print, 'expression'), ';'])];
@@ -455,7 +475,7 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return [node.parenthesized ? '(' : '', node.id, node.parenthesized ? ')' : ''];
 
             case 'program-parameter':
-                return [node.unused ? ['unused', ' '] : [], path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : []];
+                return [node.unused ? 'unused ' : '', path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : ''];
 
             case 'include-declaration':
                 return ['include', ' ', path.call(print, 'specifier'), ';'];
@@ -467,7 +487,7 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return [path.call(print, 'name'), '(', join(', ', path.map(print, 'parameters')), ');'];
 
             case 'module-function-parameter':
-                return [path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : []];
+                return group([path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : '']);
 
             case 'use-declaration':
                 return ['use ', path.call(print, 'specifier'), ';'];
@@ -477,43 +497,70 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 let alternativeDoc = new Array<Doc>();
 
                 if (Array.isArray(alternative)) {
-                    alternativeDoc = ['else', alternative.length ? [indent([hardline, join(hardline, path.map(print as any, 'alternative' as any))]), hardline] : hardline];
+                    alternativeDoc = ['else', alternative.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'alternative'))]), hardline] : hardline];
                 } else if (alternative !== null) {
                     alternativeDoc = [path.call(print, 'alternative' as any)];
                 }
 
-                return [node.elseif ? 'elseif (' : 'if (', path.call(print, 'test'), ')', node.consequent.length ? [indent([hardline, join(hardline, path.map(print, 'consequent'))]), hardline] : hardline, alternativeDoc, node.elseif ? '' : ['endif']];
+                return [node.elseif ? 'elseif (' : 'if (', path.call(print, 'test'), ')', node.consequent.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'consequent'))]), hardline] : hardline, alternativeDoc, node.elseif ? '' : 'endif'];
 
             case 'program-declaration':
-                return ['program ', path.call(print, 'name'), '(', join(', ', path.map(print, 'parameters')), ')', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : hardline, 'endprogram'];
+                return ['program ', path.call(print, 'name'), '(', join(', ', path.map(print, 'parameters')), ')', node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : hardline, 'endprogram'];
 
             case 'binary-expression':
-                return [group([node.parenthesized ? '(' : '', path.call(print, 'left'), ' ', node.operator, ' ', path.call(print, 'right'), node.parenthesized ? ')' : ''])];
+                return group([node.parenthesized ? '(' : '', path.call(print, 'left'), ' ', node.operator, ' ', path.call(print, 'right'), node.parenthesized ? ')' : '']);
 
             case 'enum-statement':
-                // no length check here because `enums` always has 1+ elements
-                return ['enum ', path.call(print, 'identifier'), indent([hardline, join([',', hardline], path.map(print, 'enums'))]), hardline, 'endenum'];
+                return ['enum ', path.call(print, 'identifier'), indent([hardline, join([hardline], printSequence(path, options, print, 'enums', ','))]), hardline, 'endenum'];
 
             case 'enum-entry':
-                return [group([path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : []])];
+                return group([path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : '']);
 
-            case 'var-statement':
-                return ['var ', join(', ', path.map(print, 'declarations')), ';'];
+            case 'var-statement': {
+                const printed = path.map(print, 'declarations');
+
+                const hasValue = node.declarations.some((decl) => decl.init);
+
+                let firstVariable;
+                if (printed.length === 1 && !hasComment(node.declarations[0])) {
+                    firstVariable = printed[0];
+                } else if (printed.length > 0) {
+                    firstVariable = indent(printed[0]);
+                }
+
+                const parts: Doc = [
+                    'var',
+                    firstVariable ? [' ', firstVariable] : '',
+                    indent(
+                        printed
+                            .slice(1)
+                            .map((p) => [
+                                ',',
+                                hasValue ? hardline : line,
+                                p,
+                            ]),
+                    )
+                ];
+
+                parts.push(';');
+
+                return group(parts);
+            }
 
             case 'var-declaration':
-                return [group([path.call(print, 'name'), node.init ? [node.assign ? ' := ' : ' ', path.call(print, 'init')] : []])];
+                return [group([path.call(print, 'name'), node.init ? [node.assign ? ' := ' : ' ', path.call(print, 'init')] : ''])];
 
             case 'function-call-expression':
-                return [node.parenthesized ? '(' : '', node.scope ? [path.call(print, 'scope'), '::'] : [], path.call(print, 'callee'), '(', join(', ', path.map(print, 'arguments')), ')', node.parenthesized ? ')' : ''];
+                return [node.parenthesized ? '(' : '', node.scope ? [path.call(print, 'scope'), '::'] : '', path.call(print, 'callee'), '(', join(', ', path.map(print, 'arguments')), ')', node.parenthesized ? ')' : ''];
 
             case 'method-call-expression':
-                return [path.call(print, 'entity'), '.', path.call(print, 'name'), '(', join(', ', path.map(print, 'arguments')), ')'];
+                return [node.parenthesized ? '(' : '', path.call(print, 'entity'), '.', path.call(print, 'name'), '(', join(', ', path.map(print, 'arguments')), ')', node.parenthesized ? ')' : ''];
 
             case 'element-access-expression':
                 return [node.parenthesized ? '(' : '', path.call(print, 'entity'), '[', join(', ', path.map(print, 'indexes')), ']', node.parenthesized ? ')' : ''];
 
             case 'return-statement':
-                return ['return', node.expression ? [' ', path.call(print, 'expression')] : [], ';'];
+                return ['return', node.expression ? [' ', path.call(print, 'expression')] : '', ';'];
 
             case 'unary-expression':
                 if (node.prefix) {
@@ -526,92 +573,85 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return [node.parenthesized ? '(' : '', path.call(print, 'entity'), '.', path.call(print, 'accessor'), node.parenthesized ? ')' : ''];
 
             case 'function-declaration':
-                node.exported;
-                node.name;
-                node.parameters;
-                node.body;
-                return [node.exported ? 'exported ' : '', 'function ', path.call(print, 'name'), '(', join(', ', path.map(print, 'parameters')), ')', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : hardline, 'endfunction'];
+                return [node.exported ? 'exported ' : '', 'function ', path.call(print, 'name'), '(', group(join(', ', path.map(print, 'parameters'))), ')', node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : ' ', 'endfunction'];
 
             case 'function-parameter':
-                node.byref;
-                node.unused;
-                node.name;
-                node.init;
-                return [node.byref ? 'byref ' : '', node.unused ? 'unused ' : '', path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : []];
-
-            case 'array-expression':
-                if (node.short) {
-                    return [node.parenthesized ? '(' : '', 'array', node.parenthesized ? ')' : ''];
-                } else {
-                    return [node.parenthesized ? '(' : '', node.explicit ? 'array' : '', '{', join(', ', path.map(print, 'elements')), '}', node.parenthesized ? ')' : ''];
-                }
+                return group([node.byref ? 'byref ' : '', node.unused ? 'unused ' : '', path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : '']);
 
             case 'dictionary-expression':
+            case 'error-expression':
+            case 'struct-expression':
+            case 'array-expression':
+            {
+                const kind = node.type.substring(0, node.type.indexOf('-'));
+                const explicit = (node.type === 'array-expression' && node.explicit) || node.type !== 'array-expression';
                 if (node.short) {
-                    return [node.parenthesized ? '(' : '', 'dictionary', node.parenthesized ? ')' : ''];
+                    return group([node.parenthesized ? '(' : '', kind, node.parenthesized ? ')' : '']);
                 } else {
-                    return [node.parenthesized ? '(' : '', 'dictionary{', join(', ', path.map(print, 'entries')), '}', node.parenthesized ? ')' : ''];
+                    return group(
+                        [
+                            node.parenthesized ? '(' : '',
+                            explicit ? kind : '',
+                            '{',
+                            indent(
+                                ([
+                                    softline,
+                                    join(([',', line]), path.map(print, 'elements'))
+                                ])
+                            ),
+                            softline,
+                            '}',
+                            node.parenthesized ? ')' : ''
+                        ]
+                    );
                 }
+            }
 
             case 'dictionary-initializer':
-                return [path.call(print, 'key'), node.init ? [' -> ', path.call(print, 'init')] : []];
+                return [path.call(print, 'key'), node.init ? [' -> ', path.call(print, 'init')] : ''];
 
             case 'while-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : [], 'while (', path.call(print, 'test'), ')', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : hardline, 'endwhile'];
+                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'while (', path.call(print, 'test'), ')', node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : ' ', 'endwhile'];
 
             case 'case-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : [], 'case (', path.call(print, 'test'), ')', node.cases.length ? [indent([hardline, join(hardline, path.map(print, 'cases'))]), hardline] : hardline, 'endcase'];
+                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'case (', path.call(print, 'test'), ')', indent([hardline, join(hardline, printSequence(path, options, print, 'cases'))]), hardline, 'endcase'];
 
             case 'switch-block':
-                const labels: Doc[] = node.labels.map((_, index) => [(path as any).call(print, 'labels', index), ':']);
-                return [join(hardline, labels), node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))])] : ''];
+                const labels: Doc = node.labels.map((_, index) => [(path as any).call(print, 'labels', index), ':']);
+                return [join(hardline, labels), node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))])] : ''];
 
             case 'default-case-label':
-                return ['default'];
+                return 'default';
 
             case 'foreach-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : [], 'foreach ', path.call(print, 'identifier'), ' in ', node.parenthesized ? '(' : '', path.call(print, 'expression'), node.parenthesized ? ')' : '', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : hardline, 'endforeach'];
+                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'foreach ', path.call(print, 'identifier'), ' in ', path.call(print, 'expression'), node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'endforeach'];
 
             case 'cstyle-for-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : [], 'for (', path.call(print, 'initializer'), '; ', path.call(print, 'test'), '; ', path.call(print, 'advancer'), ')', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : hardline, 'endfor'];
+                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'for (', path.call(print, 'initializer'), '; ', path.call(print, 'test'), '; ', path.call(print, 'advancer'), ')', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'endfor'];
 
             case 'break-statement':
-                return ['break', node.label ? [' ', path.call(print, 'label')] : [], ';'];
+                return ['break', node.label ? [' ', path.call(print, 'label')] : '', ';'];
 
             case 'continue-statement':
-                return ['continue', node.label ? [' ', path.call(print, 'label')] : [], ';'];
+                return ['continue', node.label ? [' ', path.call(print, 'label')] : '', ';'];
 
             case 'basic-for-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : [], 'for ', path.call(print, 'identifier'), ' := ', path.call(print, 'first'), ' to ', path.call(print, 'last'), node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : hardline, 'endfor'];
+                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'for ', path.call(print, 'identifier'), ' := ', path.call(print, 'first'), ' to ', path.call(print, 'last'), node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'endfor'];
 
             case 'conditional-expression':
                 return [node.parenthesized ? '(' : '', path.call(print, 'conditional'), ' ? ', (path as any).call(print, 'consequent'), ' : ', path.call(print, 'alternate'), node.parenthesized ? ')' : ''];
 
             case 'do-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : [], 'do', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : hardline, 'dowhile (', path.call(print, 'test'), ');'];
-
-            case 'error-expression':
-                if (node.short) {
-                    return [node.parenthesized ? '(' : '', 'error', node.parenthesized ? ')' : ''];
-                } else {
-                    return [node.parenthesized ? '(' : '', 'error{', join(', ', path.map(print, 'members')), '}', node.parenthesized ? ')' : ''];
-                }
-
-            case 'struct-expression':
-                if (node.short) {
-                    return [node.parenthesized ? '(' : '', 'struct', node.parenthesized ? ')' : ''];
-                } else {
-                    return [node.parenthesized ? '(' : '', 'struct{', join(', ', path.map(print, 'members')), '}', node.parenthesized ? ')' : ''];
-                }
+                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'do', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'dowhile (', path.call(print, 'test'), ');'];
 
             case 'struct-initializer':
-                return [path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : []];
+                return [path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : ''];
 
             case 'exit-statement':
-                return ['exit;'];
+                return 'exit;';
 
             case 'float-literal':
-                return [node.raw];
+                return node.raw;
 
             case 'function-reference-expression':
                 return [node.parenthesized ? '(' : '', '@', path.call(print, 'name'), node.parenthesized ? ')' : ''];
@@ -624,13 +664,13 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
 
             case 'interpolated-string-part':
                 const addBraces = !node.literal;
-                return [addBraces ? '{' : '', path.call(print, 'expression'), node.format ? [':', node.format] : [], addBraces ? '}' : ''];
+                return [addBraces ? '{' : '', path.call(print, 'expression'), node.format ? [':', node.format] : '', addBraces ? '}' : ''];
 
             case 'repeat-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : [], 'repeat', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : hardline, 'until ', node.parenthesized ? '(' : '', path.call(print, 'test'), node.parenthesized ? ')' : '', ';'];
+                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'repeat', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'until ', path.call(print, 'test'), ';'];
 
             case 'empty-statement':
-                return [';'];
+                return ';';
 
             default:
                 throw new Error(`Unhandled node type ${node.type} at ${node.start.line_number}:${node.start.character_column}`);
