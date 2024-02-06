@@ -902,6 +902,8 @@ antlrcpp::Any JsonAstBuilder::visitInterpolatedStringPart(
 {
   antlrcpp::Any expression;
   antlrcpp::Any format;
+  bool literal = true;
+
   if ( auto expression_ctx = ctx->expression() )
   {
     expression = visitExpression( expression_ctx );
@@ -910,6 +912,7 @@ antlrcpp::Any JsonAstBuilder::visitInterpolatedStringPart(
     {
       format = Napi::Value::From( env, format_string->getText() );
     }
+    literal = false;
   }
 
   else if ( auto string_literal = ctx->STRING_LITERAL_INSIDE() )
@@ -931,7 +934,8 @@ antlrcpp::Any JsonAstBuilder::visitInterpolatedStringPart(
 
   return new_node( ctx, "interpolated-string-part",  //
                    "expression", expression,         //
-                   "format", format                  //
+                   "format", format,                 //
+                   "literal", literal                //
   );
 }
 

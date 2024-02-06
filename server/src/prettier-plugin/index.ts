@@ -292,6 +292,7 @@ interface ASTInterpolatedStringPartNode extends ASTNodeInterface {
     type: 'interpolated-string-part'
     expression: ASTNode
     format: null | string
+    literal: boolean
 }
 
 interface ASTModuleFunctionDeclarationNode extends ASTNodeInterface {
@@ -460,7 +461,7 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return ['include', ' ', path.call(print, 'specifier'), ';'];
 
             case 'const-statement':
-                return ['const ', path.call(print, 'name'), node.assign ? ' := ' : ' ', path.call(print, 'init'), ';', hardline];
+                return ['const ', path.call(print, 'name'), node.assign ? ' := ' : ' ', path.call(print, 'init'), ';'];
 
             case 'module-function-declaration':
                 return [path.call(print, 'name'), '(', join(', ', path.map(print, 'parameters')), ');'];
@@ -516,9 +517,9 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
 
             case 'unary-expression':
                 if (node.prefix) {
-                    return [node.parenthesized ? '(' : '', node.operator, path.call(print, 'argument'), node.parenthesized ? ')' : ''];
+                    return [node.parenthesized ? '(' : '', node.operator, node.operator.toLowerCase() === 'not' ? ' ' : '', path.call(print, 'argument'), node.parenthesized ? ')' : ''];
                 } else {
-                    return [node.parenthesized ? '(' : '', path.call(print, 'argument'), node.operator, node.parenthesized ? ')' : ''];
+                    return [node.parenthesized ? '(' : '', path.call(print, 'argument'), node.operator, node.operator.toLowerCase() === 'not' ? ' ' : '', node.parenthesized ? ')' : ''];
                 }
 
             case 'member-access-expression':
@@ -622,7 +623,7 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return [node.parenthesized ? '(' : '', '$"', path.map(print, 'parts'), '"', node.parenthesized ? ')' : ''];
 
             case 'interpolated-string-part':
-                const addBraces = node.expression?.type !== 'string-literal';
+                const addBraces = !node.literal;
                 return [addBraces ? '{' : '', path.call(print, 'expression'), node.format ? [':', node.format] : [], addBraces ? '}' : ''];
 
             case 'repeat-statement':

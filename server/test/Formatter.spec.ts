@@ -1,22 +1,20 @@
 import { existsSync, readFileSync, readdirSync } from 'fs';
-import { access, mkdir, readFile, writeFile } from 'fs/promises';
+import { access, mkdir, readFile, stat, unlink, writeFile } from 'fs/promises';
 import { native } from '../../native/src/index';
-const { LSPDocument, LSPWorkspace } = native;
-
-const { __debug: { formatAST } } = require('prettier');
-
-import * as util from 'util';
-util.inspect.defaultOptions.depth = Infinity;
-
+import { platform } from 'os';
 import { languages, parsers, printers } from '../src/prettier-plugin';
-import { basename, dirname, extname, join, resolve } from 'path';
+import { basename, dirname, extname, join, resolve, relative } from 'path';
 import { F_OK } from 'constants';
+import { spawn } from 'child_process';
 
+const { LSPDocument, LSPWorkspace } = native;
+const { __debug: { formatAST } } = require('prettier');
 const plugin = {
     languages, parsers, printers
 };
 
-// const dir = resolve(__dirname);
+const describeLongTest = process.env['JEST_RUN_LONG_TESTS'] ? describe : describe.skip;
+
 beforeAll(async () => {
     const cfg = resolve(__dirname, 'scripts', 'ecompile.cfg');
     try {
@@ -36,8 +34,8 @@ beforeAll(async () => {
     }
 });
 
-describe('prettier-formatter', () => {
-    test('foo', async () => {
+describe.skip('Manual formatting test', () => {
+    test('Test', async () => {
 
         const testFormat = (srcname: string, text?: string) => {
             const dir = '/Users/kevineady/UO/ModernDistro/';
@@ -70,22 +68,18 @@ describe('prettier-formatter', () => {
 
 
 
-        const srcname = '/Users/kevineady/UO/ModernDistro/pkg/tools/bautool/commands/seer/bautool.src';
+        const srcname = '/Users/kevineady/UO/ModernDistro/scripts/test.src';
         // const srcname = '/Users/kevineady/UO/ModernDistro/scripts/modules/file.em';
-        // const text = undefined;
-        const text = `use basic;
+        // const text = 'print($"{{{{{"-"}}}}}!{{{"-"}}}");';
+        const text = undefined;
+        // const text = `use basic;
 
-        if (1)
-            print( "hello world" );
-        endif
-        ;
+        // if (1)
+        //     print( "hello world" );
+        // endif
+        // ;
 
-        // note the semicolon up there, after the endif
-
-
-        print( "hello world again" );
-        `;
-        // const text = `case (abc) 1: 2: 3: "body"; endcase`;
+        // // note the semicolon up there, after the endif
 
         const { ast, originalText } = testFormat(srcname, text);
         // console.log(ast);
@@ -94,11 +88,12 @@ describe('prettier-formatter', () => {
             plugins: [plugin],
             originalText
         });
-        // console.log(formatted);
+
+        console.log(formatted);
     });
 });
 
-describe('test all', () => {
+describeLongTest('CompiledScript parity check', () => {
     class DynamicDocument {
         document: typeof LSPDocument;
         pathname: string;
@@ -130,7 +125,7 @@ describe('test all', () => {
             const { formatted } = await formatAST(this.ast, {
                 parser: 'escript',
                 plugins: [plugin],
-                text: this.text
+                originalText: this.text
             });
             return formatted;
         }
@@ -161,29 +156,114 @@ describe('test all', () => {
         }
     };
 
-    const extensions = ['.src', '.inc', '.em'];
-    outer:
-    for (const folder of ['escript', 'pol', join('..', 'pol-core', 'support', 'scripts')]) {
-        const scriptsDir = resolve(__dirname, '..', '..', 'native', 'polserver', 'testsuite', folder);
-        const files = readDirectoryRecursive(scriptsDir);
+    const distroDir = process.env['JEST_POL_DISTRO_DIR'];
+    if (!distroDir) {
+        return;
+    }
 
-        for (const basefile of files) {
-            if (basename(basefile).startsWith('.') || basefile.endsWith(join('native', 'polserver', 'testsuite', 'escript', 'func', 'func0ab.inc'))) {
-                continue;
-            }
-            const extension = extname(basefile);
-            if (extensions.indexOf(extension) === -1) { continue; }
+    const ecompileFile = resolve(distroDir, 'scripts', 'ecompile' + (platform() === 'win32' ? '.exe' : ''));
 
-            const file = resolve(scriptsDir, basefile);
-            const errFile = join(dirname(file), basename(file, extension) + '.err');
-            if (existsSync(errFile)) {
-                continue;
-            }
-            it(`Processing ${file}`, async () => {
-                const data = await readFile(file, 'utf-8');
-                const doc = new DynamicDocument(file, data);
-                expect(doc.ast).toBeTruthy();
-            });
+    const files = readDirectoryRecursive(distroDir);
+
+    for (const existingSrcFile of files) {
+        const extension = extname(existingSrcFile);
+
+        if (extension !== '.src' || existingSrcFile.endsWith('.formatted.src')) {
+            continue;
         }
+
+        const basefile = join(dirname(existingSrcFile), basename(existingSrcFile, extension));
+
+        const files = {
+            'formatted.dbg': `${basefile}.formatted.dbg`,
+            'formatted.dbg.txt': `${basefile}.formatted.dbg.txt`,
+            'formatted.dep': `${basefile}.formatted.dep`,
+            'formatted.ecl': `${basefile}.formatted.ecl`,
+            'formatted.lst': `${basefile}.formatted.lst`,
+            'formatted.src': `${basefile}.formatted.src`,
+        };
+
+        const existingEclFile = join(dirname(existingSrcFile), basename(existingSrcFile, extension) + '.ecl');
+
+        if (!existsSync(existingEclFile)) {
+            continue;
+        }
+
+        it(`Processing ${existingSrcFile}`, async () => {
+            const data = await readFile(existingSrcFile, 'utf-8');
+
+            if (data.trim() === '') {
+                return;
+            }
+
+            const doc = new DynamicDocument(existingSrcFile, data);
+
+            expect(doc.ast).toBeTruthy();
+
+            const formatted = await doc.formattedText();
+
+            expect(formatted).toBeTruthy();
+
+            await writeFile(files['formatted.src'], formatted, 'utf-8');
+
+            const formattedSrcRelativeFile = relative(distroDir, files['formatted.src']);
+
+            try {
+                const spawned = await new Promise<{ stderr: string, stdout: string, exitCode: number | null } | null>((resolve) => {
+                    const proc = spawn(ecompileFile, ['-q', '-f', formattedSrcRelativeFile], {
+                        cwd: distroDir
+                    });
+
+                    let stderr = '';
+                    let stdout = '';
+
+                    proc.stderr.on('data', (chunk) => {
+                        stderr += chunk.toString();
+                    });
+
+                    proc.stdout.on('data', (chunk) => {
+                        stdout += chunk.toString();
+                    });
+
+                    proc.on('error', () => {
+                        resolve(null);
+                    });
+
+                    proc.on('exit', (exitCode) => {
+                        resolve({ exitCode, stderr, stdout });
+                    });
+                });
+
+                if (spawned === null) {
+                    throw new Error('Run of ecompile errored.');
+                }
+
+                const { exitCode, stderr, stdout } = spawned;
+
+                if (exitCode !== 0) {
+                    throw new Error(`Error running ecompile, exitCode=${exitCode}, stderr=${stderr}, stdout=${stdout}`);
+                }
+
+                const originalCompiled = await readFile(existingEclFile);
+                const formattedCompiled = await readFile(files['formatted.ecl']);
+
+                if (!originalCompiled.equals(formattedCompiled)) {
+                    throw new Error('Compiled source mismatch!');
+                }
+            } finally {
+                for (const key in files) {
+                    const toDelete = files[key as keyof typeof files];
+
+                    try {
+                        const exists = await stat(toDelete);
+                        if (exists) {
+                            await unlink(toDelete);
+                        }
+                    } catch {
+                        /* ignore */
+                    }
+                }
+            }
+        });
     }
 });
