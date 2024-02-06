@@ -23,11 +23,17 @@ jobs:
         run: |
           echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
-      - name: Cache polserver
+      - name: Cache polserver-build
+        uses: actions/cache@v3
+        with:
+          path: native/build/polserver
+          key: linux-polserver-build-full-${{ steps.get-ref.outputs.ref }}
+
+      - name: Cache polserver-src
         uses: actions/cache@v3
         with:
           path: native/polserver
-          key: linux-polserver-full-${{ steps.get-ref.outputs.ref }}
+          key: linux-polserver-src-full-${{ steps.get-ref.outputs.ref }}
 
       - run: npm install && npm run build
 
@@ -54,11 +60,17 @@ jobs:
         run: |
           echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
-      - name: Cache polserver
+      - name: Cache polserver-build
+        uses: actions/cache@v3
+        with:
+          path: native/build/polserver
+          key: windows-polserver-build-full-${{ steps.get-ref.outputs.ref }}
+
+      - name: Cache polserver-src
         uses: actions/cache@v3
         with:
           path: native/polserver
-          key: windows-polserver-full-${{ steps.get-ref.outputs.ref }}
+          key: windows-polserver-src-full-${{ steps.get-ref.outputs.ref }}
 
       - run: npm install && npm run build
 
@@ -86,11 +98,17 @@ jobs:
         run: |
           echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
-      - name: Cache polserver
+      - name: Cache polserver-build
+        uses: actions/cache@v3
+        with:
+          path: native/build/polserver
+          key: mac-polserver-build-full-${{ steps.get-ref.outputs.ref }}
+
+      - name: Cache polserver-src
         uses: actions/cache@v3
         with:
           path: native/polserver
-          key: mac-polserver-full-${{ steps.get-ref.outputs.ref }}
+          key: mac-polserver-src-full-${{ steps.get-ref.outputs.ref }}
 
       - name: Set polserver Dependencies
         run: |
@@ -125,11 +143,17 @@ jobs:
         run: |
           echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
-      - name: Cache polserver
+      - name: Cache polserver-build
+        uses: actions/cache@v3
+        with:
+          path: native/build/polserver
+          key: linux-polserver-build-full-${{ steps.get-ref.outputs.ref }}
+
+      - name: Cache polserver-src
         uses: actions/cache@v3
         with:
           path: native/polserver
-          key: linux-polserver-full-${{ steps.get-ref.outputs.ref }}
+          key: linux-polserver-src-full-${{ steps.get-ref.outputs.ref }}
 
       - run: npm install
 
