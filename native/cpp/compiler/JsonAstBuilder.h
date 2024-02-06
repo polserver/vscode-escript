@@ -123,6 +123,8 @@ public:
       EscriptGrammar::EscriptParser::UseDeclarationContext* ctx ) override;
   antlrcpp::Any visitVariableDeclaration(
       EscriptGrammar::EscriptParser::VariableDeclarationContext* ctx ) override;
+  antlrcpp::Any visitVariableDeclarationInitializer(
+      EscriptGrammar::EscriptParser::VariableDeclarationInitializerContext* ctx ) override;
   antlrcpp::Any visitVarStatement(
       EscriptGrammar::EscriptParser::VarStatementContext* ctx ) override;
   antlrcpp::Any visitWhileStatement(

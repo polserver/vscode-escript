@@ -41,7 +41,7 @@ export interface LSPDocument {
     completion(position: Position): CompletionItem[];
     definition(position: Position): { range: Range, fsPath: string } | undefined;
     signatureHelp(position: Position): SignatureHelp | undefined;
-    toAST(): string; // throws
+    toAST(): Record<string, any>; // throws
     tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
 }
 

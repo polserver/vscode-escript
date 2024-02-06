@@ -266,25 +266,38 @@ antlrcpp::Any JsonAstBuilder::visitVariableDeclaration(
 {
   antlrcpp::Any init;
 
+  bool assign = false;
   if ( auto variable_declaration_initializer = ctx->variableDeclarationInitializer() )
   {
-    if ( auto expression = variable_declaration_initializer->expression() )
-    {
-      init = visitExpression( expression );
-    }
-
-    else if ( auto array = variable_declaration_initializer->ARRAY() )
-    {
-      init = new_node( ctx, "array-expression",     //
-                       "elements", defaultResult()  //
-      );
-    }
+    init = visitVariableDeclarationInitializer( variable_declaration_initializer );
+    assign = variable_declaration_initializer->ASSIGN();
   }
 
-  return new_node( ctx, "variable-declaration",                   //
+  return new_node( ctx, "var-declaration",                        //
                    "name", make_identifier( ctx->IDENTIFIER() ),  //
-                   "init", init                                   //
+                   "init", init,                                  //
+                   "assign", assign                               //
   );
+}
+
+antlrcpp::Any JsonAstBuilder::visitVariableDeclarationInitializer(
+    EscriptGrammar::EscriptParser::VariableDeclarationInitializerContext* ctx )
+{
+  if ( auto expression = ctx->expression() )
+  {
+    return visitExpression( expression );
+  }
+
+  else if ( auto array = ctx->ARRAY() )
+  {
+    return new_node( ctx, "array-expression",      //
+                     "elements", defaultResult(),  //
+                     "explicit", true,             //
+                     "short", true                 //
+    );
+  }
+
+  return antlrcpp::Any();
 }
 
 antlrcpp::Any JsonAstBuilder::visitConstStatement(
@@ -292,26 +305,19 @@ antlrcpp::Any JsonAstBuilder::visitConstStatement(
 {
   auto const_declaration_ctx = ctx->constantDeclaration();
   antlrcpp::Any init;
+  bool assign = false;
 
   if ( auto variable_declaration_initializer =
            const_declaration_ctx->variableDeclarationInitializer() )
   {
-    if ( auto expression = variable_declaration_initializer->expression() )
-    {
-      init = visitExpression( expression );
-    }
-
-    else if ( auto array = variable_declaration_initializer->ARRAY() )
-    {
-      init = new_node( ctx, "array-expression",     //
-                       "elements", defaultResult()  //
-      );
-    }
+    assign = variable_declaration_initializer->ASSIGN();
+    init = visitVariableDeclarationInitializer( variable_declaration_initializer );
   }
 
   return new_node( ctx, "const-statement",                                          //
                    "name", make_identifier( const_declaration_ctx->IDENTIFIER() ),  //
-                   "init", init                                                     //
+                   "init", init,                                                    //
+                   "assign", assign                                                 //
   );
 }
 
@@ -327,7 +333,7 @@ antlrcpp::Any JsonAstBuilder::visitDictInitializerExpression(
 
   return new_node( ctx, "dictionary-initializer",                   //
                    "key", visitExpression( ctx->expression( 0 ) ),  //
-                   "value", init                                    //
+                   "init", init                                     //
   );
 }
 
@@ -356,9 +362,9 @@ antlrcpp::Any JsonAstBuilder::visitEnumListEntry(
     value = visitExpression( expression );
   }
 
-  return new_node( ctx, "enum-entry",         //
-                   "identifier", identifier,  //
-                   "value", value             //
+  return new_node( ctx, "enum-entry",   //
+                   "name", identifier,  //
+                   "init", value        //
   );
 }
 
@@ -383,40 +389,51 @@ antlrcpp::Any JsonAstBuilder::visitExitStatement(
 antlrcpp::Any JsonAstBuilder::visitExplicitArrayInitializer(
     EscriptGrammar::EscriptParser::ExplicitArrayInitializerContext* ctx )
 {
-  return new_node( ctx, "array-expression",          //
-                   "elements", visitChildren( ctx )  //
+  bool is_short = !ctx->arrayInitializer();
+  return new_node( ctx, "array-expression",           //
+                   "elements", visitChildren( ctx ),  //
+                   "explicit", true,                  //
+                   "short", is_short                  //
   );
 }
 
 antlrcpp::Any JsonAstBuilder::visitExplicitDictInitializer(
     EscriptGrammar::EscriptParser::ExplicitDictInitializerContext* ctx )
 {
-  return new_node( ctx, "dictionary-expression",    //
-                   "entries", visitChildren( ctx )  //
+  bool is_short = !ctx->dictInitializer();
+  return new_node( ctx, "dictionary-expression",     //
+                   "entries", visitChildren( ctx ),  //
+                   "short", is_short                 //
   );
 }
 
 antlrcpp::Any JsonAstBuilder::visitExplicitErrorInitializer(
     EscriptGrammar::EscriptParser::ExplicitErrorInitializerContext* ctx )
 {
-  return new_node( ctx, "error-expression",         //
-                   "members", visitChildren( ctx )  //
+  bool is_short = !ctx->structInitializer();
+  return new_node( ctx, "error-expression",          //
+                   "members", visitChildren( ctx ),  //
+                   "short", is_short                 //
   );
 }
 
 antlrcpp::Any JsonAstBuilder::visitBareArrayInitializer(
     EscriptGrammar::EscriptParser::BareArrayInitializerContext* ctx )
 {
-  return new_node( ctx, "array-expression",          //
-                   "elements", visitChildren( ctx )  //
+  return new_node( ctx, "array-expression",           //
+                   "elements", visitChildren( ctx ),  //
+                   "explicit", false,                 //
+                   "short", false                     //
   );
 }
 
 antlrcpp::Any JsonAstBuilder::visitExplicitStructInitializer(
     EscriptGrammar::EscriptParser::ExplicitStructInitializerContext* ctx )
 {
-  return new_node( ctx, "struct-expression",        //
-                   "members", visitChildren( ctx )  //
+  bool is_short = !ctx->structInitializer();
+  return new_node( ctx, "struct-expression",         //
+                   "members", visitChildren( ctx ),  //
+                   "short", is_short                 //
   );
 }
 
@@ -488,7 +505,7 @@ antlrcpp::Any JsonAstBuilder::expression_suffix(
     }
 
     return new_node( expr_ctx, "member-access-expression",  //
-                     "name", accessor,                      //
+                     "accessor", accessor,                  //
                      "entity", visitExpression( expr_ctx )  //
     );
   }
@@ -551,14 +568,17 @@ antlrcpp::Any JsonAstBuilder::visitForeachStatement(
 {
   auto identifier = make_identifier( ctx->IDENTIFIER() );
   auto label = make_statement_label( ctx->statementLabel() );
-  auto expression = visitForeachIterableExpression( ctx->foreachIterableExpression() );
+  auto foreachIterableExpression = ctx->foreachIterableExpression();
+  bool parenthesized = foreachIterableExpression->parExpression();
+  auto expression = visitForeachIterableExpression( foreachIterableExpression );
   auto body = visitBlock( ctx->block() );
 
-  return new_node( ctx, "foreach-statement",  //
-                   "identifier", identifier,  //
-                   "expression", expression,  //
-                   "label", label,            //
-                   "body", body               //
+  return new_node( ctx, "foreach-statement",       //
+                   "identifier", identifier,       //
+                   "expression", expression,       //
+                   "label", label,                 //
+                   "body", body,                   //
+                   "parenthesized", parenthesized  //
   );
 }
 
@@ -675,7 +695,7 @@ antlrcpp::Any JsonAstBuilder::visitSwitchLabel(
   }
   else if ( auto uninit = ctx->UNINIT() )
   {
-    return new_node( uninit, "uninitialized-value" );
+    return new_node( uninit, "uninit-literal" );
   }
   else if ( auto identifier = ctx->IDENTIFIER() )
   {
@@ -733,11 +753,13 @@ antlrcpp::Any JsonAstBuilder::visitBasicForStatement(
   auto identifier = make_identifier( ctx->IDENTIFIER() );
   auto first = visitExpression( ctx->expression( 0 ) );
   auto last = visitExpression( ctx->expression( 1 ) );
+  auto body = visitBlock( ctx->block() );
 
   return new_node( ctx, "basic-for-statement",  //
                    "identifier", identifier,    //
                    "first", first,              //
-                   "last", last                 //
+                   "last", last,                //
+                   "body", body                 //
   );
 }
 
@@ -762,12 +784,15 @@ antlrcpp::Any JsonAstBuilder::visitRepeatStatement(
 {
   auto label = make_statement_label( ctx->statementLabel() );
   auto body = visitBlock( ctx->block() );
-  auto test = visitExpression( ctx->expression() );
+  auto expression = ctx->expression();
+  bool parenthesized = expression->primary() && expression->primary()->parExpression();
+  auto test = visitExpression( expression );
 
-  return new_node( ctx, "repeat-statement",  //
-                   "label", label,           //
-                   "body", body,             //
-                   "test", test              //
+  return new_node( ctx, "repeat-statement",        //
+                   "label", label,                 //
+                   "body", body,                   //
+                   "test", test,                   //
+                   "parenthesized", parenthesized  //
   );
 }
 
@@ -782,7 +807,7 @@ antlrcpp::Any JsonAstBuilder::visitReturnStatement(
   }
 
   return new_node( ctx, "return-statement",  //
-                   "value", value            //
+                   "expression", value       //
   );
 }
 
@@ -875,17 +900,15 @@ antlrcpp::Any JsonAstBuilder::visitInterpolatedString(
 antlrcpp::Any JsonAstBuilder::visitInterpolatedStringPart(
     EscriptGrammar::EscriptParser::InterpolatedStringPartContext* ctx )
 {
-  antlrcpp::Any format;
   antlrcpp::Any expression;
+  antlrcpp::Any format;
   if ( auto expression_ctx = ctx->expression() )
   {
     expression = visitExpression( expression_ctx );
 
     if ( auto format_string = ctx->FORMAT_STRING() )
     {
-      format = new_node( format_string, "format-string",    //
-                         "value", format_string->getText()  //
-      );
+      format = Napi::Value::From( env, format_string->getText() );
     }
   }
 
@@ -895,11 +918,11 @@ antlrcpp::Any JsonAstBuilder::visitInterpolatedStringPart(
   }
   else if ( auto lbrace = ctx->DOUBLE_LBRACE_INSIDE() )
   {
-    expression = make_string_literal( lbrace, "{" );
+    expression = make_string_literal( lbrace, "{{" );
   }
   else if ( auto rbrace = ctx->DOUBLE_RBRACE() )
   {
-    expression = make_string_literal( rbrace, "}" );
+    expression = make_string_literal( rbrace, "}}" );
   }
   else if ( auto escaped = ctx->REGULAR_CHAR_INSIDE() )
   {
@@ -965,7 +988,7 @@ antlrcpp::Any JsonAstBuilder::visitLiteral( EscriptGrammar::EscriptParser::Liter
   }
   else if ( auto uninit = ctx->UNINIT() )
   {
-    return new_node( uninit, "uninitialized-value" );
+    return new_node( uninit, "uninit-literal" );
   }
   return visitChildren( ctx );
 }
@@ -1025,7 +1048,9 @@ antlrcpp::Any JsonAstBuilder::visitPrimary( EscriptGrammar::EscriptParser::Prima
   }
   else if ( auto parExpression = ctx->parExpression() )
   {
-    return visitExpression( parExpression->expression() );
+    return add( visitExpression( parExpression->expression() ),  //
+                "parenthesized", true                            //
+    );
   }
   else if ( auto functionCall = ctx->functionCall() )
   {
@@ -1165,6 +1190,10 @@ antlrcpp::Any JsonAstBuilder::visitStatement( EscriptGrammar::EscriptParser::Sta
                      "expression", visitExpression( expression )  //
     );
   }
+  else if ( ctx->SEMI() )
+  {
+    return new_node( ctx, "empty-statement" );
+  }
 
   return antlrcpp::Any();
 }
@@ -1239,9 +1268,9 @@ antlrcpp::Any JsonAstBuilder::make_identifier( antlr4::tree::TerminalNode* termi
 antlrcpp::Any JsonAstBuilder::make_string_literal( antlr4::tree::TerminalNode* terminal,
                                                    const std::string& text )
 {
-  return new_node( terminal, "string-value",  //
-                   "value", text,             //
-                   "raw", text                //
+  return new_node( terminal, "string-literal",  //
+                   "value", text,               //
+                   "raw", text                  //
   );
 }
 
