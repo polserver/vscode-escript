@@ -36,7 +36,7 @@ describe('Manual formatting test', () => {
     test('Test', async () => {
 
         const testFormat = (srcname: string, text?: string) => {
-            const dir = '/Users/kevineady/UO/ModernDistro/';
+            const dir = __dirname;
 
             const originalText = text ?? readFileSync(srcname, 'utf-8');
 
@@ -64,7 +64,8 @@ describe('Manual formatting test', () => {
             return { originalText, ast, measure };
         };
 
-        const srcname = '/Users/kevineady/UO/ModernDistro/scripts/test.src';
+        // const srcname = '/Users/kevineady/UO/ModernDistro/scripts/test.src';
+        const srcname = join(__dirname, 'scripts', 'test.src');
 
         const text = `if (1) 2; elseif (3) 4; else 5; endif`;
 
