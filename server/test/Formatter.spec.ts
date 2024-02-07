@@ -2,16 +2,14 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { access, mkdir, readFile, stat, unlink, writeFile } from 'fs/promises';
 import { native } from '../../native/src/index';
 import { platform } from 'os';
-import { languages, parsers, printers } from '../src/prettier-plugin';
+import EscriptPrettierPlugin, { EscriptPrettierPluginOptions } from '../src/prettier-plugin';
 import { basename, dirname, extname, join, resolve, relative } from 'path';
 import { F_OK } from 'constants';
 import { spawn } from 'child_process';
+import { inspect } from 'util';
 
 const { LSPDocument, LSPWorkspace } = native;
 const { __debug: { formatAST } } = require('prettier');
-const plugin = {
-    languages, parsers, printers
-};
 
 const describeLongTest = process.env['JEST_RUN_LONG_TESTS'] ? describe : describe.skip;
 
@@ -34,7 +32,7 @@ beforeAll(async () => {
     }
 });
 
-describe.skip('Manual formatting test', () => {
+describe('Manual formatting test', () => {
     test('Test', async () => {
 
         const testFormat = (srcname: string, text?: string) => {
@@ -72,37 +70,51 @@ describe.skip('Manual formatting test', () => {
         // const srcname = '/Users/kevineady/UO/ModernDistro/scripts/modules/file.em';
         // const text = 'print($"{{{{{"-"}}}}}!{{{"-"}}}");';
         // const text = 'foo;\nbar;';
-        const text = `
-        case (1)
-        1:
-        2:
-        print("hello");
+        const text = `(basic::foo(1,26,7,8,abc.foo(1,2,3,4,5,6,7,8,9,1,2,3,4,5,6,7,8,9,1,2,39),1,2,3,4));`;
+        // const text = 'array{1,2,3,4,5};';
+        // const text = `const ABCDEF := 3;
+        // const DEF := 4;
+        // const FOOBAR array;
+        // const EFGABCDEFGEF := 5;
 
-        print("hello");
+        // const DEF := 4; const EFGABCDEFGEF := 5;
 
-        print("hello");
-        3:
+        // const DEF := 4;
+        // print();
+        // const EFGABCDEFGEF := 5;
 
-        4:
-        print("hello");
+        // const ABC := 6;
 
-        print("hello");
+        // const ABC := 6;
 
-        print("hello");
-        endcase
-        `;
+        // const ABC array;
+
+        // const FOOOOBAR array;
+
+        // const BLAH := 3;
+        // const F := array;
+        // const F array;
+
+        // const ABC := 6;
+        // const ABC := 6;`;
 
         // // note the semicolon up there, after the endif
 
         const { ast, originalText } = testFormat(srcname, text);
-        // console.log(ast);
+        console.log(inspect(ast, undefined, Infinity));
         const { formatted } = await formatAST(ast, {
             parser: 'escript',
-            plugins: [plugin],
-            originalText
-        });
+            plugins: [EscriptPrettierPlugin],
+            printWidth: 80,
+            originalText,
+            conditionalParenthesisSpacing: true,
+            emptyBracketSpacing: true,
+            emptyParenthesisSpacing: true,
+            otherParenthesisSpacing: true
+        } as Partial<EscriptPrettierPluginOptions>);
 
         console.log(formatted);
+        // console.log(formatted.split(/\n/));
     });
 });
 
@@ -137,7 +149,7 @@ describeLongTest('CompiledScript parity check', () => {
         async formattedText(): Promise<string> {
             const { formatted } = await formatAST(this.ast, {
                 parser: 'escript',
-                plugins: [plugin],
+                plugins: [EscriptPrettierPlugin],
                 originalText: this.text
             });
             return formatted;

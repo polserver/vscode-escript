@@ -1,8 +1,8 @@
-import { AstPath, Doc, Parser, Printer, Options, doc, util } from 'prettier';
+import { AstPath, Doc, Parser, Printer, Options, doc, util, Plugin, SupportInfoOptions, ParserOptions, RequiredOptions } from 'prettier';
 
 
 const { isNextLineEmpty } = util;
-const { group, join, indent, dedent, line, softline, hardline } = doc.builders;
+const { group, join, indent, ifBreak, line, softline, hardline } = doc.builders;
 
 function hasComment(node: ASTNode): boolean {
     return Boolean(node?.comments?.length);
@@ -406,6 +406,84 @@ const printSequence = (path: AstPath<ASTNode>, options: Options, print: (path: A
     }, property);
 };
 
+const findConstGroup = (path: AstPath<ASTNode>, node: ASTConstStatementNode): ASTConstStatementNode[] => {
+    const { index, siblings } = path;
+    if (index === null || siblings === null || node === null) {
+        return [];
+    }
+
+    const nodes = new Array<ASTConstStatementNode>();
+
+    // const previous_node = path.siblings?.[index - 1];
+    let search_index = index-1, line_number = node.start.line_number;
+
+    while (search_index >= 0) {
+        const search_node = siblings[search_index];
+        if (!search_node || search_node.type !== 'const-statement') {
+            break;
+        }
+
+        if (search_node.end.line_number === line_number || search_node.end.line_number === line_number - 1) {
+            nodes.push(search_node);
+            --search_index;
+            line_number = search_node.start.line_number;
+            continue;
+        }
+        break;
+    }
+
+    nodes.push(node);
+
+    search_index = index + 1;
+    line_number = node.end.line_number;
+
+    while (search_index < siblings.length) {
+        const search_node = siblings[search_index];
+        if (!search_node || search_node.type !== 'const-statement') {
+            break;
+        }
+
+        if (search_node.start.line_number === line_number || search_node.start.line_number === line_number + 1) {
+            nodes.push(search_node);
+            ++search_index;
+            line_number = search_node.end.line_number;
+            continue;
+        }
+        break;
+    }
+
+    return nodes;
+};
+
+const characterSpacing = (addIf: boolean, start: Doc, doc: Doc, end: Doc): Doc => {
+    return [
+        [start, addIf ? ' ' : ''],
+        doc,
+        [addIf ? ' ' : '', end]
+    ];
+};
+
+const parenthesizeExpression = (node: ASTExpressionNode, options: EscriptPrettierPluginOptions, doc: Doc): Doc => {
+    if (node.parenthesized) {
+        return group(characterSpacing(options.otherParenthesisSpacing, '(', doc, ')'));
+    } else {
+        return group(doc);
+    }
+    // // return group([node.parenthesized ? ['(', options.otherParenthesisSpacing ? ' ' : ''] : '',
+    // //     doc,
+    // //     node.parenthesized ? [options.otherParenthesisSpacing ? ' ' : '', ')'] : ''
+    // // ]);
+    // return group(characterSpacing(options))
+};
+
+// const parenthesizeExpression = (parenthesized: boolean, addSpacingIf: boolean, doc: Doc): Doc => {
+//     return group([parenthesized ? ['(', addSpacingIf ? ' ' : ''] : '',
+//         doc,
+//         parenthesized ? [otherParenthesisSpacing ? ' ' : '', ')'] : ''
+//     ]);
+// };
+// const otherParenthesisSpacing = (options, Doc)
+
 export const printers: { [name: string]: Printer<ASTNode> } = {
     escript: {
         // handleComments: {
@@ -444,8 +522,8 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
         },
         print(
             path: AstPath<ASTNode>,
-            options: Options,
-            print // : (path: AstPath<ASTNode>) => Doc
+            options: EscriptPrettierPluginOptions,
+            print
         ): Doc {
             const { node } = path;
             if (node === null) {
@@ -481,9 +559,13 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return ['include', ' ', path.call(print, 'specifier'), ';'];
 
             case 'const-statement':
-                return ['const ', path.call(print, 'name'), node.assign ? ' := ' : ' ', path.call(print, 'init'), ';'];
+                const constGroup = findConstGroup(path, node);
+                const maxLength = constGroup.reduce((p, { assign, name: { id } }) => Math.max(id.length + (assign ? 0 : 0), p), 0);
+
+                return ['const ', path.call(print, 'name'), ' '.repeat(maxLength - node.name.id.length + ((constGroup.length > 1 && !node.assign) ? 3 : 0)), node.assign ? ' := ' : ' ', path.call(print, 'init'), ';'];
 
             case 'module-function-declaration':
+                // options.
                 return [path.call(print, 'name'), '(', join(', ', path.map(print, 'parameters')), ');'];
 
             case 'module-function-parameter':
@@ -551,10 +633,21 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return [group([path.call(print, 'name'), node.init ? [node.assign ? ' := ' : ' ', path.call(print, 'init')] : ''])];
 
             case 'function-call-expression':
-                return [node.parenthesized ? '(' : '', node.scope ? [path.call(print, 'scope'), '::'] : '', path.call(print, 'callee'), '(', join(', ', path.map(print, 'arguments')), ')', node.parenthesized ? ')' : ''];
+                return parenthesizeExpression(node, options, [
+                    node.scope ? [path.call(print, 'scope'), '::'] : '', path.call(print, 'callee'),
+                    characterSpacing(options.otherParenthesisSpacing, '(',
+                        [indent([softline, join([', ', softline], path.map(print, 'arguments'))]), ifBreak(line)],
+                        ')')
+                ]);
 
             case 'method-call-expression':
-                return [node.parenthesized ? '(' : '', path.call(print, 'entity'), '.', path.call(print, 'name'), '(', join(', ', path.map(print, 'arguments')), ')', node.parenthesized ? ')' : ''];
+                // return [node.parenthesized ? '(' : '', path.call(print, 'entity'), '.', path.call(print, 'name'), '(', join(', ', path.map(print, 'arguments')), ')', node.parenthesized ? ')' : ''];
+                return parenthesizeExpression(node, options, [
+                    path.call(print, 'entity'), '.', path.call(print, 'name'),
+                    characterSpacing(options.otherParenthesisSpacing, '(',
+                        [indent([softline, join([', ', softline], path.map(print, 'arguments'))]), ifBreak(line)],
+                        ')')
+                ]);
 
             case 'element-access-expression':
                 return [node.parenthesized ? '(' : '', path.call(print, 'entity'), '[', join(', ', path.map(print, 'indexes')), ']', node.parenthesized ? ')' : ''];
@@ -678,3 +771,54 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
         },
     },
 };
+
+export interface EscriptPrettierPluginOptions extends RequiredOptions, ParserOptions {
+    conditionalParenthesisSpacing: boolean
+    emptyBracketSpacing: boolean
+    emptyParenthesisSpacing: boolean
+    otherParenthesisSpacing: boolean
+}
+
+export const defaultOptions = {
+    conditionalParenthesisSpacing: true,
+    emptyBracketSpacing: false,
+    emptyParenthesisSpacing: false,
+    otherParenthesisSpacing: false
+};
+
+export const options: Plugin<ASTNode>['options'] = {
+    conditionalParenthesisSpacing: {
+        name: 'conditionalParenthesisSpacing',
+        type: 'boolean',
+        category: 'Escript',
+        description: 'Put a space in parentheses only inside conditional statements (for/if/while/switch...).',
+        default: defaultOptions.conditionalParenthesisSpacing
+    },
+    emptyParenthesisSpacing: {
+        name: 'emptyParenthesisSpacing',
+        type: 'boolean',
+        category: 'Escript',
+        description: 'Put a space in parentheses only if the parentheses are empty i.e. \'()\'.',
+        default: defaultOptions.emptyParenthesisSpacing
+    },
+    emptyBracketSpacing: {
+        name: 'emptyBracketSpacing',
+        type: 'boolean',
+        category: 'Escript',
+        description: 'Put a space in brackets only if the brackets are empty i.e. \'{}\'.',
+        default: defaultOptions.emptyBracketSpacing
+    },
+    otherParenthesisSpacing: {
+        name: 'otherParenthesisSpacing',
+        type: 'boolean',
+        category: 'Escript',
+        description: 'Put a space in brackets only if the brackets are empty i.e. \'{}\'.',
+        default: defaultOptions.otherParenthesisSpacing
+    }
+};
+
+const plugin: Plugin<ASTNode> = {
+    languages, parsers, printers, defaultOptions, options
+};
+
+export default plugin;
