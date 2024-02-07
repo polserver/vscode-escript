@@ -64,56 +64,27 @@ describe('Manual formatting test', () => {
             return { originalText, ast, measure };
         };
 
-
-
         const srcname = '/Users/kevineady/UO/ModernDistro/scripts/test.src';
-        // const srcname = '/Users/kevineady/UO/ModernDistro/scripts/modules/file.em';
-        // const text = 'print($"{{{{{"-"}}}}}!{{{"-"}}}");';
-        // const text = 'foo;\nbar;';
-        const text = `(basic::foo(1,26,7,8,abc.foo(1,2,3,4,5,6,7,8,9,1,2,3,4,5,6,7,8,9,1,2,39),1,2,3,4));`;
-        // const text = 'array{1,2,3,4,5};';
-        // const text = `const ABCDEF := 3;
-        // const DEF := 4;
-        // const FOOBAR array;
-        // const EFGABCDEFGEF := 5;
 
-        // const DEF := 4; const EFGABCDEFGEF := 5;
-
-        // const DEF := 4;
-        // print();
-        // const EFGABCDEFGEF := 5;
-
-        // const ABC := 6;
-
-        // const ABC := 6;
-
-        // const ABC array;
-
-        // const FOOOOBAR array;
-
-        // const BLAH := 3;
-        // const F := array;
-        // const F array;
-
-        // const ABC := 6;
-        // const ABC := 6;`;
-
-        // // note the semicolon up there, after the endif
+        const text = `if (1) 2; elseif (3) 4; else 5; endif`;
 
         const { ast, originalText } = testFormat(srcname, text);
-        console.log(inspect(ast, undefined, Infinity));
+
+        // console.log(inspect(ast, undefined, Infinity));
+
         const { formatted } = await formatAST(ast, {
             parser: 'escript',
             plugins: [EscriptPrettierPlugin],
             printWidth: 80,
             originalText,
             conditionalParenthesisSpacing: true,
-            emptyBracketSpacing: true,
+            bracketSpacing: true,
+            emptyBracketSpacing: false,
             emptyParenthesisSpacing: true,
             otherParenthesisSpacing: true
         } as Partial<EscriptPrettierPluginOptions>);
 
-        console.log(formatted);
+        // console.log(formatted);
         // console.log(formatted.split(/\n/));
     });
 });
@@ -143,7 +114,6 @@ describeLongTest('CompiledScript parity check', () => {
 
             this.document = new LSPDocument(workspace, pathname);
             this.ast = this.document.toAST();
-
         }
 
         async formattedText(): Promise<string> {
@@ -191,6 +161,10 @@ describeLongTest('CompiledScript parity check', () => {
     const files = readDirectoryRecursive(distroDir);
 
     for (const existingSrcFile of files) {
+        // if (existingSrcFile !== '/Users/kevineady/UO/ModernDistro/pkg/commands/seer/test.src') {
+        //     continue;
+        // }
+
         const extension = extname(existingSrcFile);
 
         if (extension !== '.src' || existingSrcFile.endsWith('.formatted.src')) {

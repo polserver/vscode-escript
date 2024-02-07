@@ -57,26 +57,31 @@ Napi::Value JsonAstBuilder::get_ast( const Compiler::SourceFileLoader& source_lo
   volatile size_t start = 0;
   volatile size_t end = 0;
 
-  std::string token_text;
   for ( auto* tok : sf->get_all_tokens() )
   {
-    token_text = tok->getText();
-    end += tok->getType() == EscriptGrammar::EscriptLexer::EOF ? 0 : token_text.size();
+    const auto& token_text = tok->getText();
+
+    end += tok->getType() == EscriptGrammar::EscriptLexer::EOF
+               ? 0
+               : Napi::String::New( env, token_text )
+                     .As<Napi::Object>()
+                     .Get( "length" )
+                     .As<Napi::Number>()
+                     .Int32Value();
     position_map.insert( { tok, { start, end } } );
+
     start = end;
 
     if ( tok->getType() == EscriptGrammar::EscriptLexer::COMMENT )
     {
-      push.Call( comments, { new_node( tok, "comment",           //
-                                       "value", tok->getText(),  //
-                                       "text", tok->getText()    //
+      push.Call( comments, { new_node( tok, "comment",      //
+                                       "value", token_text  //
                                        ) } );
     }
     else if ( tok->getType() == EscriptGrammar::EscriptLexer::LINE_COMMENT )
     {
-      push.Call( comments, { new_node( tok, "line-comment",      //
-                                       "value", tok->getText(),  //
-                                       "text", tok->getText()    //
+      push.Call( comments, { new_node( tok, "line-comment",  //
+                                       "value", token_text   //
                                        ) } );
     }
   }

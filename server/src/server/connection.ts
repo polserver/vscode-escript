@@ -8,12 +8,14 @@ import mkdir = promises.mkdir;
 import { join } from 'path';
 import { F_OK } from 'constants';
 import DocsDownloader from '../workspace/DocsDownloader';
-
+import EscriptPrettierPlugin from '../prettier-plugin';
 // vsce does not support symlinks
 // import { escript } from 'vscode-escript-native';
 const { native } = require('../../../native/out/index') as typeof import('vscode-escript-native');
 import type { ExtensionConfiguration } from 'vscode-escript-native';
 import { deepEquals } from '../misc/Utils';
+const { __debug: { formatAST } } = require('prettier');
+import { resolveConfig } from 'prettier';
 const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
 
 type LSPServerOptions = {
@@ -51,7 +53,8 @@ export class LSPServer {
         this.documents.onDidClose(this.onDidClose);
         this.connection.languages.semanticTokens.on(this.onSemanticTokens);
         this.connection.onHover(this.onHover);
-        // this.connection.onDocumentFormatting(this.onDocumentFormatting);
+        debugger;
+        this.connection.onDocumentFormatting(this.onDocumentFormatting);
         this.connection.onDefinition(this.onDefinition);
         this.connection.onCompletion(this.onCompletion);
         this.connection.onSignatureHelp(this.onSignatureHelp);
@@ -242,15 +245,48 @@ export class LSPServer {
     };
 
     private onDocumentFormatting = async (params: DocumentFormattingParams): Promise<TextEdit[] | null | undefined> => {
-        const { fsPath } = URI.parse(params.textDocument.uri);
+        const { textDocument: { uri } } = params;
+        const { fsPath } = URI.parse(uri);
         const document = this.sources.get(fsPath);
-        if (document) {
-            const ast = document.toAST();
-            var foo = 'got ast: ' + ast;
-            debugger;
 
+        if (!document) {
+            return null;
         }
-        return null;
+
+        const textDocument = this.documents.get(uri);
+
+        if (!textDocument) {
+            return null;
+        }
+
+        const ast = document.toAST();
+        const originalText = textDocument.getText();
+
+        if (originalText === null) {
+            return null;
+        }
+
+        const config = await resolveConfig(uri, { useCache: false }) ?? {};
+        delete config.parser;
+        delete config.plugins;
+        delete config.originalText;
+
+        const { formatted } = await formatAST(ast, {
+            parser: 'escript',
+            plugins: [EscriptPrettierPlugin],
+            originalText,
+            ...config
+        });
+
+        const edit: TextEdit = {
+            range: {
+                start: {line:0,character:0},
+                end: textDocument.positionAt(originalText.length)
+            },
+            newText: formatted
+        };
+
+        return [edit];
     };
 
     private onDefinition = async (params: DefinitionParams): Promise<Location | null> => {

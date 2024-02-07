@@ -1,6 +1,5 @@
 import { AstPath, Doc, Parser, Printer, Options, doc, util, Plugin, SupportInfoOptions, ParserOptions, RequiredOptions } from 'prettier';
 
-
 const { isNextLineEmpty } = util;
 const { group, join, indent, ifBreak, line, softline, hardline } = doc.builders;
 
@@ -28,6 +27,10 @@ interface ASTExpressionNode extends ASTNodeInterface {
     parenthesized: true | undefined
 }
 
+interface ASTLabelableStatementNode extends ASTNodeInterface {
+    label: null | ASTIdentifierNode;
+}
+
 interface ASTFileNode extends ASTNodeInterface {
     type: 'file'
     body: ASTNode[]
@@ -51,9 +54,8 @@ interface ASTIdentifierNode extends ASTExpressionNode {
     id: string
 }
 
-interface ASTWhiteStatementNode extends ASTNodeInterface {
+interface ASTWhiteStatementNode extends ASTLabelableStatementNode {
     type: 'while-statement'
-    label: null | ASTIdentifierNode
     test: ASTNode
     body: ASTNode[]
 }
@@ -82,9 +84,8 @@ interface ASTDictionaryInitializerNode extends ASTNodeInterface {
     init: null | ASTNode
 }
 
-interface ASTDoStatementNode extends ASTNodeInterface {
+interface ASTDoStatementNode extends ASTLabelableStatementNode {
     type: 'do-statement'
-    label: null | ASTIdentifierNode
     test: ASTNode
     body: ASTNode[]
 }
@@ -169,11 +170,10 @@ interface ASTMethodCallExpressionNode extends ASTExpressionNode {
     entity: ASTNode
 }
 
-interface ASTForeachStatementNode extends ASTNodeInterface {
+interface ASTForeachStatementNode extends ASTLabelableStatementNode {
     type: 'foreach-statement'
     identifier: ASTIdentifierNode
     expression: ASTNode
-    label: null | ASTIdentifierNode
     body: ASTNode[]
 }
 
@@ -215,9 +215,8 @@ interface ASTDefaultCaseLabelNode extends ASTNodeInterface {
     type: 'default-case-label'
 }
 
-interface ASTCaseStatementNode extends ASTNodeInterface {
+interface ASTCaseStatementNode extends ASTLabelableStatementNode {
     type: 'case-statement'
-    label: null | ASTIdentifierNode
     test: ASTNode
     cases: ASTNode[]
 }
@@ -227,29 +226,26 @@ interface ASTContinueStatementNode extends ASTNodeInterface {
     label: null | ASTIdentifierNode
 }
 
-interface ASTBasicForStatementNode extends ASTNodeInterface {
+interface ASTBasicForStatementNode extends ASTLabelableStatementNode {
     type: 'basic-for-statement'
     identifier: ASTIdentifierNode
     first: ASTNode
     last: ASTNode
     body: ASTNode[]
-    label: null | ASTIdentifierNode
 }
 
-interface ASTCstyleForStatementNode extends ASTNodeInterface {
+interface ASTCstyleForStatementNode extends ASTLabelableStatementNode {
     type: 'cstyle-for-statement'
     initializer: ASTNode
     test: ASTNode
     advancer: ASTNode
     body: ASTNode[]
-    label: null | ASTIdentifierNode
 }
 
-interface ASTRepeatStatementNode extends ASTNodeInterface {
+interface ASTRepeatStatementNode extends ASTLabelableStatementNode {
     type: 'repeat-statement'
     test: ASTNode
     body: ASTNode[]
-    label: null | ASTIdentifierNode
 }
 
 interface ASTReturnStatementNode extends ASTNodeInterface {
@@ -414,8 +410,7 @@ const findConstGroup = (path: AstPath<ASTNode>, node: ASTConstStatementNode): AS
 
     const nodes = new Array<ASTConstStatementNode>();
 
-    // const previous_node = path.siblings?.[index - 1];
-    let search_index = index-1, line_number = node.start.line_number;
+    let search_index = index - 1, line_number = node.start.line_number;
 
     while (search_index >= 0) {
         const search_node = siblings[search_index];
@@ -463,43 +458,24 @@ const characterSpacing = (addIf: boolean, start: Doc, doc: Doc, end: Doc): Doc =
     ];
 };
 
+const emptySpacing = (addIf: boolean, start: Doc, end: Doc): Doc => {
+    return [start, addIf ? ' ' : '', end];
+};
+
+const labelStatement = (node: ASTLabelableStatementNode, path: AstPath<ASTNode>, print: (path: AstPath<ASTNode>) => doc.builders.Doc, doc: Doc): Doc => {
+    return [node.label ? [path.call(print, 'label'), ':', hardline] : '', doc];
+};
+
 const parenthesizeExpression = (node: ASTExpressionNode, options: EscriptPrettierPluginOptions, doc: Doc): Doc => {
     if (node.parenthesized) {
         return group(characterSpacing(options.otherParenthesisSpacing, '(', doc, ')'));
     } else {
         return group(doc);
     }
-    // // return group([node.parenthesized ? ['(', options.otherParenthesisSpacing ? ' ' : ''] : '',
-    // //     doc,
-    // //     node.parenthesized ? [options.otherParenthesisSpacing ? ' ' : '', ')'] : ''
-    // // ]);
-    // return group(characterSpacing(options))
 };
-
-// const parenthesizeExpression = (parenthesized: boolean, addSpacingIf: boolean, doc: Doc): Doc => {
-//     return group([parenthesized ? ['(', addSpacingIf ? ' ' : ''] : '',
-//         doc,
-//         parenthesized ? [otherParenthesisSpacing ? ' ' : '', ')'] : ''
-//     ]);
-// };
-// const otherParenthesisSpacing = (options, Doc)
 
 export const printers: { [name: string]: Printer<ASTNode> } = {
     escript: {
-        // handleComments: {
-        //     ownLine(commentNode, text, options, ast, isLastComment) {
-        //         debugger;
-        //         return false;
-        //     },
-        //     endOfLine(commentNode, text, options, ast, isLastComment) {
-        //         debugger;
-        //         return false;
-        //     },
-        //     remaining(commentNode, text, options, ast, isLastComment) {
-        //         debugger;
-        //         return false;
-        //     },
-        // },
         canAttachComment(node) {
             return Boolean(node && node.type && node.type !== 'comment' && node.type !== 'line-comment');
         },
@@ -538,19 +514,15 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return [group([path.call(print, 'expression'), ';'])];
 
             case 'integer-literal':
-                return [node.parenthesized ? '(' : '', node.raw, node.parenthesized ? ')' : ''];
-
             case 'boolean-literal':
-                return [node.parenthesized ? '(' : '', node.raw, node.parenthesized ? ')' : ''];
-
             case 'string-literal':
-                return [node.parenthesized ? '(' : '', node.raw, node.parenthesized ? ')' : ''];
+                return parenthesizeExpression(node, options, node.raw);
 
             case 'uninit-literal':
-                return [node.parenthesized ? '(' : '', 'uninit', node.parenthesized ? ')' : ''];
+                return parenthesizeExpression(node, options, 'uninit');
 
             case 'identifier':
-                return [node.parenthesized ? '(' : '', node.id, node.parenthesized ? ')' : ''];
+                return parenthesizeExpression(node, options, node.id);
 
             case 'program-parameter':
                 return [node.unused ? 'unused ' : '', path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : ''];
@@ -558,14 +530,14 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
             case 'include-declaration':
                 return ['include', ' ', path.call(print, 'specifier'), ';'];
 
-            case 'const-statement':
+            case 'const-statement': {
                 const constGroup = findConstGroup(path, node);
                 const maxLength = constGroup.reduce((p, { assign, name: { id } }) => Math.max(id.length + (assign ? 0 : 0), p), 0);
 
                 return ['const ', path.call(print, 'name'), ' '.repeat(maxLength - node.name.id.length + ((constGroup.length > 1 && !node.assign) ? 3 : 0)), node.assign ? ' := ' : ' ', path.call(print, 'init'), ';'];
+            }
 
             case 'module-function-declaration':
-                // options.
                 return [path.call(print, 'name'), '(', join(', ', path.map(print, 'parameters')), ');'];
 
             case 'module-function-parameter':
@@ -584,7 +556,11 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                     alternativeDoc = [path.call(print, 'alternative' as any)];
                 }
 
-                return [node.elseif ? 'elseif (' : 'if (', path.call(print, 'test'), ')', node.consequent.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'consequent'))]), hardline] : hardline, alternativeDoc, node.elseif ? '' : 'endif'];
+                return [node.elseif ? 'elseif ' : 'if ',
+                    characterSpacing(options.conditionalParenthesisSpacing, '(', path.call(print, 'test'), ')'),
+                    node.consequent.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'consequent'))]), hardline] : hardline, alternativeDoc,
+                    node.elseif ? '' : 'endif'
+                ];
 
             case 'program-declaration':
                 return ['program ', path.call(print, 'name'), '(', join(', ', path.map(print, 'parameters')), ')', node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : hardline, 'endprogram'];
@@ -641,7 +617,6 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 ]);
 
             case 'method-call-expression':
-                // return [node.parenthesized ? '(' : '', path.call(print, 'entity'), '.', path.call(print, 'name'), '(', join(', ', path.map(print, 'arguments')), ')', node.parenthesized ? ')' : ''];
                 return parenthesizeExpression(node, options, [
                     path.call(print, 'entity'), '.', path.call(print, 'name'),
                     characterSpacing(options.otherParenthesisSpacing, '(',
@@ -650,23 +625,43 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 ]);
 
             case 'element-access-expression':
-                return [node.parenthesized ? '(' : '', path.call(print, 'entity'), '[', join(', ', path.map(print, 'indexes')), ']', node.parenthesized ? ')' : ''];
+                return parenthesizeExpression(node, options,
+                    [path.call(print, 'entity'), characterSpacing(options.bracketSpacing,
+                        '[', join(', ', path.map(print, 'indexes')), ']'
+                    )]
+                );
 
             case 'return-statement':
                 return ['return', node.expression ? [' ', path.call(print, 'expression')] : '', ';'];
 
             case 'unary-expression':
                 if (node.prefix) {
-                    return [node.parenthesized ? '(' : '', node.operator, node.operator.toLowerCase() === 'not' ? ' ' : '', path.call(print, 'argument'), node.parenthesized ? ')' : ''];
+                    return parenthesizeExpression(node, options,
+                        [node.operator, node.operator.toLowerCase() === 'not' ? ' ' : '', path.call(print, 'argument')]
+                    );
                 } else {
-                    return [node.parenthesized ? '(' : '', path.call(print, 'argument'), node.operator, node.operator.toLowerCase() === 'not' ? ' ' : '', node.parenthesized ? ')' : ''];
+                    return parenthesizeExpression(node, options,
+                        [path.call(print, 'argument'), node.operator]
+                    );
                 }
 
             case 'member-access-expression':
-                return [node.parenthesized ? '(' : '', path.call(print, 'entity'), '.', path.call(print, 'accessor'), node.parenthesized ? ')' : ''];
+                return parenthesizeExpression(node, options,
+                    [path.call(print, 'entity'), '.', path.call(print, 'accessor')]
+                );
 
-            case 'function-declaration':
-                return [node.exported ? 'exported ' : '', 'function ', path.call(print, 'name'), '(', group(join(', ', path.map(print, 'parameters'))), ')', node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : ' ', 'endfunction'];
+            case 'function-declaration': {
+                const addIf = node.parameters.length === 0 ? options.emptyParenthesisSpacing : options.otherParenthesisSpacing;
+                return [
+                    node.exported ? 'exported ' : '', 'function ', path.call(print, 'name'),
+                    characterSpacing(addIf,
+                        '(',
+                        group(join(', ', path.map(print, 'parameters'))),
+                        ')'
+                    ),
+                    node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : ' ', 'endfunction'
+                ];
+            }
 
             case 'function-parameter':
                 return group([node.byref ? 'byref ' : '', node.unused ? 'unused ' : '', path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : '']);
@@ -679,24 +674,27 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 const kind = node.type.substring(0, node.type.indexOf('-'));
                 const explicit = (node.type === 'array-expression' && node.explicit) || node.type !== 'array-expression';
                 if (node.short) {
-                    return group([node.parenthesized ? '(' : '', kind, node.parenthesized ? ')' : '']);
+                    return parenthesizeExpression(node, options, kind);
                 } else {
-                    return group(
-                        [
-                            node.parenthesized ? '(' : '',
-                            explicit ? kind : '',
+                    const elements = node.elements.length === 0 ?
+                        emptySpacing(options.emptyBracketSpacing, '{', '}') :
+                        characterSpacing(options.bracketSpacing,
                             '{',
-                            indent(
-                                ([
-                                    softline,
-                                    join(([',', line]), path.map(print, 'elements'))
-                                ])
-                            ),
-                            softline,
-                            '}',
-                            node.parenthesized ? ')' : ''
-                        ]
-                    );
+                            [
+                                indent(
+                                    ([
+                                        softline,
+                                        join(([',', line]), path.map(print, 'elements'))
+                                    ])
+                                ),
+                                softline
+                            ],
+                            '}');
+
+                    return parenthesizeExpression(node, options, [
+                        explicit ? kind : '',
+                        elements
+                    ]);
                 }
             }
 
@@ -704,10 +702,19 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return [path.call(print, 'key'), node.init ? [' -> ', path.call(print, 'init')] : ''];
 
             case 'while-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'while (', path.call(print, 'test'), ')', node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : ' ', 'endwhile'];
+                return labelStatement(node, path, print, [
+                    'while ',
+                    characterSpacing(options.conditionalParenthesisSpacing, '(', path.call(print, 'test'), ')'),
+                    node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : ' ',
+                    'endwhile'
+                ]);
 
             case 'case-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'case (', path.call(print, 'test'), ')', indent([hardline, join(hardline, printSequence(path, options, print, 'cases'))]), hardline, 'endcase'];
+                return labelStatement(node, path, print, [
+                    'case ',
+                    characterSpacing(options.conditionalParenthesisSpacing, '(', path.call(print, 'test'), ')'),
+                    indent([hardline, join(hardline, printSequence(path, options, print, 'cases'))]), hardline, 'endcase']
+                );
 
             case 'switch-block':
                 const labels: Doc = node.labels.map((_, index) => [(path as any).call(print, 'labels', index), ':']);
@@ -717,10 +724,18 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return 'default';
 
             case 'foreach-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'foreach ', path.call(print, 'identifier'), ' in ', path.call(print, 'expression'), node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'endforeach'];
+                return labelStatement(node, path, print,
+                    ['foreach ', path.call(print, 'identifier'), ' in ', path.call(print, 'expression'), node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'endforeach']
+                );
 
             case 'cstyle-for-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'for (', path.call(print, 'initializer'), '; ', path.call(print, 'test'), '; ', path.call(print, 'advancer'), ')', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'endfor'];
+                return labelStatement(node, path, print,
+                    ['for ',
+                        characterSpacing(options.conditionalParenthesisSpacing, '(', [path.call(print, 'initializer'), '; ', path.call(print, 'test'), '; ', path.call(print, 'advancer')], ')'),
+                        node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ',
+                        'endfor'
+                    ]
+                );
 
             case 'break-statement':
                 return ['break', node.label ? [' ', path.call(print, 'label')] : '', ';'];
@@ -729,13 +744,19 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return ['continue', node.label ? [' ', path.call(print, 'label')] : '', ';'];
 
             case 'basic-for-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'for ', path.call(print, 'identifier'), ' := ', path.call(print, 'first'), ' to ', path.call(print, 'last'), node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'endfor'];
+                return labelStatement(node, path, print,
+                    ['for ', path.call(print, 'identifier'), ' := ', path.call(print, 'first'), ' to ', path.call(print, 'last'), node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'endfor']
+                );
 
             case 'conditional-expression':
-                return [node.parenthesized ? '(' : '', path.call(print, 'conditional'), ' ? ', (path as any).call(print, 'consequent'), ' : ', path.call(print, 'alternate'), node.parenthesized ? ')' : ''];
+                return parenthesizeExpression(node, options,
+                    [path.call(print, 'conditional'), ' ? ', (path as any).call(print, 'consequent'), ' : ', path.call(print, 'alternate')]
+                );
 
             case 'do-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'do', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'dowhile (', path.call(print, 'test'), ');'];
+                return labelStatement(node, path, print,
+                    ['do', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'dowhile (', path.call(print, 'test'), ');']
+                );
 
             case 'struct-initializer':
                 return [path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : ''];
@@ -747,20 +768,26 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return node.raw;
 
             case 'function-reference-expression':
-                return [node.parenthesized ? '(' : '', '@', path.call(print, 'name'), node.parenthesized ? ')' : ''];
+                return parenthesizeExpression(node, options,
+                    ['@', path.call(print, 'name')]
+                );
 
             case 'goto-statement':
                 return ['goto ', path.call(print, 'label'), ';'];
 
             case 'interpolated-string-expression':
-                return [node.parenthesized ? '(' : '', '$"', path.map(print, 'parts'), '"', node.parenthesized ? ')' : ''];
+                return parenthesizeExpression(node, options,
+                    ['$"', path.map(print, 'parts'), '"']
+                );
 
             case 'interpolated-string-part':
                 const addBraces = !node.literal;
                 return [addBraces ? '{' : '', path.call(print, 'expression'), node.format ? [':', node.format] : '', addBraces ? '}' : ''];
 
             case 'repeat-statement':
-                return [node.label ? [path.call(print, 'label'), ':', hardline] : '', 'repeat', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'until ', path.call(print, 'test'), ';'];
+                return labelStatement(node, path, print,
+                    ['repeat', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'until ', path.call(print, 'test'), ';']
+                );
 
             case 'empty-statement':
                 return ';';
