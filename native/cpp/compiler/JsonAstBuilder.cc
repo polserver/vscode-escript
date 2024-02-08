@@ -615,10 +615,10 @@ antlrcpp::Any JsonAstBuilder::visitForStatement(
 antlrcpp::Any JsonAstBuilder::visitFunctionCall(
     EscriptGrammar::EscriptParser::FunctionCallContext* ctx )
 {
-  return new_node( ctx, "function-call-expression",                 //
-                   "callee", make_identifier( ctx->IDENTIFIER() ),  //
-                   "arguments", visitChildren( ctx ),               //
-                   "scope", env.Null()                              //
+  return new_node( ctx, "function-call-expression",               //
+                   "name", make_identifier( ctx->IDENTIFIER() ),  //
+                   "arguments", visitChildren( ctx ),             //
+                   "scope", env.Null()                            //
   );
 }
 antlrcpp::Any JsonAstBuilder::visitFunctionDeclaration(
@@ -726,16 +726,16 @@ antlrcpp::Any JsonAstBuilder::visitCaseStatement(
   auto label = make_statement_label( ctx->statementLabel() );
   auto test = visitExpression( ctx->expression() );
 
-  auto cases = defaultResult();
+  auto body = defaultResult();
   for ( const auto& switchBlockStatementGroup : ctx->switchBlockStatementGroup() )
   {
-    cases = aggregateResult( cases, visitSwitchBlockStatementGroup( switchBlockStatementGroup ) );
+    body = aggregateResult( body, visitSwitchBlockStatementGroup( switchBlockStatementGroup ) );
   }
 
   return new_node( ctx, "case-statement",  //
                    "label", label,         //
                    "test", test,           //
-                   "cases", cases          //
+                   "body", body            //
   );
 }
 
@@ -820,10 +820,10 @@ antlrcpp::Any JsonAstBuilder::visitReturnStatement(
 antlrcpp::Any JsonAstBuilder::visitScopedFunctionCall(
     EscriptGrammar::EscriptParser::ScopedFunctionCallContext* ctx )
 {
-  return new_node( ctx, "function-call-expression",                                 //
-                   "callee", make_identifier( ctx->functionCall()->IDENTIFIER() ),  //
-                   "arguments", visitChildren( ctx->functionCall() ),               //
-                   "scope", make_identifier( ctx->IDENTIFIER() )                    //
+  return new_node( ctx, "function-call-expression",                               //
+                   "name", make_identifier( ctx->functionCall()->IDENTIFIER() ),  //
+                   "arguments", visitChildren( ctx->functionCall() ),             //
+                   "scope", make_identifier( ctx->IDENTIFIER() )                  //
   );
 }
 

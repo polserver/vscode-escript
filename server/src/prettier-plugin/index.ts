@@ -23,11 +23,11 @@ interface ASTNodeInterface {
     comments?: Array<ASTCommentNode | ASTLineCommentNode>
 }
 
-interface ASTExpressionNode extends ASTNodeInterface {
+interface ASTExpressionNodeInterface extends ASTNodeInterface {
     parenthesized: true | undefined
 }
 
-interface ASTLabelableStatementNode extends ASTNodeInterface {
+interface ASTLabelableStatementNodeInterface extends ASTNodeInterface {
     label: null | ASTIdentifierNode;
 }
 
@@ -49,18 +49,18 @@ interface ASTConstStatementNode extends ASTNodeInterface {
     assign: boolean
 }
 
-interface ASTIdentifierNode extends ASTExpressionNode {
+interface ASTIdentifierNode extends ASTExpressionNodeInterface {
     type: 'identifier'
     id: string
 }
 
-interface ASTWhiteStatementNode extends ASTLabelableStatementNode {
+interface ASTWhiteStatementNode extends ASTLabelableStatementNodeInterface {
     type: 'while-statement'
     test: ASTNode
     body: ASTNode[]
 }
 
-interface ASTArrayExpressionNode extends ASTExpressionNode {
+interface ASTArrayExpressionNode extends ASTExpressionNodeInterface {
     type: 'array-expression'
     explicit: boolean
     short: boolean
@@ -84,7 +84,7 @@ interface ASTDictionaryInitializerNode extends ASTNodeInterface {
     init: null | ASTNode
 }
 
-interface ASTDoStatementNode extends ASTLabelableStatementNode {
+interface ASTDoStatementNode extends ASTLabelableStatementNodeInterface {
     type: 'do-statement'
     test: ASTNode
     body: ASTNode[]
@@ -106,19 +106,19 @@ interface ASTExitStatementNode extends ASTNodeInterface {
     type: 'exit-statement'
 }
 
-interface ASTDictionaryExpressionNode extends ASTExpressionNode {
+interface ASTDictionaryExpressionNode extends ASTExpressionNodeInterface {
     type: 'dictionary-expression'
     short: boolean;
     elements: ASTDictionaryInitializerNode[]
 }
 
-interface ASTErrorExpressionNode extends ASTExpressionNode {
+interface ASTErrorExpressionNode extends ASTExpressionNodeInterface {
     type: 'error-expression'
     elements: ASTStructInitializerNode[]
     short: boolean
 }
 
-interface ASTStructExpressionNode extends ASTExpressionNode {
+interface ASTStructExpressionNode extends ASTExpressionNodeInterface {
     type: 'struct-expression'
     elements: ASTStructInitializerNode[]
     short: boolean
@@ -130,56 +130,56 @@ interface ASTStructInitializerNode extends ASTNodeInterface {
     init: null | ASTNode
 }
 
-interface ASTUnaryExpressionNode extends ASTExpressionNode {
+interface ASTUnaryExpressionNode extends ASTExpressionNodeInterface {
     type: 'unary-expression'
     prefix: boolean
     operator: string
     argument: ASTNode
 }
 
-interface ASTBinaryExpressionNode extends ASTExpressionNode {
+interface ASTBinaryExpressionNode extends ASTExpressionNodeInterface {
     type: 'binary-expression'
     left: ASTNode
     operator: string
     right: ASTNode
 }
 
-interface ASTConditionalExpressionNode extends ASTExpressionNode {
+interface ASTConditionalExpressionNode extends ASTExpressionNodeInterface {
     type: 'conditional-expression'
     conditional: ASTNode
     consequent: ASTNode
     alternate: ASTNode
 }
 
-interface ASTElementAccessExpressionNode extends ASTExpressionNode {
+interface ASTElementAccessExpressionNode extends ASTExpressionNodeInterface {
     type: 'element-access-expression'
     indexes: ASTNode[]
     entity: ASTNode
 }
 
-interface ASTMemberAccessExpressionNode extends ASTExpressionNode {
+interface ASTMemberAccessExpressionNode extends ASTExpressionNodeInterface {
     type: 'member-access-expression'
     accessor: ASTNode
     entity: ASTNode
 }
 
-interface ASTMethodCallExpressionNode extends ASTExpressionNode {
+interface ASTMethodCallExpressionNode extends ASTExpressionNodeInterface {
     type: 'method-call-expression'
     name: ASTIdentifierNode
     arguments: ASTNode[]
     entity: ASTNode
 }
 
-interface ASTForeachStatementNode extends ASTLabelableStatementNode {
+interface ASTForeachStatementNode extends ASTLabelableStatementNodeInterface {
     type: 'foreach-statement'
     identifier: ASTIdentifierNode
     expression: ASTNode
     body: ASTNode[]
 }
 
-interface ASTFunctionCallExpressionNode extends ASTExpressionNode {
+interface ASTFunctionCallExpressionNode extends ASTExpressionNodeInterface {
     type: 'function-call-expression'
-    callee: ASTIdentifierNode
+    name: ASTIdentifierNode
     arguments: ASTNode[]
     scope: null | ASTIdentifierNode
 }
@@ -215,10 +215,10 @@ interface ASTDefaultCaseLabelNode extends ASTNodeInterface {
     type: 'default-case-label'
 }
 
-interface ASTCaseStatementNode extends ASTLabelableStatementNode {
+interface ASTCaseStatementNode extends ASTLabelableStatementNodeInterface {
     type: 'case-statement'
     test: ASTNode
-    cases: ASTNode[]
+    body: ASTNode[]
 }
 
 interface ASTContinueStatementNode extends ASTNodeInterface {
@@ -226,7 +226,7 @@ interface ASTContinueStatementNode extends ASTNodeInterface {
     label: null | ASTIdentifierNode
 }
 
-interface ASTBasicForStatementNode extends ASTLabelableStatementNode {
+interface ASTBasicForStatementNode extends ASTLabelableStatementNodeInterface {
     type: 'basic-for-statement'
     identifier: ASTIdentifierNode
     first: ASTNode
@@ -234,7 +234,7 @@ interface ASTBasicForStatementNode extends ASTLabelableStatementNode {
     body: ASTNode[]
 }
 
-interface ASTCstyleForStatementNode extends ASTLabelableStatementNode {
+interface ASTCstyleForStatementNode extends ASTLabelableStatementNodeInterface {
     type: 'cstyle-for-statement'
     initializer: ASTNode
     test: ASTNode
@@ -242,7 +242,7 @@ interface ASTCstyleForStatementNode extends ASTLabelableStatementNode {
     body: ASTNode[]
 }
 
-interface ASTRepeatStatementNode extends ASTLabelableStatementNode {
+interface ASTRepeatStatementNode extends ASTLabelableStatementNodeInterface {
     type: 'repeat-statement'
     test: ASTNode
     body: ASTNode[]
@@ -253,7 +253,7 @@ interface ASTReturnStatementNode extends ASTNodeInterface {
     expression: null | ASTNode
 }
 
-interface ASTFunctionReferenceExpressionNode extends ASTExpressionNode {
+interface ASTFunctionReferenceExpressionNode extends ASTExpressionNodeInterface {
     type: 'function-reference-expression'
     name: ASTIdentifierNode
 }
@@ -284,7 +284,7 @@ interface ASTUseDeclarationNode extends ASTNodeInterface {
     specifier: ASTNode
 }
 
-interface ASTInterpolatedStringExpressionNode extends ASTExpressionNode {
+interface ASTInterpolatedStringExpressionNode extends ASTExpressionNodeInterface {
     type: 'interpolated-string-expression'
     parts: ASTInterpolatedStringPartNode[]
 }
@@ -322,29 +322,29 @@ interface ASTProgramParameterNode extends ASTNodeInterface {
     init: null | ASTNode
 }
 
-interface ASTStringLiteralNode extends ASTExpressionNode {
+interface ASTStringLiteralNode extends ASTExpressionNodeInterface {
     type: 'string-literal'
     value: string
     raw: string
 }
 
-interface ASTUninitLiteralNode extends ASTExpressionNode {
+interface ASTUninitLiteralNode extends ASTExpressionNodeInterface {
     type: 'uninit-literal'
 }
 
-interface ASTIntegerLiteralNode extends ASTExpressionNode {
+interface ASTIntegerLiteralNode extends ASTExpressionNodeInterface {
     type: 'integer-literal'
     value: number
     raw: string
 }
 
-interface ASTFloatLiteralNode extends ASTExpressionNode {
+interface ASTFloatLiteralNode extends ASTExpressionNodeInterface {
     type: 'float-literal'
     value: number
     raw: string
 }
 
-interface ASTBooleanLiteralNode extends ASTExpressionNode {
+interface ASTBooleanLiteralNode extends ASTExpressionNodeInterface {
     type: 'boolean-literal'
     value: boolean
     raw: string
@@ -363,6 +363,9 @@ interface ASTLineCommentNode extends ASTNodeInterface {
 }
 
 type ASTNode = null | ASTArrayExpressionNode | ASTBasicForStatementNode | ASTBinaryExpressionNode | ASTBooleanLiteralNode | ASTBreakStatementNode | ASTCaseStatementNode | ASTConditionalExpressionNode | ASTConstStatementNode | ASTContinueStatementNode | ASTCstyleForStatementNode | ASTDefaultCaseLabelNode | ASTDictionaryExpressionNode | ASTDictionaryInitializerNode | ASTDoStatementNode | ASTElementAccessExpressionNode | ASTEnumEntryNode | ASTEnumStatementNode | ASTErrorExpressionNode | ASTExitStatementNode | ASTExpressionStatementNode | ASTFileNode | ASTFloatLiteralNode | ASTForeachStatementNode | ASTFunctionCallExpressionNode | ASTFunctionDeclarationNode | ASTFunctionParameterNode | ASTFunctionReferenceExpressionNode | ASTGotoStatementNode | ASTIdentifierNode | ASTIfStatementNode | ASTIncludeDeclarationNode | ASTIntegerLiteralNode | ASTInterpolatedStringExpressionNode | ASTInterpolatedStringPartNode | ASTMemberAccessExpressionNode | ASTMethodCallExpressionNode | ASTModuleFunctionDeclarationNode | ASTModuleFunctionParameterNode | ASTProgramNode | ASTProgramParameterNode | ASTRepeatStatementNode | ASTReturnStatementNode | ASTUninitLiteralNode | ASTStringLiteralNode | ASTStructExpressionNode | ASTStructInitializerNode | ASTSwitchBlockNode | ASTUnaryExpressionNode | ASTUseDeclarationNode | ASTVarDeclarationNode | ASTVarStatementNode | ASTWhiteStatementNode | ASTEmptyStatementNode | ASTCommentNode | ASTLineCommentNode
+type ASTExpressionNode = ASTIdentifierNode | ASTArrayExpressionNode | ASTDictionaryExpressionNode | ASTErrorExpressionNode | ASTStructExpressionNode | ASTUnaryExpressionNode | ASTBinaryExpressionNode | ASTConditionalExpressionNode | ASTElementAccessExpressionNode | ASTMemberAccessExpressionNode | ASTMethodCallExpressionNode | ASTFunctionCallExpressionNode | ASTFunctionReferenceExpressionNode | ASTInterpolatedStringExpressionNode | ASTStringLiteralNode | ASTUninitLiteralNode | ASTIntegerLiteralNode | ASTFloatLiteralNode | ASTBooleanLiteralNode
+type ASTLabelableStatementNode = ASTWhiteStatementNode | ASTDoStatementNode | ASTForeachStatementNode | ASTCaseStatementNode | ASTBasicForStatementNode | ASTCstyleForStatementNode | ASTRepeatStatementNode
+type ASTBodyContainingNode = ASTLabelableStatementNode | ASTFunctionDeclarationNode | ASTSwitchBlockNode
 
 export const languages = [
     {
@@ -402,24 +405,27 @@ const printSequence = (path: AstPath<ASTNode>, options: Options, print: (path: A
     }, property);
 };
 
-const findConstGroup = (path: AstPath<ASTNode>, node: ASTConstStatementNode): ASTConstStatementNode[] => {
+const findConstGroup = <NodeType extends ASTNode>(path: AstPath<ASTNode>, node: NodeType, additionalFilter?: (node: NodeType) => boolean): NodeType[] => {
     const { index, siblings } = path;
+
     if (index === null || siblings === null || node === null) {
         return [];
     }
 
-    const nodes = new Array<ASTConstStatementNode>();
+    const nodes = new Array<NodeType>();
 
     let search_index = index - 1, line_number = node.start.line_number;
 
     while (search_index >= 0) {
         const search_node = siblings[search_index];
-        if (!search_node || search_node.type !== 'const-statement') {
+        if (!search_node || search_node.type !== node.type) {
+            break;
+        } else if (additionalFilter && !additionalFilter(search_node as NodeType)) {
             break;
         }
 
         if (search_node.end.line_number === line_number || search_node.end.line_number === line_number - 1) {
-            nodes.push(search_node);
+            nodes.push(search_node as NodeType);
             --search_index;
             line_number = search_node.start.line_number;
             continue;
@@ -434,12 +440,14 @@ const findConstGroup = (path: AstPath<ASTNode>, node: ASTConstStatementNode): AS
 
     while (search_index < siblings.length) {
         const search_node = siblings[search_index];
-        if (!search_node || search_node.type !== 'const-statement') {
+        if (!search_node || search_node.type !== node.type) {
+            break;
+        } else if (additionalFilter && !additionalFilter(search_node as NodeType)) {
             break;
         }
 
         if (search_node.start.line_number === line_number || search_node.start.line_number === line_number + 1) {
-            nodes.push(search_node);
+            nodes.push(search_node as NodeType);
             ++search_index;
             line_number = search_node.end.line_number;
             continue;
@@ -454,7 +462,7 @@ const characterSpacing = (addIf: boolean, start: Doc, doc: Doc, end: Doc): Doc =
     return [
         [start, addIf ? ' ' : ''],
         doc,
-        [addIf ? ' ' : '', end]
+        [addIf ? ifBreak('', ' ') : '', end]
     ];
 };
 
@@ -462,7 +470,7 @@ const emptySpacing = (addIf: boolean, start: Doc, end: Doc): Doc => {
     return [start, addIf ? ' ' : '', end];
 };
 
-const labelStatement = (node: ASTLabelableStatementNode, path: AstPath<ASTNode>, print: (path: AstPath<ASTNode>) => doc.builders.Doc, doc: Doc): Doc => {
+const labelStatement = (node: ASTLabelableStatementNodeInterface, path: AstPath<ASTNode>, print: (path: AstPath<ASTNode>) => doc.builders.Doc, doc: Doc): Doc => {
     return [node.label ? [path.call(print, 'label'), ':', hardline] : '', doc];
 };
 
@@ -472,6 +480,31 @@ const parenthesizeExpression = (node: ASTExpressionNode, options: EscriptPrettie
     } else {
         return group(doc);
     }
+};
+
+const functionCallLike = (node: ASTFunctionCallExpressionNode | ASTMethodCallExpressionNode, options: EscriptPrettierPluginOptions, prefix: Doc, path: AstPath<ASTNode>, print: (path: AstPath<ASTNode>) => doc.builders.Doc): Doc => {
+    const args = node.arguments.length === 0 ?
+        emptySpacing(options.emptyParenthesisSpacing, '(', ')') :
+        characterSpacing(options.otherParenthesisSpacing,
+            '(',
+            [indent([softline, join([', ', softline], path.map(print, 'arguments'))]), ifBreak(line)],
+            ')');
+
+    return parenthesizeExpression(node, options, [prefix, path.call(print, 'name'), args]);
+};
+
+const functionParametersLike = (node: ASTFunctionDeclarationNode | ASTModuleFunctionDeclarationNode, options: EscriptPrettierPluginOptions, path: AstPath<ASTNode>, print: (path: AstPath<ASTNode>) => doc.builders.Doc): Doc => {
+    return node.parameters.length === 0 ?
+        ['(', options.emptyParenthesisSpacing ? ' ' : '', ')'] :
+        characterSpacing(options.otherParenthesisSpacing,
+            '(',
+            group(join(', ', path.map(print, 'parameters'))),
+            ')'
+        );
+};
+
+const body = (node: ASTBodyContainingNode, options: EscriptPrettierPluginOptions, path: AstPath<ASTNode>, print: (path: AstPath<ASTNode>) => doc.builders.Doc, ending: Doc = hardline): Doc => {
+    return node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), ending] : ' ';
 };
 
 export const printers: { [name: string]: Printer<ASTNode> } = {
@@ -516,6 +549,7 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
             case 'integer-literal':
             case 'boolean-literal':
             case 'string-literal':
+            case 'float-literal':
                 return parenthesizeExpression(node, options, node.raw);
 
             case 'uninit-literal':
@@ -537,8 +571,11 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return ['const ', path.call(print, 'name'), ' '.repeat(maxLength - node.name.id.length + ((constGroup.length > 1 && !node.assign) ? 3 : 0)), node.assign ? ' := ' : ' ', path.call(print, 'init'), ';'];
             }
 
-            case 'module-function-declaration':
-                return [path.call(print, 'name'), '(', join(', ', path.map(print, 'parameters')), ');'];
+            case 'module-function-declaration': {
+                return [path.call(print, 'name'),
+                    functionParametersLike(node, options, path, print),
+                    ';'];
+            }
 
             case 'module-function-parameter':
                 return group([path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : '']);
@@ -557,7 +594,7 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 }
 
                 return [node.elseif ? 'elseif ' : 'if ',
-                    characterSpacing(options.conditionalParenthesisSpacing, '(', path.call(print, 'test'), ')'),
+                    characterSpacing(options.conditionalParenthesisSpacing, '(', group(path.call(print, 'test')), ')'),
                     node.consequent.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'consequent'))]), hardline] : hardline, alternativeDoc,
                     node.elseif ? '' : 'endif'
                 ];
@@ -566,13 +603,22 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return ['program ', path.call(print, 'name'), '(', join(', ', path.map(print, 'parameters')), ')', node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : hardline, 'endprogram'];
 
             case 'binary-expression':
-                return group([node.parenthesized ? '(' : '', path.call(print, 'left'), ' ', node.operator, ' ', path.call(print, 'right'), node.parenthesized ? ')' : '']);
+                return parenthesizeExpression(node, options, [path.call(print, 'left'), ' ', node.operator, ' ', path.call(print, 'right')]);
 
             case 'enum-statement':
                 return ['enum ', path.call(print, 'identifier'), indent([hardline, join([hardline], printSequence(path, options, print, 'enums', ','))]), hardline, 'endenum'];
 
-            case 'enum-entry':
-                return group([path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : '']);
+            case 'enum-entry': {
+                let spaces = '';
+                if (node.init) {
+                    const enumGroup = findConstGroup(path, node, (search_node) => {
+                        return Boolean(search_node.init);
+                    });
+                    const maxLength = enumGroup.reduce((p, { name: { id } }) => Math.max(id.length, p), 0);
+                    spaces = ' '.repeat(maxLength - node.name.id.length);
+                }
+                return group([path.call(print, 'name'), node.init ? [spaces, ' := ', path.call(print, 'init')] : '']);
+            }
 
             case 'var-statement': {
                 const printed = path.map(print, 'declarations');
@@ -609,24 +655,14 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return [group([path.call(print, 'name'), node.init ? [node.assign ? ' := ' : ' ', path.call(print, 'init')] : ''])];
 
             case 'function-call-expression':
-                return parenthesizeExpression(node, options, [
-                    node.scope ? [path.call(print, 'scope'), '::'] : '', path.call(print, 'callee'),
-                    characterSpacing(options.otherParenthesisSpacing, '(',
-                        [indent([softline, join([', ', softline], path.map(print, 'arguments'))]), ifBreak(line)],
-                        ')')
-                ]);
+                return functionCallLike(node, options, node.scope ? [path.call(print, 'scope'), '::'] : '', path, print);
 
             case 'method-call-expression':
-                return parenthesizeExpression(node, options, [
-                    path.call(print, 'entity'), '.', path.call(print, 'name'),
-                    characterSpacing(options.otherParenthesisSpacing, '(',
-                        [indent([softline, join([', ', softline], path.map(print, 'arguments'))]), ifBreak(line)],
-                        ')')
-                ]);
+                return functionCallLike(node, options, [path.call(print, 'entity'), '.'], path, print);
 
             case 'element-access-expression':
                 return parenthesizeExpression(node, options,
-                    [path.call(print, 'entity'), characterSpacing(options.bracketSpacing,
+                    [path.call(print, 'entity'), characterSpacing(false, // maybe options.bracketSpacing?
                         '[', join(', ', path.map(print, 'indexes')), ']'
                     )]
                 );
@@ -650,18 +686,12 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                     [path.call(print, 'entity'), '.', path.call(print, 'accessor')]
                 );
 
-            case 'function-declaration': {
-                const addIf = node.parameters.length === 0 ? options.emptyParenthesisSpacing : options.otherParenthesisSpacing;
+            case 'function-declaration':
                 return [
                     node.exported ? 'exported ' : '', 'function ', path.call(print, 'name'),
-                    characterSpacing(addIf,
-                        '(',
-                        group(join(', ', path.map(print, 'parameters'))),
-                        ')'
-                    ),
-                    node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : ' ', 'endfunction'
+                    functionParametersLike(node, options, path, print),
+                    body(node, options, path, print), 'endfunction'
                 ];
-            }
 
             case 'function-parameter':
                 return group([node.byref ? 'byref ' : '', node.unused ? 'unused ' : '', path.call(print, 'name'), node.init ? [' := ', path.call(print, 'init')] : '']);
@@ -705,7 +735,7 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return labelStatement(node, path, print, [
                     'while ',
                     characterSpacing(options.conditionalParenthesisSpacing, '(', path.call(print, 'test'), ')'),
-                    node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))]), hardline] : ' ',
+                    body(node, options, path, print),
                     'endwhile'
                 ]);
 
@@ -713,26 +743,35 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
                 return labelStatement(node, path, print, [
                     'case ',
                     characterSpacing(options.conditionalParenthesisSpacing, '(', path.call(print, 'test'), ')'),
-                    indent([hardline, join(hardline, printSequence(path, options, print, 'cases'))]), hardline, 'endcase']
+                    body(node, options, path, print),
+                    'endcase']
                 );
 
             case 'switch-block':
                 const labels: Doc = node.labels.map((_, index) => [(path as any).call(print, 'labels', index), ':']);
-                return [join(hardline, labels), node.body.length ? [indent([hardline, join(hardline, printSequence(path, options, print, 'body'))])] : ''];
+                return [
+                    join(hardline, labels),
+                    body(node, options, path, print, '')
+                ];
 
             case 'default-case-label':
                 return 'default';
 
             case 'foreach-statement':
                 return labelStatement(node, path, print,
-                    ['foreach ', path.call(print, 'identifier'), ' in ', path.call(print, 'expression'), node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'endforeach']
+                    [
+                        'foreach ', path.call(print, 'identifier'), ' in ', path.call(print, 'expression'),
+                        body(node, options, path, print),
+                        'endforeach'
+                    ]
                 );
 
             case 'cstyle-for-statement':
                 return labelStatement(node, path, print,
-                    ['for ',
+                    [
+                        'for ',
                         characterSpacing(options.conditionalParenthesisSpacing, '(', [path.call(print, 'initializer'), '; ', path.call(print, 'test'), '; ', path.call(print, 'advancer')], ')'),
-                        node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ',
+                        body(node, options, path, print),
                         'endfor'
                     ]
                 );
@@ -745,7 +784,11 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
 
             case 'basic-for-statement':
                 return labelStatement(node, path, print,
-                    ['for ', path.call(print, 'identifier'), ' := ', path.call(print, 'first'), ' to ', path.call(print, 'last'), node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'endfor']
+                    [
+                        'for ', path.call(print, 'identifier'), ' := ', path.call(print, 'first'), ' to ', path.call(print, 'last'),
+                        body(node, options, path, print),
+                        'endfor'
+                    ]
                 );
 
             case 'conditional-expression':
@@ -755,7 +798,10 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
 
             case 'do-statement':
                 return labelStatement(node, path, print,
-                    ['do', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'dowhile (', path.call(print, 'test'), ');']
+                    [
+                        'do',
+                        body(node, options, path, print),
+                        'dowhile (', path.call(print, 'test'), ');']
                 );
 
             case 'struct-initializer':
@@ -763,9 +809,6 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
 
             case 'exit-statement':
                 return 'exit;';
-
-            case 'float-literal':
-                return node.raw;
 
             case 'function-reference-expression':
                 return parenthesizeExpression(node, options,
@@ -786,7 +829,11 @@ export const printers: { [name: string]: Printer<ASTNode> } = {
 
             case 'repeat-statement':
                 return labelStatement(node, path, print,
-                    ['repeat', node.body.length ? [indent([hardline, join(hardline, path.map(print, 'body'))]), hardline] : ' ', 'until ', path.call(print, 'test'), ';']
+                    [
+                        'repeat',
+                        body(node, options, path, print),
+                        'until ', path.call(print, 'test'), ';'
+                    ]
                 );
 
             case 'empty-statement':

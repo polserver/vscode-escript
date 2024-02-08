@@ -67,7 +67,27 @@ describe('Manual formatting test', () => {
         // const srcname = '/Users/kevineady/UO/ModernDistro/scripts/test.src';
         const srcname = join(__dirname, 'scripts', 'test.src');
 
-        const text = `if (1) 2; elseif (3) 4; else 5; endif`;
+        // const text = `function foo(a,b,c) endfunction`;
+        // const text = `if((critter.npctemplate)&&(critter.script!="tamed"))endif`;
+        // const text = `((critter.npctemplate)&&(critter.script!="tamed"));`;
+        const text = `if((who.x >= CInt(range[1])) && (who.x <= CInt(range[3])) && (who.y >= CInt(range[2])) && (who.y <= CInt(range[4]))) 1; endif`;
+        // const text = `LogToFile(
+        //     "::log/createstack_" + month + ".log",
+        //     "On " + dmy + " at " + hms + " " + who.name + " on account " + who.acctname + " created  " + created.amount + " of " + GetObjTypeDesc(
+        //       created.objtype,
+        //       1
+        //      )
+        //    );`;
+        //         const text = `
+        // program purge(who)
+        //   foreach critter in ListMobilesNearLocation( who.x, who.y, who.z, 20, who.realm )
+        //     if ( ( critter.npctemplate ) && (critter.script != "tamed") )
+        //       SetObjProperty( critter, "guardkill", 1 );
+        //       KillMobile( critter );
+        //     endif
+        //   endforeach
+        // endprogram`;
+        // const text = `case (foo) 1: 2: nothing; 3:4:5: something; elsee; here; \n\ndefault: yahoo; endcase`;
 
         const { ast, originalText } = testFormat(srcname, text);
 
@@ -76,17 +96,17 @@ describe('Manual formatting test', () => {
         const { formatted } = await formatAST(ast, {
             parser: 'escript',
             plugins: [EscriptPrettierPlugin],
-            printWidth: 80,
             originalText,
             conditionalParenthesisSpacing: true,
             bracketSpacing: true,
             emptyBracketSpacing: false,
-            emptyParenthesisSpacing: true,
-            otherParenthesisSpacing: true
+            emptyParenthesisSpacing: false,
+            otherParenthesisSpacing: true,
+            printWidth: 100
         } as Partial<EscriptPrettierPluginOptions>);
 
-        // console.log(formatted);
-        // console.log(formatted.split(/\n/));
+        console.log(formatted);
+        console.log(formatted.split(/\n/));
     });
 });
 
@@ -121,7 +141,13 @@ describeLongTest('CompiledScript parity check', () => {
             const { formatted } = await formatAST(this.ast, {
                 parser: 'escript',
                 plugins: [EscriptPrettierPlugin],
-                originalText: this.text
+                originalText: this.text,
+                conditionalParenthesisSpacing: true,
+                bracketSpacing: true,
+                emptyBracketSpacing: false,
+                emptyParenthesisSpacing: false,
+                otherParenthesisSpacing: true,
+                printWidth: 100
             });
             return formatted;
         }
@@ -204,9 +230,16 @@ describeLongTest('CompiledScript parity check', () => {
 
             expect(formatted).toBeTruthy();
 
+            if (true as any) {
+                await writeFile(existingSrcFile, formatted, 'utf-8');
+                return;
+            }
+
             await writeFile(files['formatted.src'], formatted, 'utf-8');
 
             const formattedSrcRelativeFile = relative(distroDir, files['formatted.src']);
+
+            var success = false;
 
             try {
                 const spawned = await new Promise<{ stderr: string, stdout: string, exitCode: number | null } | null>((resolve) => {
@@ -250,10 +283,15 @@ describeLongTest('CompiledScript parity check', () => {
                 if (!originalCompiled.equals(formattedCompiled)) {
                     throw new Error('Compiled source mismatch!');
                 }
+
+                success = true;
             } finally {
                 for (const key in files) {
                     const toDelete = files[key as keyof typeof files];
 
+                    if (!success && toDelete.endsWith('.src')) {
+                        continue;
+                    }
                     try {
                         const exists = await stat(toDelete);
                         if (exists) {
