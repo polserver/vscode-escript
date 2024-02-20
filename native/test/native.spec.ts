@@ -63,7 +63,6 @@ describe('vscode-escript-native LSPWorkspace', () => {
         });
         workspace.open(dir);
 
-        // Done at textDocument/didOpen
         const document = workspace.getDocument(src);
 
         // Done at textDocument/didChange
@@ -78,7 +77,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         diagnostics = document.diagnostics();
         expect(diagnostics).toHaveLength(0); // no diagnostics
 
-        expect(calls).toEqual(3);
+        expect(calls).toEqual(2);
     });
 
     it('Module compilation', () => {
@@ -98,7 +97,6 @@ describe('vscode-escript-native LSPWorkspace', () => {
         });
         workspace.open(dir);
 
-        // Done at textDocument/didOpen
         const pathname = 'basicio.em';
         const document = workspace.getDocument(pathname);
 
@@ -114,7 +112,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         diagnostics = document.diagnostics();
         expect(diagnostics).toHaveLength(1); // modules can't have statements
 
-        expect(calls).toEqual(3);
+        expect(calls).toEqual(2);
     });
 
     it('Can get dependents', () => {
@@ -942,14 +940,14 @@ describe('References - SRC', () => {
             {
                 range: {
                     start: { line: 0, character: 82 },
-                    end: { line: 0, character: 87 }
+                    end: { line: 0, character: 85 }
                 },
                 fsPath: 'in-memory-file.src'
             },
             {
                 range: {
                     start: { line: 0, character: 89 },
-                    end: { line: 0, character: 94 }
+                    end: { line: 0, character: 92 }
                 },
                 fsPath: 'in-memory-file.src'
             }

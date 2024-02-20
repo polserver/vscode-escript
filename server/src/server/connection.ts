@@ -55,34 +55,8 @@ export class LSPServer {
         this.connection.onCompletion(this.onCompletion);
         this.connection.onSignatureHelp(this.onSignatureHelp);
         this.connection.onNotification('didChangeConfiguration', this.onDidChangeConfiguration);
-
-
         this.connection.onReferences(this.onReferences);
-        // this.connection.onReferences(async (a, b, cc, d) => {
-        //     b.onCancellationRequested(() => {
-        //         console.log('onCancellationRequested');
-        //     });
 
-        //     const c = await this.connection.window.createWorkDoneProgress();
-        //     c.token.onCancellationRequested(() => {
-
-        //     });
-        //     console.log('c is', c);
-        //     c.begin('Searching files title', 0, 'Searching files message', true);
-
-        //     // const f = createProgressHandler();
-        //     // d?.report([]);
-        //     for (let i = 0; i < 100; i++) {
-        //         c.report(i * 1);
-        //         await new Promise(resolve => setTimeout(resolve, 100));
-        //         if (b.isCancellationRequested || c.token.isCancellationRequested) {
-        //             return undefined;
-        //         }
-        //     }
-
-        //     c.done();
-        //     return [];
-        // });
         this.documents.listen(this.connection);
         this.downloader = new DocsDownloader(LSPServer.options.storageFsPath);
         this.workspace = new LSPWorkspace({
@@ -108,6 +82,12 @@ export class LSPServer {
         const workspaceFolders = params.workspaceFolders ?? [];
         const initializationOptions: InitializationOptions = params.initializationOptions;
 
+        try {
+            await mkdir(LSPServer.options.storageFsPath, { recursive: true });
+        } catch (ex) {
+            console.error(`Could not create storage directory '${LSPServer.options.storageFsPath}': ${ex} `);
+        }
+
         let found = false;
         for (const { uri } of workspaceFolders) {
             const { fsPath } = URI.parse(uri);
@@ -120,28 +100,10 @@ export class LSPServer {
                 this.workspace.open(fsPath);
                 console.log(`Successfully read ${ecompileCfg}. Loading cache...`);
 
-                // Must do next tick because `window/workDoneProgress/create` will not be registered yet.
-                process.nextTick(async () => {
-                    const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
-                    serverInitiatedReporter.begin('Workspace Cache');
-                    this.workspace.updateCache(({ count, total }) => {
-                        serverInitiatedReporter.report(100 * count / total, `Reading files ${count}/${total}`);
-                    }).then(() => {
-                        serverInitiatedReporter.done();
-                        console.log(`Cache loaded.`);
-                    });
-                });
-
                 found = true;
             } catch (e) {
                 console.error(`Error reading ${ecompileCfg}`, e);
             }
-        }
-
-        try {
-            await mkdir(LSPServer.options.storageFsPath, { recursive: true });
-        } catch (ex) {
-            console.error(`Could not create storage directory '${LSPServer.options.storageFsPath}': ${ex} `);
         }
 
         if (found) {
@@ -184,6 +146,21 @@ export class LSPServer {
                 }
             }
         };
+
+        if (found) {
+            // Must do next tick because `window/workDoneProgress/create` will not be registered yet.
+            process.nextTick(async () => {
+                const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
+                serverInitiatedReporter.begin('Workspace Cache');
+                this.workspace.updateCache(({ count, total }) => {
+                    serverInitiatedReporter.report(100 * count / total, `Reading files ${count}/${total}`);
+                }).then(() => {
+                    serverInitiatedReporter.done();
+                    console.log(`Cache loaded.`);
+                });
+            });
+        }
+
         return result;
     };
 
