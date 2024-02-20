@@ -29,6 +29,9 @@ public:
   virtual std::optional<ReferencesResult> get_constant(
       Pol::Bscript::Compiler::ConstDeclaration* ) override;
 
+  virtual std::optional<ReferencesResult> get_module_function(
+      Pol::Bscript::Compiler::ModuleFunctionDeclaration* ) override;
+
 private:
   LSPWorkspace* lsp_workspace;
 };

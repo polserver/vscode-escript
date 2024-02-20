@@ -50,12 +50,29 @@ public:
   const std::shared_ptr<Pol::Bscript::Compiler::Variable> variable;
 };
 
-class GlobalUserFunctionFinder : public NodeVisitor
+class GlobalFunctionFinder : public NodeVisitor
 {
 public:
-  GlobalUserFunctionFinder( ReferencesResult& results, UserFunction* user_function )
-      : results( results ), user_function( user_function )
+  GlobalFunctionFinder( ReferencesResult& results, Function* function )
+      : results( results ), function( function )
   {
+  }
+
+  template <typename T>
+  void add_if_matched( FunctionCall& node, T user_function_link )
+  {
+    if ( source_location_equal( user_function_link->source_location, function->source_location ) )
+    {
+      // We need to make a new location for only the method name, as FunctionCall source
+      // location includes the arguments
+
+      const auto& start = node.source_location.range.start;
+      Range r{ { start.line_number, start.character_column },
+               { start.line_number, static_cast<unsigned short>( start.character_column +
+                                                                 node.method_name.length() ) } };
+
+      results.push_back( SourceLocation( node.source_location.source_file_identifier, r ) );
+    }
   }
 
   void visit_function_call( FunctionCall& node ) override
@@ -64,24 +81,15 @@ public:
     {
       if ( auto user_function_link = link->user_function() )
       {
-        if ( source_location_equal( user_function_link->source_location,
-                                    user_function->source_location ) )
-        {
-          // We need to make a new location for only the method name, as FunctionCall source
-          // location includes the arguments
-
-          const auto& start = node.source_location.range.start;
-          Range r{
-              { start.line_number, start.character_column },
-              { start.line_number, static_cast<unsigned short>( start.character_column +
-                                                                node.method_name.length() ) } };
-
-          results.push_back( SourceLocation( node.source_location.source_file_identifier, r ) );
-        }
+        add_if_matched( node, user_function_link );
+      }
+      else if ( auto module_function_decl = link->module_function_declaration() )
+      {
+        add_if_matched( node, module_function_decl );
       }
     }
 
-    // for includess, the children of function calls are empty...?
+    // for includes, the children of function calls are empty...?
     for ( auto& child : node.children )
     {
       if ( child )
@@ -93,7 +101,7 @@ public:
 
   ReferencesResult& results;
 
-  const UserFunction* user_function;
+  const Function* function;
 };
 
 class GlobalConstantFinder : public NodeVisitor
@@ -168,6 +176,16 @@ std::optional<ReferencesResult> ReferencesBuilder::get_constant(
   return results;
 }
 
+std::optional<ReferencesResult> ReferencesBuilder::get_module_function(
+    Pol::Bscript::Compiler::ModuleFunctionDeclaration* funct )
+{
+  ReferencesResult results;
+  GlobalFunctionFinder foo( results, funct );
+  lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
+                                      { document->accept_visitor( foo ); } );
+  return results;
+}
+
 std::optional<ReferencesResult> ReferencesBuilder::get_user_function( UserFunction* funct )
 {
   auto ext = fs::path( funct->source_location.source_file_identifier->pathname ).extension();
@@ -176,12 +194,12 @@ std::optional<ReferencesResult> ReferencesBuilder::get_user_function( UserFuncti
   ReferencesResult results;
   if ( is_source )
   {
-    GlobalUserFunctionFinder foo( results, funct );
+    GlobalFunctionFinder foo( results, funct );
     workspace.accept( foo );
   }
   else
   {
-    GlobalUserFunctionFinder foo( results, funct );
+    GlobalFunctionFinder foo( results, funct );
     lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
                                         { document->accept_visitor( foo ); } );
   }

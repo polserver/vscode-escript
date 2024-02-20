@@ -15,8 +15,8 @@ const dir = resolve(__dirname);
 // Uses relative path
 const moduleDirectory = join('..', 'polserver', 'pol-core', 'support', 'scripts');
 
-function toBeDefined<T>(val: T): asserts val is NonNullable<T> {
-    if (val === undefined) { throw new Error('Value is undefined'); }
+function toBeDefined<T>(val: T, message = 'Value is undefined'): asserts val is NonNullable<T> {
+    if (val === undefined) { throw new Error(message); }
 }
 
 const escriptdoc = (text: string) => "```escriptdoc\n" + text + "\n```";
@@ -866,6 +866,19 @@ describe('References - SRC', () => {
 
         return document.references({ line: 1, character });
     };
+
+    it('Can get module functions', async () => {
+        const references = await getReferences('Print("foo");', 3);
+
+        toBeDefined(references);
+
+        // References should be >1 as it includes other sources in pol-core's testsuite
+        expect(references.length).toBeGreaterThan(1);
+
+        // Find the reference in the current source
+        const foundSorceReference = references.find(foo => foo.fsPath.endsWith('in-memory-file.src'));
+        toBeDefined(foundSorceReference, "Did not find a reference including 'in-memory-file.src'.");
+    });
 
     it('Can get global variable across includes', async () => {
         const references = await getReferences('include "testutil"; include "sysevent"; var globalInSource; globalInSource := 1; baz(); baz2();', 66, {
