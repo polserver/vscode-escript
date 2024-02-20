@@ -74,9 +74,11 @@ const baseFilename = `vscode-escript-native.${process.platform}-${process.arch}.
 const tries = [
     ...(process.platform === 'darwin' ? [
         [__dirname, '..', 'build', 'Debug', `vscode-escript-native.darwin-universal.node`],
+        [__dirname, '..', 'build', 'RelWithDebInfo', `vscode-escript-native.darwin-universal.node`],
         [__dirname, '..', 'build', 'Release', `vscode-escript-native.darwin-universal.node`],
     ] : []),
     [__dirname, '..', 'build', 'Debug', baseFilename],
+    [__dirname, '..', 'build', 'RelWithDebInfo', baseFilename],
     [__dirname, '..', 'build', 'Release', baseFilename],
 ].map(segment => resolve(...segment));
 
