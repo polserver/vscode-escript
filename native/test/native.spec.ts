@@ -867,6 +867,33 @@ describe('References - SRC', () => {
         return document.references({ line: 1, character });
     };
 
+    it('Can get constants in local source', async () => {
+        const references = await getReferences('const FOO := 1234; Print(FOO);', 8);
+
+        expect(references).toEqual([
+            {
+                range: {
+                    start: { line: 0, character: 25 },
+                    end: { line: 0, character: 28 }
+                },
+                fsPath: 'in-memory-file.src'
+            }
+        ]);
+    });
+
+    it('Can get constants defined in module files', async () => {
+        const references = await getReferences('Print(TRIM_BOTH);', 11);
+
+        toBeDefined(references, "No references found");
+
+        // References should be >1 as it includes other sources in pol-core's testsuite
+        expect(references.length).toBeGreaterThan(1);
+
+        // Find the reference in the current source
+        const foundSorceReference = references.find(foo => foo.fsPath.endsWith('in-memory-file.src'));
+        toBeDefined(foundSorceReference, "Did not find a reference including 'in-memory-file.src'.");
+    });
+
     it('Can get module functions', async () => {
         const references = await getReferences('Print("foo");', 3);
 

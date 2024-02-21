@@ -3,14 +3,21 @@
 
 #include "SemanticContextBuilder.h"
 
+#include <set>
 namespace VSCodeEscript
 {
 class LSPWorkspace;
 }
 namespace VSCodeEscript::CompilerExt
 {
+class SourceLocationComparator
+{
+public:
+  bool operator()( const Pol::Bscript::Compiler::SourceLocation& x1,
+                   const Pol::Bscript::Compiler::SourceLocation& x2 ) const;
+};
 
-using ReferencesResult = std::vector<Pol::Bscript::Compiler::SourceLocation>;
+using ReferencesResult = std::set<Pol::Bscript::Compiler::SourceLocation, SourceLocationComparator>;
 
 class ReferencesBuilder : public SemanticContextBuilder<ReferencesResult>
 {

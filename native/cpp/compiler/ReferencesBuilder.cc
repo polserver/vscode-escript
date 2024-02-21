@@ -25,6 +25,45 @@ bool source_location_equal( const SourceLocation& a, const SourceLocation& b )
          a.source_file_identifier->pathname == b.source_file_identifier->pathname;
 }
 
+bool SourceLocationComparator::operator()( const Pol::Bscript::Compiler::SourceLocation& x1,
+                                           const Pol::Bscript::Compiler::SourceLocation& x2 ) const
+{
+  // Compare source file identifiers first
+  if ( x1.source_file_identifier->index != x2.source_file_identifier->index )
+  {
+    return x1.source_file_identifier->index < x2.source_file_identifier->index;
+  }
+
+  // If source file identifiers are the same, compare ranges
+  if ( x1.range.start.line_number != x2.range.start.line_number )
+  {
+    return x1.range.start.line_number < x2.range.start.line_number;
+  }
+  if ( x1.range.start.character_column != x2.range.start.character_column )
+  {
+    return x1.range.start.character_column < x2.range.start.character_column;
+  }
+  if ( x1.range.start.token_index != x2.range.start.token_index )
+  {
+    return x1.range.start.token_index < x2.range.start.token_index;
+  }
+
+  if ( x1.range.end.line_number != x2.range.end.line_number )
+  {
+    return x1.range.end.line_number < x2.range.end.line_number;
+  }
+  if ( x1.range.end.character_column != x2.range.end.character_column )
+  {
+    return x1.range.end.character_column < x2.range.end.character_column;
+  }
+  if ( x1.range.end.token_index != x2.range.end.token_index )
+  {
+    return x1.range.end.token_index < x2.range.end.token_index;
+  }
+  // If ranges are the same, the SourceLocation objects are equal
+  return false;
+}
+
 class GlobalVariableFinder : public NodeVisitor
 {
 public:
@@ -39,13 +78,13 @@ public:
     if ( node.variable &&
          source_location_equal( variable->source_location, node.variable->source_location ) )
     {
-      results.push_back( node.source_location );
+      results.emplace(node.source_location);
     }
 
     visit_children( node );
   };
 
-  std::vector<SourceLocation>& results;
+  ReferencesResult& results;
 
   const std::shared_ptr<Pol::Bscript::Compiler::Variable> variable;
 };
@@ -71,7 +110,7 @@ public:
                { start.line_number, static_cast<unsigned short>( start.character_column +
                                                                  node.method_name.length() ) } };
 
-      results.push_back( SourceLocation( node.source_location.source_file_identifier, r ) );
+      results.emplace( SourceLocation( node.source_location.source_file_identifier, r ) );
     }
   }
 
@@ -112,17 +151,30 @@ public:
   {
   }
 
-  void visit_identifier( Identifier& node ) override
+  void visit_children( Node& node )
   {
-    if ( !node.variable && node.name == const_decl->identifier )
+    for ( auto& child : node.children )
     {
-      results.push_back( node.source_location );
+      if ( !child )
+      {
+        continue;
+      }
+
+      if ( child->unoptimized_node )
+      {
+        if ( auto identifier = dynamic_cast<Identifier*>( child->unoptimized_node.get() ) )
+        {
+          if ( identifier->name == const_decl->identifier )
+          {
+            results.emplace( identifier->source_location );
+          }
+        }
+      }
+      child->accept( *this );
     }
+  }
 
-    visit_children( node );
-  };
-
-  std::vector<SourceLocation>& results;
+  ReferencesResult& results;
 
   ConstDeclaration* const_decl;
 };
