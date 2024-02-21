@@ -33,7 +33,9 @@
 		"build": "cmake-js build && tsc",
 		"rebuild": "cmake-js rebuild && tsc",
 		"clean": "cmake-js clean",
-		"build-debug": "cmake-js build -B RelWithDebInfo && tsc",
-		"rebuild-debug": "cmake-js rebuild -B RelWithDebInfo && tsc"
+		"build-debug": "cmake-js build -B Debug && tsc",
+		"rebuild-debug": "cmake-js rebuild -B Debug && tsc",
+		"build-relwithdebinfo": "cmake-js build -B RelWithDebInfo && tsc",
+		"rebuild-relwithdebinfo": "cmake-js rebuild -B RelWithDebInfo && tsc"
 	}
 }

@@ -87,10 +87,10 @@ void recurse_collect( const fs::path& basedir, std::set<std::string>* files_src,
       continue;
     const auto ext = dir_itr->path().extension();
     if ( !ext.compare( ".inc" ) )
-      files_inc->insert( dir_itr->path().u8string() );
+      files_inc->insert( fs::canonical( dir_itr->path() ).u8string() );
     else if ( !ext.compare( ".src" ) || !ext.compare( ".hsr" ) ||
               ( compilercfg.CompileAspPages && !ext.compare( ".asp" ) ) )
-      files_src->insert( dir_itr->path().u8string() );
+      files_src->insert( fs::canonical( dir_itr->path() ).u8string() );
   }
 }
 

@@ -1,10 +1,8 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, WorkDoneProgressReporter, CancellationToken, WorkDoneProgressServerReporter } from 'vscode-languageserver/node';
+import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, Diagnostic } from 'vscode-languageserver/node';
 import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
-import { promises, readFileSync } from 'fs';
-import access = promises.access;
-import mkdir = promises.mkdir;
-
+import { readFileSync } from 'fs';
+import { access, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { F_OK } from 'constants';
 import DocsDownloader from '../workspace/DocsDownloader';
@@ -36,6 +34,7 @@ export class LSPServer {
     private sources: Map<string, typeof LSPDocument> = new Map();
     private downloader: DocsDownloader;
     private configuration: ExtensionConfiguration | undefined;
+    private openTabs = new Array<string>();
 
     public hasDiagnosticRelatedInformationCapability: boolean = false;
 
@@ -56,6 +55,7 @@ export class LSPServer {
         this.connection.onSignatureHelp(this.onSignatureHelp);
         this.connection.onNotification('didChangeConfiguration', this.onDidChangeConfiguration);
         this.connection.onReferences(this.onReferences);
+        this.connection.onNotification('$workspace/openTabs', this.onWorkspaceOpenTabs);
 
         this.documents.listen(this.connection);
         this.downloader = new DocsDownloader(LSPServer.options.storageFsPath);
@@ -164,6 +164,36 @@ export class LSPServer {
         return result;
     };
 
+
+    private onWorkspaceOpenTabs = (params: { uris: string[] }) => {
+        const { uris } = params;
+        const closedTabs = this.openTabs.filter(uri => uris.indexOf(uri) === -1);
+        const newTabs = uris.filter(uri => this.openTabs.indexOf(uri) === -1);
+        console.log('New tabs', newTabs, 'Closed tabs', closedTabs);
+        this.openTabs = uris;
+        for (const uri of closedTabs) {
+            const { fsPath } = URI.parse(uri);
+            if (this.sources.has(fsPath)) {
+                this.sendDiagnostics(uri, [], false);
+            }
+        }
+
+        for (const uri of newTabs) {
+            const { fsPath } = URI.parse(uri);
+            const document = this.sources.get(fsPath);
+            if (document) {
+                document.analyze(this.configuration?.continueAnalysisOnError);
+                const diagnostics = document.diagnostics();
+
+                this.sendDiagnostics(
+                    uri,
+                    diagnostics
+                );
+            }
+        }
+    };
+
+
     private onDidOpen = async (e: TextDocumentChangeEvent<TextDocument>) => {
         const { fsPath } = URI.parse(e.document.uri);
         this.sources.set(fsPath, this.workspace.getDocument(fsPath));
@@ -174,15 +204,17 @@ export class LSPServer {
         const { fsPath } = URI.parse(uri);
 
         // Clear diagnostics
-        this.connection.sendDiagnostics({
-            uri,
-            diagnostics: []
-        });
+        this.sendDiagnostics(uri, [], false);
         this.sources.delete(fsPath);
     };
 
     private onDidChangeContent = async (e: TextDocumentChangeEvent<TextDocument>) => {
         const { uri } = e.document;
+
+        if (this.openTabs.indexOf(uri) === -1) {
+            return;
+        }
+
         const { fsPath } = URI.parse(uri);
         const document = this.sources.get(fsPath);
         try {
@@ -192,20 +224,17 @@ export class LSPServer {
             document.analyze(this.configuration?.continueAnalysisOnError);
             const diagnostics = document.diagnostics();
 
-            this.connection.sendDiagnostics({
-                uri,
-                diagnostics
-            });
+            this.sendDiagnostics(uri, diagnostics);
 
             for (const [dependeePathname, dependeeDoc] of this.sources.entries()) {
                 if (dependeePathname !== fsPath && dependeeDoc.dependents().includes(fsPath)) {
                     const uri = URI.file(dependeePathname).toString();
                     dependeeDoc.analyze();
                     const diagnostics = dependeeDoc.diagnostics();
-                    this.connection.sendDiagnostics({
+                    this.sendDiagnostics(
                         uri,
                         diagnostics
-                    });
+                    );
                 }
             }
         } catch (ex) {
@@ -359,5 +388,15 @@ export class LSPServer {
             }
         }
         return null;
+    };
+
+    private sendDiagnostics = (uri: string, diagnostics: Diagnostic[], tabCheck = true) => {
+        if (!tabCheck || this.openTabs.some(openTab => openTab === uri)) {
+            return this.connection.sendDiagnostics({
+                uri,
+                diagnostics
+            });
+        }
+        return Promise.resolve(undefined);
     };
 }

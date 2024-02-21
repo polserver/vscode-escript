@@ -5,6 +5,7 @@ import { inspect } from 'util';
 import { F_OK } from 'constants';
 import { writeFile, access, mkdir, readFile } from "fs/promises";
 import { dirname, join } from "path";
+import type { Range } from 'vscode-languageclient/node';
 
 const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
 
@@ -843,11 +844,10 @@ describeLongTest('Actively typing sources', () => {
 });
 
 describe('References - SRC', () => {
-    const getReferences = async (source: string, character: number, mocks: Record<string, string> = {}) => {
-        const src = 'in-memory-file.src';
+    const getReferences = async (source: string, character: number, mocks: Record<string, string> = {}, src = 'in-memory-file.src') => {
         const workspace = new LSPWorkspace({
             getContents(pathname) {
-                if (pathname === src) {
+                if (pathname.endsWith(src)) {
                     return source;
                 } else if (basename(pathname) in mocks) {
                     return mocks[basename(pathname)];
@@ -867,21 +867,32 @@ describe('References - SRC', () => {
         return document.references({ line: 1, character });
     };
 
-    it('Can get constants in local source', async () => {
+    const expectReference = (references: {
+        range: Range;
+        fsPath: string;
+    }[] | undefined, filename: string, range: Range) => {
+        if (references === undefined) {
+            throw new Error("No references found");
+        }
+        for (const reference of references) {
+            if (reference.fsPath.endsWith(filename) && reference.range.start.line == range.start.line && reference.range.start.character == range.start.character && reference.range.end.line === range.end.line && reference.range.end.character === range.end.character) {
+                return;
+            }
+        }
+        throw new Error(`Reference for '${filename} at ${JSON.stringify(range)} not found.`);
+    }
+
+    it('Can get constants inside source that are defined in source', async () => {
         const references = await getReferences('const FOO := 1234; Print(FOO);', 8);
 
-        expect(references).toEqual([
-            {
-                range: {
-                    start: { line: 0, character: 25 },
-                    end: { line: 0, character: 28 }
-                },
-                fsPath: 'in-memory-file.src'
-            }
-        ]);
+        // Inside Print arguments
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 25 },
+            end: { line: 0, character: 28 }
+        });
     });
 
-    it('Can get constants defined in module files', async () => {
+    it('Can get constants inside source that are defined in module files', async () => {
         const references = await getReferences('Print(TRIM_BOTH);', 11);
 
         toBeDefined(references, "No references found");
@@ -894,7 +905,17 @@ describe('References - SRC', () => {
         toBeDefined(foundSorceReference, "Did not find a reference including 'in-memory-file.src'.");
     });
 
-    it('Can get module functions', async () => {
+    it('Can get module functions inside module', async () => {
+        const pathname = resolve(dir, moduleDirectory, 'basicio.em');
+        const references = await getReferences('Print( anything, console_color:="" );', 3, {}, pathname);
+
+        toBeDefined(references, "No references found");
+
+        // References should be >1 as it includes other sources in pol-core's testsuite
+        expect(references.length).toBeGreaterThan(1);
+    });
+
+    it('Can get module functions inside source', async () => {
         const references = await getReferences('Print("foo");', 3);
 
         toBeDefined(references);
@@ -902,9 +923,11 @@ describe('References - SRC', () => {
         // References should be >1 as it includes other sources in pol-core's testsuite
         expect(references.length).toBeGreaterThan(1);
 
-        // Find the reference in the current source
-        const foundSorceReference = references.find(foo => foo.fsPath.endsWith('in-memory-file.src'));
-        toBeDefined(foundSorceReference, "Did not find a reference including 'in-memory-file.src'.");
+        // Inside top-level statement
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 5 }
+        });
     });
 
     it('Can get global variable across includes', async () => {
@@ -913,86 +936,98 @@ describe('References - SRC', () => {
             'sysevent.inc': "function baz2() foob; globalInSource; endfunction",
         });
 
-        expect(references).toEqual(
-            [
-                {
-                    // globalInSource := 1;
-                    range: {
-                        start: { line: 0, character: 60 },
-                        end: { line: 0, character: 74 }
-                    },
-                    fsPath: 'in-memory-file.src'
-                },
-                {
-                    // inside baz()
-                    range: {
-                        start: { line: 0, character: 21 },
-                        end: { line: 0, character: 35 }
-                    },
-                    fsPath: resolve(__dirname, '..', 'polserver', 'testsuite', 'pol', 'scripts', 'include', 'testutil.inc')
-                },
-                {
-                    // inside baz2()
-                    range: {
-                        start: { line: 0, character: 22 },
-                        end: { line: 0, character: 36 }
-                    },
-                    fsPath: resolve(__dirname, '..', 'polserver', 'testsuite', 'pol', 'scripts', 'include', 'sysevent.inc')
-                }
-            ]
-        );
+        // Inside top-level statement
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 60 },
+            end: { line: 0, character: 74 }
+        });
+
+        // Inside testutil.inc baz() function
+        expectReference(references, 'testutil.inc', {
+            start: { line: 0, character: 21 },
+            end: { line: 0, character: 35 }
+        });
+
+        // Inside sysevent.inc baz2() function
+        expectReference(references, 'sysevent.inc', {
+            start: { line: 0, character: 22 },
+            end: { line: 0, character: 36 }
+        });
     });
 
     it('Can get local variable', async () => {
         const references = await getReferences('function bar() var foo := 1; if (foo) Print(foo + 3 * foo); endif endfunction bar();', 21);
-        // console.log(inspect(references, undefined, Infinity))
-        expect(references).toEqual([
-            {
-                // inside conditional
-                range: {
-                    start: { line: 0, character: 33 },
-                    end: { line: 0, character: 36 }
-                },
-                fsPath: 'in-memory-file.src'
-            },
-            {
-                // inside print argument
-                range: {
-                    start: { line: 0, character: 44 },
-                    end: { line: 0, character: 47 }
-                },
-                fsPath: 'in-memory-file.src'
-            },
-            {
-                // inside print argument
-                range: {
-                    start: { line: 0, character: 54 },
-                    end: { line: 0, character: 57 }
-                },
-                fsPath: 'in-memory-file.src'
-            }
-        ]);
+
+        // inside conditional
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 33 },
+            end: { line: 0, character: 36 }
+        });
+
+        // inside print argument
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 44 },
+            end: { line: 0, character: 47 }
+        });
+
+        // inside print argument
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 54 },
+            end: { line: 0, character: 57 }
+        });
     });
 
-    it('Can get user functions', async () => {
+    it('Can get user function inside source defined in source', async () => {
         const references = await getReferences('function bar() var foo := 1; if (foo) Print(foo + 3 * foo); endif endfunction if (bar()) bar(); endif', 10);
-        expect(references).toEqual([
-            {
-                range: {
-                    start: { line: 0, character: 82 },
-                    end: { line: 0, character: 85 }
-                },
-                fsPath: 'in-memory-file.src'
-            },
-            {
-                range: {
-                    start: { line: 0, character: 89 },
-                    end: { line: 0, character: 92 }
-                },
-                fsPath: 'in-memory-file.src'
-            }
-        ]);
+
+        // Inside conditional
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 82 },
+            end: { line: 0, character: 85 }
+        });
+
+        // Inside if-statement body
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 89 },
+            end: { line: 0, character: 92 }
+        });
     });
+
+    it('Can get user function inside source defined in include', async () => {
+        const references = await getReferences('include "testutil"; baz();', 21, {
+            'testutil.inc': "function baz() return 1; endfunction; baz();"
+        });
+
+        // console.log(inspect(references, undefined, Infinity));
+        // Inside top-level statement
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 20 },
+            end: { line: 0, character: 23 }
+        });
+
+        // Inside testutil.inc top-level statement
+        expectReference(references, 'testutil.inc', {
+            start: { line: 0, character: 38 },
+            end: { line: 0, character: 41 }
+        });
+    });
+
+    // it('Can get program parameter', async () => {
+    //     const references = await getReferences('program main(who); Print(who); endprogram', 14);
+
+    //     console.log(inspect(references, undefined, Infinity));
+    //     // Inside top-level statement
+    //     // expectReference(references, 'in-memory-file.src', {
+    //     //     start: { line: 0, character: 20 },
+    //     //     end: { line: 0, character: 23 }
+    //     // });
+
+    //     // // Inside testutil.inc top-level statement
+    //     // expectReference(references, 'testutil.inc', {
+    //     //     start: { line: 0, character: 38 },
+    //     //     end: { line: 0, character: 41 }
+    //     // });
+    // });
 });
 
 describe('Workspace Cache', () => {

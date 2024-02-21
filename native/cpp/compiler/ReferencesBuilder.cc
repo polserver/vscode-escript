@@ -22,19 +22,12 @@ bool source_location_equal( const SourceLocation& a, const SourceLocation& b )
          a.range.start.character_column == b.range.start.character_column &&
          a.range.end.line_number == b.range.end.line_number &&
          a.range.end.character_column == b.range.end.character_column &&
-         a.source_file_identifier->pathname == b.source_file_identifier->pathname;
+         stricmp(a.source_file_identifier->pathname.c_str(), b.source_file_identifier->pathname.c_str()) == 0;
 }
 
 bool SourceLocationComparator::operator()( const Pol::Bscript::Compiler::SourceLocation& x1,
                                            const Pol::Bscript::Compiler::SourceLocation& x2 ) const
 {
-  // Compare source file identifiers first
-  if ( x1.source_file_identifier->index != x2.source_file_identifier->index )
-  {
-    return x1.source_file_identifier->index < x2.source_file_identifier->index;
-  }
-
-  // If source file identifiers are the same, compare ranges
   if ( x1.range.start.line_number != x2.range.start.line_number )
   {
     return x1.range.start.line_number < x2.range.start.line_number;
@@ -60,7 +53,16 @@ bool SourceLocationComparator::operator()( const Pol::Bscript::Compiler::SourceL
   {
     return x1.range.end.token_index < x2.range.end.token_index;
   }
-  // If ranges are the same, the SourceLocation objects are equal
+
+  // Compare source file identifiers
+  auto compare = stricmp( x1.source_file_identifier->pathname.c_str(),
+                          x2.source_file_identifier->pathname.c_str() );
+
+  if ( compare != 0 )
+  {
+    return compare < 0;
+  }
+
   return false;
 }
 
