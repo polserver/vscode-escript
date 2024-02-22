@@ -22,7 +22,8 @@ bool source_location_equal( const SourceLocation& a, const SourceLocation& b )
          a.range.start.character_column == b.range.start.character_column &&
          a.range.end.line_number == b.range.end.line_number &&
          a.range.end.character_column == b.range.end.character_column &&
-         stricmp(a.source_file_identifier->pathname.c_str(), b.source_file_identifier->pathname.c_str()) == 0;
+         stricmp( a.source_file_identifier->pathname.c_str(),
+                  b.source_file_identifier->pathname.c_str() ) == 0;
 }
 
 bool SourceLocationComparator::operator()( const Pol::Bscript::Compiler::SourceLocation& x1,
@@ -66,21 +67,21 @@ bool SourceLocationComparator::operator()( const Pol::Bscript::Compiler::SourceL
   return false;
 }
 
-class GlobalVariableFinder : public NodeVisitor
+class GlobalIdentifierFinder : public NodeVisitor
 {
 public:
-  GlobalVariableFinder( ReferencesResult& results,
-                        std::shared_ptr<Pol::Bscript::Compiler::Variable> variable )
-      : results( results ), variable( variable )
+  GlobalIdentifierFinder( ReferencesResult& results,
+                          const SourceLocation& definition_source_location )
+      : results( results ), definition_source_location( definition_source_location )
   {
   }
 
   void visit_identifier( Identifier& node ) override
   {
     if ( node.variable &&
-         source_location_equal( variable->source_location, node.variable->source_location ) )
+         source_location_equal( definition_source_location, node.variable->source_location ) )
     {
-      results.emplace(node.source_location);
+      results.emplace( node.source_location );
     }
 
     visit_children( node );
@@ -88,7 +89,7 @@ public:
 
   ReferencesResult& results;
 
-  const std::shared_ptr<Pol::Bscript::Compiler::Variable> variable;
+  const SourceLocation& definition_source_location;
 };
 
 class GlobalFunctionFinder : public NodeVisitor
@@ -194,16 +195,15 @@ std::optional<ReferencesResult> ReferencesBuilder::get_variable(
   auto is_source = !ext.compare( ".src" );
 
   ReferencesResult results;
+  GlobalIdentifierFinder finder( results, variable->source_location );
   if ( is_source )
   {
-    GlobalVariableFinder foo( results, variable );
-    workspace.accept( foo );
+    workspace.accept( finder );
   }
   else
   {
-    GlobalVariableFinder foo( results, variable );
     lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
-                                        { document->accept_visitor( foo ); } );
+                                        { document->accept_visitor( finder ); } );
   }
   return results;
 }
@@ -216,16 +216,15 @@ std::optional<ReferencesResult> ReferencesBuilder::get_constant(
   auto is_source = !ext.compare( ".src" );
 
   ReferencesResult results;
+  GlobalConstantFinder finder( results, const_decl );
   if ( is_source )
   {
-    GlobalConstantFinder foo( results, const_decl );
-    workspace.accept( foo );
+    workspace.accept( finder );
   }
   else
   {
-    GlobalConstantFinder foo( results, const_decl );
     lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
-                                        { document->accept_visitor( foo ); } );
+                                        { document->accept_visitor( finder ); } );
   }
   return results;
 }
@@ -234,9 +233,38 @@ std::optional<ReferencesResult> ReferencesBuilder::get_module_function(
     Pol::Bscript::Compiler::ModuleFunctionDeclaration* funct )
 {
   ReferencesResult results;
-  GlobalFunctionFinder foo( results, funct );
+  GlobalFunctionFinder finder( results, funct );
   lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
-                                      { document->accept_visitor( foo ); } );
+                                      { document->accept_visitor( finder ); } );
+  return results;
+}
+
+std::optional<ReferencesResult> ReferencesBuilder::get_program_parameter( const std::string& name )
+{
+  ReferencesResult results;
+  if ( auto& program = workspace.program )
+  {
+    for ( auto& child : program->parameter_list().children )
+    {
+      auto& program_parameter = static_cast<ProgramParameterDeclaration&>( *child );
+      if ( program_parameter.name == name )
+      {
+        GlobalIdentifierFinder finder( results, program_parameter.source_location );
+        finder.visit_function_body( program->body() );
+        return results;
+      }
+    }
+  }
+  return results;
+}
+
+std::optional<ReferencesResult> ReferencesBuilder::get_user_function_parameter(
+    Pol::Bscript::Compiler::UserFunction* function_def,
+    Pol::Bscript::Compiler::FunctionParameterDeclaration* param )
+{
+  ReferencesResult results;
+  GlobalIdentifierFinder finder( results, param->source_location );
+  workspace.accept( finder );
   return results;
 }
 
@@ -246,16 +274,15 @@ std::optional<ReferencesResult> ReferencesBuilder::get_user_function( UserFuncti
   auto is_source = !ext.compare( ".src" );
 
   ReferencesResult results;
+  GlobalFunctionFinder finder( results, funct );
   if ( is_source )
   {
-    GlobalFunctionFinder foo( results, funct );
-    workspace.accept( foo );
+    workspace.accept( finder );
   }
   else
   {
-    GlobalFunctionFinder foo( results, funct );
     lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
-                                        { document->accept_visitor( foo ); } );
+                                        { document->accept_visitor( finder ); } );
   }
   return results;
 }

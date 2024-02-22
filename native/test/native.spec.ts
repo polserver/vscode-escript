@@ -1006,7 +1006,6 @@ describe('References - SRC', () => {
             'testutil.inc': "function baz() return 1; endfunction; baz();"
         });
 
-        // console.log(inspect(references, undefined, Infinity));
         // Inside top-level statement
         expectReference(references, 'in-memory-file.src', {
             start: { line: 0, character: 20 },
@@ -1020,22 +1019,25 @@ describe('References - SRC', () => {
         });
     });
 
-    // it('Can get program parameter', async () => {
-    //     const references = await getReferences('program main(who); Print(who); endprogram', 14);
+    it('Can get program parameter', async () => {
+        const references = await getReferences('program main(who); Print(who); endprogram', 14);
 
-    //     console.log(inspect(references, undefined, Infinity));
-    //     // Inside top-level statement
-    //     // expectReference(references, 'in-memory-file.src', {
-    //     //     start: { line: 0, character: 20 },
-    //     //     end: { line: 0, character: 23 }
-    //     // });
+        // Inside program body
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 25 },
+            end: { line: 0, character: 28 }
+        });
+    });
 
-    //     // // Inside testutil.inc top-level statement
-    //     // expectReference(references, 'testutil.inc', {
-    //     //     start: { line: 0, character: 38 },
-    //     //     end: { line: 0, character: 41 }
-    //     // });
-    // });
+    it('Can get function parameter', async () => {
+        const references = await getReferences('function main(who); Print(who); endfunction main(1234);', 16);
+
+        // Inside function body
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 26 },
+            end: { line: 0, character: 29 }
+        });
+    });
 });
 
 describe('Workspace Cache', () => {

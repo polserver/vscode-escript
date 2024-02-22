@@ -39,6 +39,12 @@ public:
   virtual std::optional<ReferencesResult> get_module_function(
       Pol::Bscript::Compiler::ModuleFunctionDeclaration* ) override;
 
+  virtual std::optional<ReferencesResult> get_program_parameter(const std::string& name ) override;
+
+  virtual std::optional<ReferencesResult> get_user_function_parameter(
+      Pol::Bscript::Compiler::UserFunction* function_def,
+      Pol::Bscript::Compiler::FunctionParameterDeclaration* param ) override;
+
 private:
   LSPWorkspace* lsp_workspace;
 };
