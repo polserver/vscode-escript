@@ -47,7 +47,6 @@ private:
   void make_absolute( std::string& path );
 
   std::filesystem::path _workspaceRoot;
-  std::mutex _mutex_cache;
   std::map<std::string, Napi::ObjectReference> _cache;
   Pol::Bscript::Compiler::Profile profile;
   Pol::Bscript::Compiler::SourceFileCache em_parse_tree_cache;
