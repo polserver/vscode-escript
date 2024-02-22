@@ -541,6 +541,14 @@ describe('Definition - SRC', () => {
             fsPath: 'in-memory-file.src'
         });
     });
+
+    it('Can define program parameter', () => {
+        const definition = getDefinition('program foo(bar) endprogram', 13);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 12 }, end: { line: 0, character: 15 } },
+            fsPath: 'in-memory-file.src'
+        });
+    });
 });
 
 describe('Definition - Module', () => {

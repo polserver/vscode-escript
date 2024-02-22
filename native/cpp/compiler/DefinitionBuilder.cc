@@ -50,5 +50,22 @@ std::optional<SourceLocation> DefinitionBuilder::get_program( const std::string&
   return program->source_location;
 }
 
+std::optional<Pol::Bscript::Compiler::SourceLocation> DefinitionBuilder::get_program_parameter(
+    const std::string& name )
+{
+  if ( auto& program = workspace.program )
+  {
+    for ( auto& child : program->parameter_list().children )
+    {
+      auto& program_parameter = static_cast<ProgramParameterDeclaration&>( *child );
+      if ( program_parameter.name == name )
+      {
+        return program_parameter.source_location;
+      }
+    }
+  }
+  return {};
+}
+
 
 }  // namespace VSCodeEscript::CompilerExt
