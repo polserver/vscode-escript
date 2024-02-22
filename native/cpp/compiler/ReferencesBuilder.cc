@@ -11,7 +11,6 @@
 
 namespace fs = std::filesystem;
 using namespace Pol::Bscript::Compiler;
-using namespace EscriptGrammar;
 
 namespace VSCodeEscript::CompilerExt
 {
@@ -26,8 +25,8 @@ bool source_location_equal( const SourceLocation& a, const SourceLocation& b )
                   b.source_file_identifier->pathname.c_str() ) == 0;
 }
 
-bool SourceLocationComparator::operator()( const Pol::Bscript::Compiler::SourceLocation& x1,
-                                           const Pol::Bscript::Compiler::SourceLocation& x2 ) const
+bool SourceLocationComparator::operator()( const SourceLocation& x1,
+                                           const SourceLocation& x2 ) const
 {
   if ( x1.range.start.line_number != x2.range.start.line_number )
   {
@@ -189,7 +188,7 @@ ReferencesBuilder::ReferencesBuilder( CompilerWorkspace& workspace, LSPWorkspace
 }
 
 std::optional<ReferencesResult> ReferencesBuilder::get_variable(
-    std::shared_ptr<Pol::Bscript::Compiler::Variable> variable )
+    std::shared_ptr<Variable> variable )
 {
   auto ext = fs::path( variable->source_location.source_file_identifier->pathname ).extension();
   auto is_source = !ext.compare( ".src" );
@@ -209,8 +208,7 @@ std::optional<ReferencesResult> ReferencesBuilder::get_variable(
 }
 
 
-std::optional<ReferencesResult> ReferencesBuilder::get_constant(
-    Pol::Bscript::Compiler::ConstDeclaration* const_decl )
+std::optional<ReferencesResult> ReferencesBuilder::get_constant( ConstDeclaration* const_decl )
 {
   auto ext = fs::path( const_decl->source_location.source_file_identifier->pathname ).extension();
   auto is_source = !ext.compare( ".src" );
@@ -230,7 +228,7 @@ std::optional<ReferencesResult> ReferencesBuilder::get_constant(
 }
 
 std::optional<ReferencesResult> ReferencesBuilder::get_module_function(
-    Pol::Bscript::Compiler::ModuleFunctionDeclaration* funct )
+    ModuleFunctionDeclaration* funct )
 {
   ReferencesResult results;
   GlobalFunctionFinder finder( results, funct );
@@ -259,8 +257,7 @@ std::optional<ReferencesResult> ReferencesBuilder::get_program_parameter( const 
 }
 
 std::optional<ReferencesResult> ReferencesBuilder::get_user_function_parameter(
-    Pol::Bscript::Compiler::UserFunction* function_def,
-    Pol::Bscript::Compiler::FunctionParameterDeclaration* param )
+    UserFunction* function_def, FunctionParameterDeclaration* param )
 {
   ReferencesResult results;
   GlobalIdentifierFinder finder( results, param->source_location );
