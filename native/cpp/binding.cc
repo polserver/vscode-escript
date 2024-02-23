@@ -21,6 +21,7 @@ Napi::Object Init( Napi::Env env, Napi::Object exports )
       Napi::Function::New( env, &VSCodeEscript::ExtensionConfiguration::Get );
   exports.Set( Napi::String::New( env, "ExtensionConfiguration" ), ExtensionConfiguration );
 
+  env.SetInstanceData( new Napi::Reference<Napi::Object>( Napi::Persistent( exports ) ) );
   return exports;
 }
 

@@ -2,11 +2,13 @@
 #include "../compiler/CompletionBuilder.h"
 #include "../compiler/DefinitionBuilder.h"
 #include "../compiler/HoverBuilder.h"
+#include "../compiler/ReferencesBuilder.h"
 #include "../compiler/SignatureHelpBuilder.h"
 #include "ExtensionConfig.h"
 #include "LSPWorkspace.h"
 #include "bscript/compiler/Compiler.h"
 #include "bscript/compiler/Report.h"
+#include "bscript/compiler/ast/TopLevelStatements.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "bscript/compiler/file/SourceLocation.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
@@ -32,9 +34,9 @@ LSPDocument::LSPDocument( const Napi::CallbackInfo& info )
 
   workspace = Napi::Persistent( info[0].As<Napi::Object>() );
 
-  pathname = info[1].As<Napi::String>().Utf8Value();
+  pathname_ = info[1].As<Napi::String>().Utf8Value();
 
-  auto extension = std::filesystem::path( pathname ).extension().string();
+  auto extension = std::filesystem::path( pathname_ ).extension().string();
   Pol::Clib::mklowerASCII( extension );
   if ( extension.compare( ".em" ) == 0 )
   {
@@ -50,6 +52,10 @@ LSPDocument::LSPDocument( const Napi::CallbackInfo& info )
   }
 }
 
+const std::string& LSPDocument::pathname()
+{
+  return pathname_;
+}
 
 Napi::Function LSPDocument::GetClass( Napi::Env env )
 {
@@ -61,6 +67,8 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "completion", &LSPDocument::Completion ),
                         LSPDocument::InstanceMethod( "definition", &LSPDocument::Definition ),
                         LSPDocument::InstanceMethod( "signatureHelp", &LSPDocument::SignatureHelp ),
+                        LSPDocument::InstanceMethod( "references", &LSPDocument::References ),
+                        LSPDocument::InstanceMethod( "toStringTree", &LSPDocument::ToStringTree ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -88,7 +96,7 @@ Napi::Value LSPDocument::Analyze( const Napi::CallbackInfo& info )
         info.Length() > 0 && info[0].IsBoolean() ? info[0].As<Napi::Boolean>().Value() : true;
 
     compiler_workspace =
-        compiler->analyze( pathname, *report, type == LSPDocumentType::EM, continue_on_error );
+        compiler->analyze( pathname_, *report, type == LSPDocumentType::EM, continue_on_error );
     return env.Undefined();
   }
   catch ( const std::exception& ex )
@@ -114,7 +122,7 @@ Napi::Value LSPDocument::Diagnostics( const Napi::CallbackInfo& info )
     // Skip errors from other files...? Include compilation shows errors from
     // all over. Watch how this this behaves... This may need to _not_ be
     // skipped, and filtered out based off extension setting.
-    if ( diagnostic.location.source_file_identifier->pathname.compare( pathname ) )
+    if ( diagnostic.location.source_file_identifier->pathname.compare( pathname_ ) )
     {
       continue;
     }
@@ -275,6 +283,103 @@ Napi::Value LSPDocument::Definition( const Napi::CallbackInfo& info )
   return env.Undefined();
 }
 
+Napi::Value LSPDocument::ToStringTree( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( compiler_workspace )
+  {
+    std::stringstream ss;
+
+    for ( auto& constant : compiler_workspace->const_declarations )
+    {
+      ss << constant->to_string_tree() << "\n";
+    }
+
+    for ( auto& module_function : compiler_workspace->module_function_declarations )
+    {
+      ss << module_function->to_string_tree() << "\n";
+    }
+
+    if ( compiler_workspace->top_level_statements->children.size() )
+    {
+      ss << compiler_workspace->top_level_statements->to_string_tree() << "\n";
+    }
+
+    if ( auto& program = compiler_workspace->program )
+    {
+      ss << program->to_string_tree() << "\n";
+    }
+
+    for ( auto& user_function : compiler_workspace->user_functions )
+    {
+      ss << user_function->to_string_tree() << "\n";
+    }
+
+    return Napi::String::New( env, ss.str() );
+  }
+
+  return env.Undefined();
+}
+
+Napi::Value LSPDocument::References( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( info.Length() < 1 || !info[0].IsObject() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+
+  if ( compiler_workspace )
+  {
+    auto position = info[0].As<Napi::Object>();
+    auto line = position.Get( "line" );
+    auto character = position.Get( "character" );
+    if ( !line.IsNumber() || !character.IsNumber() )
+    {
+      Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+          .ThrowAsJavaScriptException();
+    }
+    Compiler::Position pos{
+        static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
+        static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
+
+    CompilerExt::ReferencesBuilder finder( *compiler_workspace,
+                                           LSPWorkspace::Unwrap( workspace.Value() ), pos );
+    auto references = finder.context();
+    if ( references.has_value() )
+    {
+      auto results = Napi::Array::New( env );
+      auto push = results.Get( "push" ).As<Napi::Function>();
+
+      for ( const auto& location : references.value() )
+      {
+        const auto& locationRange = location.range;
+        auto result = Napi::Object::New( env );
+        auto range = Napi::Object::New( env );
+        auto rangeStart = Napi::Object::New( env );
+
+        range["start"] = rangeStart;
+        rangeStart["line"] = locationRange.start.line_number - 1;
+        rangeStart["character"] = locationRange.start.character_column - 1;
+        auto rangeEnd = Napi::Object::New( env );
+        range["end"] = rangeEnd;
+        rangeEnd["line"] = locationRange.end.line_number - 1;
+        rangeEnd["character"] = locationRange.end.character_column - 1;
+
+        result["range"] = range;
+        result["fsPath"] = location.source_file_identifier->pathname;
+        push.Call( results, { result } );
+      }
+
+      return results;
+    }
+  }
+  return env.Undefined();
+}
+
 Napi::Value LSPDocument::Completion( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
@@ -390,6 +495,14 @@ Napi::Value LSPDocument::SignatureHelp( const Napi::CallbackInfo& info )
     }
   }
   return env.Undefined();
+}
+
+void LSPDocument::accept_visitor( Pol::Bscript::Compiler::NodeVisitor& visitor )
+{
+  if ( compiler_workspace )
+  {
+    compiler_workspace->accept( visitor );
+  }
 }
 
 }  // namespace VSCodeEscript

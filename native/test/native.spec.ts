@@ -1,9 +1,11 @@
 import { basename, extname, resolve } from 'path';
 import { readFileSync, readdirSync } from 'fs';
 import { LSPDocument, LSPWorkspace, native } from '../src/index';
+import { inspect } from 'util';
 import { F_OK } from 'constants';
 import { writeFile, access, mkdir, readFile } from "fs/promises";
 import { dirname, join } from "path";
+import type { Range } from 'vscode-languageclient/node';
 
 const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
 
@@ -14,8 +16,8 @@ const dir = resolve(__dirname);
 // Uses relative path
 const moduleDirectory = join('..', 'polserver', 'pol-core', 'support', 'scripts');
 
-function toBeDefined<T>(val: T): asserts val is NonNullable<T> {
-    if (val === undefined) { throw new Error('Value is undefined'); }
+function toBeDefined<T>(val: T, message = 'Value is undefined'): asserts val is NonNullable<T> {
+    if (val === undefined) { throw new Error(message); }
 }
 
 const escriptdoc = (text: string) => "```escriptdoc\n" + text + "\n```";
@@ -62,8 +64,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
         });
         workspace.open(dir);
 
-        // Done at textDocument/didOpen
-        const document = new LSPDocument(workspace, src);
+        const document = workspace.getDocument(src);
 
         // Done at textDocument/didChange
         text = 'var hello := foobar;';
@@ -97,9 +98,8 @@ describe('vscode-escript-native LSPWorkspace', () => {
         });
         workspace.open(dir);
 
-        // Done at textDocument/didOpen
         const pathname = 'basicio.em';
-        const document = new LSPDocument(workspace, pathname);
+        const document = workspace.getDocument(pathname);
 
         // Done at textDocument/didChange
         text = 'Print(anything);';
@@ -136,7 +136,7 @@ describe('vscode-escript-native LSPWorkspace', () => {
 
         workspace.open(dir);
 
-        const document = new LSPDocument(workspace, pathname);
+        const document = workspace.getDocument(pathname);
 
         document.analyze();
         const diagnostics = document.diagnostics();
@@ -182,7 +182,7 @@ describe('Hover - SRC', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getHover = (source: string, character: number) => {
@@ -304,7 +304,7 @@ describe('Hover - Module', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getHover = (source: string, character: number) => {
@@ -479,7 +479,7 @@ describe('Definition - SRC', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getDefinition = (source: string, character: number) => {
@@ -541,6 +541,14 @@ describe('Definition - SRC', () => {
             fsPath: 'in-memory-file.src'
         });
     });
+
+    it('Can define program parameter', () => {
+        const definition = getDefinition('program foo(bar) endprogram', 13);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 12 }, end: { line: 0, character: 15 } },
+            fsPath: 'in-memory-file.src'
+        });
+    });
 });
 
 describe('Definition - Module', () => {
@@ -560,7 +568,7 @@ describe('Definition - Module', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getDefinition = (source: string, character: number) => {
@@ -604,7 +612,7 @@ describe('Completion', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getCompletion = (source: string, character: number, continueOnError?: boolean) => {
@@ -682,7 +690,7 @@ describe('Signature Help', () => {
         });
         workspace.open(dir);
 
-        document = new LSPDocument(workspace, src);
+        document = workspace.getDocument(src);
     });
 
     const getSignatureHelp = (source: string, character: number) => {
@@ -724,15 +732,15 @@ describe('Signature Help', () => {
 
     it('Can signature help nested function calls', () => {
         const where = [
-            [ 12, 'Compare',  0 ],
-            [ 21, 'Compare',  1 ],
-            [ 33, 'Compare',  2 ],
-            [ 42, 'SubStrReplace',  0 ],
-            [ 50, 'SubStrReplace',  1 ],
-            [ 57, 'SubStrReplace',  2 ],
-            [ 63, 'Compare',  3 ],
-            [ 69, 'Trim',  0 ],
-            [ 76, 'Trim',  1 ]
+            [12, 'Compare', 0],
+            [21, 'Compare', 1],
+            [33, 'Compare', 2],
+            [42, 'SubStrReplace', 0],
+            [50, 'SubStrReplace', 1],
+            [57, 'SubStrReplace', 2],
+            [63, 'Compare', 3],
+            [69, 'Trim', 0],
+            [76, 'Trim', 1]
         ] as const;
 
         for (const [character, expectedFunctionName, activeParameter] of where) {
@@ -842,3 +850,237 @@ describeLongTest('Actively typing sources', () => {
         }
     }
 });
+
+describe('References - SRC', () => {
+    const getReferences = async (source: string, character: number, mocks: Record<string, string> = {}, src = 'in-memory-file.src') => {
+        const workspace = new LSPWorkspace({
+            getContents(pathname) {
+                if (pathname.endsWith(src)) {
+                    return source;
+                } else if (basename(pathname) in mocks) {
+                    return mocks[basename(pathname)];
+                }
+                return readFileSync(pathname, 'utf-8');
+            }
+        });
+        workspace.open(dir);
+        await workspace.updateCache();
+
+        const document = workspace.getDocument(src);
+        document.analyze();
+        if (document.diagnostics().length) {
+            throw new Error(inspect(document.diagnostics()));
+        };
+
+        return document.references({ line: 1, character });
+    };
+
+    const expectReference = (references: {
+        range: Range;
+        fsPath: string;
+    }[] | undefined, filename: string, range: Range) => {
+        if (references === undefined) {
+            throw new Error("No references found");
+        }
+        for (const reference of references) {
+            if (reference.fsPath.endsWith(filename) && reference.range.start.line == range.start.line && reference.range.start.character == range.start.character && reference.range.end.line === range.end.line && reference.range.end.character === range.end.character) {
+                return;
+            }
+        }
+        throw new Error(`Reference for '${filename} at ${JSON.stringify(range)} not found.`);
+    }
+
+    it('Can get constants inside source that are defined in source', async () => {
+        const references = await getReferences('const FOO := 1234; Print(FOO);', 8);
+
+        // Inside Print arguments
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 25 },
+            end: { line: 0, character: 28 }
+        });
+    });
+
+    it('Can get constants inside source that are defined in module files', async () => {
+        const references = await getReferences('Print(TRIM_BOTH);', 11);
+
+        toBeDefined(references, "No references found");
+
+        // References should be >1 as it includes other sources in pol-core's testsuite
+        expect(references.length).toBeGreaterThan(1);
+
+        // Find the reference in the current source
+        const foundSorceReference = references.find(foo => foo.fsPath.endsWith('in-memory-file.src'));
+        toBeDefined(foundSorceReference, "Did not find a reference including 'in-memory-file.src'.");
+    });
+
+    it('Can get module functions inside module', async () => {
+        const pathname = resolve(dir, moduleDirectory, 'basicio.em');
+        const references = await getReferences('Print( anything, console_color:="" );', 3, {}, pathname);
+
+        toBeDefined(references, "No references found");
+
+        // References should be >1 as it includes other sources in pol-core's testsuite
+        expect(references.length).toBeGreaterThan(1);
+    });
+
+    it('Can get module functions inside source', async () => {
+        const references = await getReferences('Print("foo");', 3);
+
+        toBeDefined(references);
+
+        // References should be >1 as it includes other sources in pol-core's testsuite
+        expect(references.length).toBeGreaterThan(1);
+
+        // Inside top-level statement
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 5 }
+        });
+    });
+
+    it('Can get global variable across includes', async () => {
+        const references = await getReferences('include "testutil"; include "sysevent"; var globalInSource; globalInSource := 1; baz(); baz2();', 66, {
+            'testutil.inc': "function baz() foob; globalInSource; endfunction",
+            'sysevent.inc': "function baz2() foob; globalInSource; endfunction",
+        });
+
+        // Inside top-level statement
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 60 },
+            end: { line: 0, character: 74 }
+        });
+
+        // Inside testutil.inc baz() function
+        expectReference(references, 'testutil.inc', {
+            start: { line: 0, character: 21 },
+            end: { line: 0, character: 35 }
+        });
+
+        // Inside sysevent.inc baz2() function
+        expectReference(references, 'sysevent.inc', {
+            start: { line: 0, character: 22 },
+            end: { line: 0, character: 36 }
+        });
+    });
+
+    it('Can get local variable', async () => {
+        const references = await getReferences('function bar() var foo := 1; if (foo) Print(foo + 3 * foo); endif endfunction bar();', 21);
+
+        // inside conditional
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 33 },
+            end: { line: 0, character: 36 }
+        });
+
+        // inside print argument
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 44 },
+            end: { line: 0, character: 47 }
+        });
+
+        // inside print argument
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 54 },
+            end: { line: 0, character: 57 }
+        });
+    });
+
+    it('Can get user function inside source defined in source', async () => {
+        const references = await getReferences('function bar() var foo := 1; if (foo) Print(foo + 3 * foo); endif endfunction if (bar()) bar(); endif', 10);
+
+        // Inside conditional
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 82 },
+            end: { line: 0, character: 85 }
+        });
+
+        // Inside if-statement body
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 89 },
+            end: { line: 0, character: 92 }
+        });
+    });
+
+    it('Can get user function inside source defined in include', async () => {
+        const references = await getReferences('include "testutil"; baz();', 21, {
+            'testutil.inc': "function baz() return 1; endfunction; baz();"
+        });
+
+        // Inside top-level statement
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 20 },
+            end: { line: 0, character: 23 }
+        });
+
+        // Inside testutil.inc top-level statement
+        expectReference(references, 'testutil.inc', {
+            start: { line: 0, character: 38 },
+            end: { line: 0, character: 41 }
+        });
+    });
+
+    it('Can get program parameter', async () => {
+        const references = await getReferences('program main(who); Print(who); endprogram', 14);
+
+        // Inside program body
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 25 },
+            end: { line: 0, character: 28 }
+        });
+    });
+
+    it('Can get function parameter', async () => {
+        const references = await getReferences('function main(who); Print(who); endfunction main(1234);', 16);
+
+        // Inside function body
+        expectReference(references, 'in-memory-file.src', {
+            start: { line: 0, character: 26 },
+            end: { line: 0, character: 29 }
+        });
+    });
+});
+
+describe('Workspace Cache', () => {
+    const getWorkspace = () => {
+        const workspace = new LSPWorkspace({
+            getContents: (pathname) => readFileSync(pathname, 'utf-8')
+        });
+        workspace.open(dir);
+        return workspace;
+    };
+
+    it('Does not block event loop', async () => {
+        const workspace = getWorkspace();
+
+        const start = Date.now();
+        const promise = workspace.updateCache();
+        let timeout = 0;
+        setTimeout(() => timeout = Date.now(), 10);
+        const result = await promise;
+        const end = Date.now()
+
+        expect(end).toBeGreaterThan(timeout);
+        expect(timeout).toBeGreaterThan(start);
+        expect(result).toBe(true);
+    });
+
+    it('Can cancel', async () => {
+        const workspace = getWorkspace();
+
+        const controller = new AbortController();
+        let lastProgress = { count: 0, total: 0 };
+
+        const p1 = workspace.updateCache((progress) => {
+            const { count, total } = lastProgress = progress;
+            if (count / total >= 0.5) {
+                controller.abort();
+            }
+        }, controller.signal);
+
+        const result = await p1;
+
+        expect(result).toBe(false);
+        expect(lastProgress.count / lastProgress.total).toBeGreaterThanOrEqual(0.5);
+    });
+});
+

@@ -2,7 +2,9 @@
 
 
 #include <filesystem>
+#include <functional>
 #include <map>
+#include <mutex>
 #include <napi.h>
 #include <optional>
 #include <vector>
@@ -29,6 +31,9 @@ public:
   Napi::Value Open( const Napi::CallbackInfo& );
   Napi::Value GetConfigValue( const Napi::CallbackInfo& );
   Napi::Value GetWorkspaceRoot( const Napi::CallbackInfo& );
+  Napi::Value AutoCompiledScripts( const Napi::CallbackInfo& );
+  Napi::Value CacheCompiledScripts( const Napi::CallbackInfo& );
+  Napi::Value GetDocument( const Napi::CallbackInfo& );
 
   std::string get_contents( const std::string& pathname ) const override;
 
@@ -36,15 +41,18 @@ public:
 
   std::unique_ptr<Pol::Bscript::Compiler::Compiler> make_compiler();
 
+  void foreach_cache_entry( std::function<void( LSPDocument* )> callback );
+
 private:
   void make_absolute( std::string& path );
 
   std::filesystem::path _workspaceRoot;
-  std::map<std::string, LSPDocument> _cache;
+  std::map<std::string, Napi::ObjectReference> _cache;
   Pol::Bscript::Compiler::Profile profile;
   Pol::Bscript::Compiler::SourceFileCache em_parse_tree_cache;
   Pol::Bscript::Compiler::SourceFileCache inc_parse_tree_cache;
   Napi::FunctionReference GetContents;
   Napi::FunctionReference GetXMLDocPath;
+  Napi::ObjectReference CompiledScripts;
 };
 }  // namespace VSCodeEscript

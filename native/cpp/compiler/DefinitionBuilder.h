@@ -29,6 +29,8 @@ public:
       Pol::Bscript::Compiler::FunctionParameterDeclaration* param ) override;
   virtual std::optional<Pol::Bscript::Compiler::SourceLocation> get_program(
       const std::string& name, Pol::Bscript::Compiler::Program* program ) override;
+  virtual std::optional<Pol::Bscript::Compiler::SourceLocation> get_program_parameter(
+      const std::string& name ) override;
 };
 
 }  // namespace VSCodeEscript::CompilerExt

@@ -4,13 +4,14 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as path from 'path';
-import { workspace, ExtensionContext } from 'vscode';
+import { workspace, window, ExtensionContext, Tab } from 'vscode';
 
 import { activatePolDebug } from './activatePolDebug';
 import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
+    State,
     TransportKind
 } from 'vscode-languageclient/node';
 
@@ -51,6 +52,14 @@ export function activate(context: ExtensionContext) {
         }
     };
 
+    const sendOpenTabs = () => {
+        const uris = [... new Set<string>(window.tabGroups.all.reduce((p, c) => (p.push(...c.tabs.reduce((p, c) => (p.push((c.input as any).uri.toString() as string), p), new Array<string>())), p), new Array<string>()))];
+        return client.sendNotification('$workspace/openTabs', {
+            uris
+        });
+    };
+
+
     // Create the language client and start the client.
     client = new LanguageClient(
         'escript',
@@ -58,6 +67,12 @@ export function activate(context: ExtensionContext) {
         serverOptions,
         clientOptions
     );
+
+    client.onDidChangeState(async e => {
+        if (e.newState === State.Running) {
+            return sendOpenTabs();
+        }
+    });
 
     // Start the client. This will also launch the server
     client.start();
@@ -68,6 +83,10 @@ export function activate(context: ExtensionContext) {
         client.sendNotification('didChangeConfiguration', {
             configuration: workspace.getConfiguration('escript')
         });
+    });
+
+    window.tabGroups.onDidChangeTabs(e => {
+        return sendOpenTabs();
     });
 }
 
