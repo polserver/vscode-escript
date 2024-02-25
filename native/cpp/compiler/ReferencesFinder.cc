@@ -1,4 +1,4 @@
-#include "ReferencesBuilder.h"
+#include "ReferencesFinder.h"
 
 #include "../napi/LSPDocument.h"
 #include "../napi/LSPWorkspace.h"
@@ -181,13 +181,13 @@ public:
   ConstDeclaration* const_decl;
 };
 
-ReferencesBuilder::ReferencesBuilder( CompilerWorkspace& workspace, LSPWorkspace* lsp_workspace,
+ReferencesFinder::ReferencesFinder( CompilerWorkspace& workspace, LSPWorkspace* lsp_workspace,
                                       const Position& position )
     : SemanticContextBuilder( workspace, position ), lsp_workspace( lsp_workspace )
 {
 }
 
-std::optional<ReferencesResult> ReferencesBuilder::get_variable(
+std::optional<ReferencesResult> ReferencesFinder::get_variable(
     std::shared_ptr<Variable> variable )
 {
   auto ext = fs::path( variable->source_location.source_file_identifier->pathname ).extension();
@@ -208,7 +208,7 @@ std::optional<ReferencesResult> ReferencesBuilder::get_variable(
 }
 
 
-std::optional<ReferencesResult> ReferencesBuilder::get_constant( ConstDeclaration* const_decl )
+std::optional<ReferencesResult> ReferencesFinder::get_constant( ConstDeclaration* const_decl )
 {
   auto ext = fs::path( const_decl->source_location.source_file_identifier->pathname ).extension();
   auto is_source = !ext.compare( ".src" );
@@ -227,7 +227,7 @@ std::optional<ReferencesResult> ReferencesBuilder::get_constant( ConstDeclaratio
   return results;
 }
 
-std::optional<ReferencesResult> ReferencesBuilder::get_module_function(
+std::optional<ReferencesResult> ReferencesFinder::get_module_function(
     ModuleFunctionDeclaration* funct )
 {
   ReferencesResult results;
@@ -237,7 +237,7 @@ std::optional<ReferencesResult> ReferencesBuilder::get_module_function(
   return results;
 }
 
-std::optional<ReferencesResult> ReferencesBuilder::get_program_parameter( const std::string& name )
+std::optional<ReferencesResult> ReferencesFinder::get_program_parameter( const std::string& name )
 {
   ReferencesResult results;
   if ( auto& program = workspace.program )
@@ -256,7 +256,7 @@ std::optional<ReferencesResult> ReferencesBuilder::get_program_parameter( const 
   return results;
 }
 
-std::optional<ReferencesResult> ReferencesBuilder::get_user_function_parameter(
+std::optional<ReferencesResult> ReferencesFinder::get_user_function_parameter(
     UserFunction* function_def, FunctionParameterDeclaration* param )
 {
   ReferencesResult results;
@@ -265,7 +265,7 @@ std::optional<ReferencesResult> ReferencesBuilder::get_user_function_parameter(
   return results;
 }
 
-std::optional<ReferencesResult> ReferencesBuilder::get_user_function( UserFunction* funct )
+std::optional<ReferencesResult> ReferencesFinder::get_user_function( UserFunction* funct )
 {
   auto ext = fs::path( funct->source_location.source_file_identifier->pathname ).extension();
   auto is_source = !ext.compare( ".src" );

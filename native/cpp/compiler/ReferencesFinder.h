@@ -1,5 +1,5 @@
-#ifndef VSCODEESCRIPT_REFERENCESBUILDER_H
-#define VSCODEESCRIPT_REFERENCESBUILDER_H
+#ifndef VSCODEESCRIPT_REFERENCESFINDER_H
+#define VSCODEESCRIPT_REFERENCESFINDER_H
 
 #include "SemanticContextBuilder.h"
 
@@ -19,13 +19,13 @@ public:
 
 using ReferencesResult = std::set<Pol::Bscript::Compiler::SourceLocation, SourceLocationComparator>;
 
-class ReferencesBuilder : public SemanticContextBuilder<ReferencesResult>
+class ReferencesFinder : public SemanticContextBuilder<ReferencesResult>
 {
 public:
-  ReferencesBuilder( Pol::Bscript::Compiler::CompilerWorkspace&, VSCodeEscript::LSPWorkspace*,
+  ReferencesFinder( Pol::Bscript::Compiler::CompilerWorkspace&, VSCodeEscript::LSPWorkspace*,
                      const Pol::Bscript::Compiler::Position& position );
 
-  ~ReferencesBuilder() override = default;
+  ~ReferencesFinder() override = default;
 
   virtual std::optional<ReferencesResult> get_variable(
       std::shared_ptr<Pol::Bscript::Compiler::Variable> variable ) override;
@@ -51,4 +51,4 @@ private:
 
 }  // namespace VSCodeEscript::CompilerExt
 
-#endif  // VSCODEESCRIPT_REFERENCESBUILDER_H
+#endif  // VSCODEESCRIPT_REFERENCESFINDER_H

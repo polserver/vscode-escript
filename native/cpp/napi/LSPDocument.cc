@@ -2,7 +2,7 @@
 #include "../compiler/CompletionBuilder.h"
 #include "../compiler/DefinitionBuilder.h"
 #include "../compiler/HoverBuilder.h"
-#include "../compiler/ReferencesBuilder.h"
+#include "../compiler/ReferencesFinder.h"
 #include "../compiler/SignatureHelpBuilder.h"
 #include "ExtensionConfig.h"
 #include "LSPWorkspace.h"
@@ -346,7 +346,7 @@ Napi::Value LSPDocument::References( const Napi::CallbackInfo& info )
         static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
         static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
 
-    CompilerExt::ReferencesBuilder finder( *compiler_workspace,
+    CompilerExt::ReferencesFinder finder( *compiler_workspace,
                                            LSPWorkspace::Unwrap( workspace.Value() ), pos );
     auto references = finder.context();
     if ( references.has_value() )
