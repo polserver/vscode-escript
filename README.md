@@ -8,6 +8,7 @@ POL shards by providing:
  - signature help
  - go-to-definition
  - hover information
+ - references
  - debugger
 
 ## Setup
@@ -57,6 +58,14 @@ escript-vscode can describe almost any entity if you hover the mouse (or press
 Ctrl-KI).
 
 ![Hover](doc-assets/hover.png)
+
+### References
+
+The extension can find references to symbols, such as variables (both locally-
+and globally-scoped), constants, user functions, and module functions across the
+entire workspace.
+
+![references](doc-assets/find-references.gif)
 
 ### Debugger
 
@@ -149,6 +158,11 @@ not process an invalid source.
 
 If the EScript Language Server crashes, it can be restarted by reloading the
 window (Command Palette > Developer: Reload Window).
+
+If you have excessively high memory usage (>400MB), this may be caused by the
+use of the Workspace Cache for finding references across the entire workspace.
+This feature can be disabled via setting the extension option
+`escript.disableWorkspaceReferences` to `true`.
 
 If you've found a bug in this extension, please file it at
 https://github.com/polserver/vscode-escript/issues.
