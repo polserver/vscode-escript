@@ -47,6 +47,8 @@ public:
                                         Pol::Bscript::Compiler::Program* program );
   virtual std::optional<T> get_program_parameter( const std::string& name );
   virtual std::optional<T> get_member( const std::string& name );
+  virtual std::optional<T> get_include( const std::string& include_name );
+  virtual std::optional<T> get_use( const std::string& module_name );
   virtual std::optional<T> get_method( const std::string& name );
 
   virtual antlrcpp::Any visitChildren( antlr4::tree::ParseTree* node ) override;
@@ -131,6 +133,18 @@ std::optional<T> SemanticContextBuilder<T>::get_program_parameter( const std::st
 
 template <typename T>
 std::optional<T> SemanticContextBuilder<T>::get_member( const std::string& name )
+{
+  return std::nullopt;
+}
+
+template <typename T>
+std::optional<T> SemanticContextBuilder<T>::get_use( const std::string& module_name )
+{
+  return std::nullopt;
+}
+
+template <typename T>
+std::optional<T> SemanticContextBuilder<T>::get_include( const std::string& include_name )
 {
   return std::nullopt;
 }
@@ -501,7 +515,50 @@ std::optional<T> SemanticContextBuilder<T>::context()
         }
       }
     }
-    break;
+    else if ( auto* ctx =
+                  dynamic_cast<EscriptGrammar::EscriptParser::IncludeDeclarationContext*>( node ) )
+    {
+      if ( auto* stringIdentifier = ctx->stringIdentifier() )
+      {
+        if ( auto string_literal = stringIdentifier->STRING_LITERAL() )
+        {
+          if ( contains( string_literal ) )
+          {
+            return get_include(
+                string_literal->getText().substr( 1, string_literal->getText().length() - 2 ) );
+          }
+        }
+        else if ( auto identifier = stringIdentifier->IDENTIFIER() )
+        {
+          if ( contains( identifier ) )
+          {
+            return get_include( identifier->getText() );
+          }
+        }
+      }
+    }
+    else if ( auto* ctx =
+                  dynamic_cast<EscriptGrammar::EscriptParser::UseDeclarationContext*>( node ) )
+    {
+      if ( auto* stringIdentifier = ctx->stringIdentifier() )
+      {
+        if ( auto string_literal = stringIdentifier->STRING_LITERAL() )
+        {
+          if ( contains( string_literal ) )
+          {
+            return get_use(
+                string_literal->getText().substr( 1, string_literal->getText().length() - 2 ) );
+          }
+        }
+        else if ( auto identifier = stringIdentifier->IDENTIFIER() )
+        {
+          if ( contains( identifier ) )
+          {
+            return get_use( identifier->getText() );
+          }
+        }
+      }
+    }
   }
   return std::nullopt;
 }
