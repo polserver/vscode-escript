@@ -57,6 +57,7 @@ export interface ExtensionConfiguration {
     polCommitId: string;
     showModuleFunctionComments: boolean;
     continueAnalysisOnError: boolean;
+	disableWorkspaceReferences: boolean;
 }
 
 export interface EscriptVscodeNative {
@@ -67,6 +68,7 @@ export interface EscriptVscodeNative {
         get(setting: 'polCommitId'): string;
         get(setting: 'showModuleFunctionComments'): boolean;
         get(setting: 'continueAnalysisOnError'): boolean;
+        get(setting: 'disableWorkspaceReferences'): boolean;
     }
 }
 
@@ -123,6 +125,8 @@ function updateCache(this: LSPWorkspace, progress?: UpdateCacheProgressCallback,
 			const canceled = Boolean(existing?.signals.some(signal => signal.aborted));
 
 			if (canceled) {
+				// Delete from the map, so a new call to updateCache() creates a new task.
+				updateCacheMap.delete(this);
 				return false;
 			}
 

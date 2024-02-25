@@ -34,7 +34,7 @@ export class LSPServer {
     private sources: Map<string, typeof LSPDocument> = new Map();
     private downloader: DocsDownloader;
     private configuration: ExtensionConfiguration | undefined;
-    private openTabs = new Array<string>();
+    private updateCacheAbortController: AbortController | undefined;
 
     public hasDiagnosticRelatedInformationCapability: boolean = false;
 
@@ -150,20 +150,6 @@ export class LSPServer {
                 }
             }
         };
-
-        if (found) {
-            // Must do next tick because `window/workDoneProgress/create` will not be registered yet.
-            process.nextTick(async () => {
-                const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
-                serverInitiatedReporter.begin('Workspace Cache');
-                this.workspace.updateCache(({ count, total }) => {
-                    serverInitiatedReporter.report(100 * count / total, `Reading files ${count}/${total}`);
-                }).then(() => {
-                    serverInitiatedReporter.done();
-                    console.log(`Cache loaded.`);
-                });
-            });
-        }
 
         return result;
     };
@@ -329,6 +315,30 @@ export class LSPServer {
                 console.warn(`Could not download polserver documentation: ${e?.message ?? e}`);
             });
         }
+
+        if (params.configuration.disableWorkspaceReferences === false) {
+            // Since the updateCache runs on next tick, it's possible (though
+            // unlikely) that multiple calls to onDidChangeConfiguration()
+            // occurred. Cancel any existing updateCache task.
+            this.updateCacheAbortController?.abort();
+
+            const updateCacheAbortController = this.updateCacheAbortController = new AbortController();
+
+            // Must do next tick because `window/workDoneProgress/create` will not be registered yet.
+            process.nextTick(async () => {
+                const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
+                serverInitiatedReporter.begin('Workspace Cache');
+                this.workspace.updateCache(({ count, total }) => {
+                    serverInitiatedReporter.report(100 * count / total, `Reading files ${count}/${total}`);
+                }, updateCacheAbortController.signal).then(() => {
+                    serverInitiatedReporter.done();
+                    console.log(`Cache loaded.`);
+                });
+            });
+        } else {
+            this.updateCacheAbortController?.abort();
+            this.updateCacheAbortController = undefined;
+        }
     };
 
     private onReferences = async (params: ReferenceParams): Promise<Location[] | null | undefined> => {
@@ -336,23 +346,24 @@ export class LSPServer {
         const { position: { line, character } } = params;
         const position: Position = { line: line + 1, character: character + 1 };
 
-        const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
+        if (this.configuration?.disableWorkspaceReferences === false) {
+            const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
 
-        serverInitiatedReporter.begin('References', undefined, undefined, true);
+            serverInitiatedReporter.begin('References', undefined, undefined, true);
 
-        const controller = new AbortController();
-        serverInitiatedReporter.token.onCancellationRequested(() => {
-            controller.abort();
-        });
+            const controller = new AbortController();
+            serverInitiatedReporter.token.onCancellationRequested(() => {
+                controller.abort();
+            });
 
-        const loaded = await this.workspace.updateCache(({ count, total }) => {
-            serverInitiatedReporter.report(100 * count / total, `Waiting for workspace cache...`);
-        }, controller.signal);
+            const loaded = await this.workspace.updateCache(({ count, total }) => {
+                serverInitiatedReporter.report(100 * count / total, `Waiting for workspace cache...`);
+            }, controller.signal);
 
-        serverInitiatedReporter.done();
-
-        if (!loaded) {
-            return undefined;
+            serverInitiatedReporter.done();
+            if (!loaded) {
+                return undefined;
+            }
         }
 
         const document = this.sources.get(fsPath);
