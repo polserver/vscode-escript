@@ -111,21 +111,30 @@ Napi::Value LSPWorkspace::GetDocument( const Napi::CallbackInfo& info )
   {
     return existing->second.Value();
   }
-  auto LSPWorkspace_ctor = env.GetInstanceData<Napi::Reference<Napi::Object>>()
-                               ->Value()
-                               .Get( "LSPDocument" )
-                               .As<Napi::Function>();
-  auto document = LSPWorkspace_ctor.New( { Value(), Napi::String::New( env, path ) } );
+  auto LSPDocument_ctor = env.GetInstanceData<Napi::Reference<Napi::Object>>()
+                              ->Value()
+                              .Get( "LSPDocument" )
+                              .As<Napi::Function>();
+  auto document = LSPDocument_ctor.New( { Value(), Napi::String::New( env, path ) } );
   _cache[path] = Persistent( document );
   return document;
 }
 
-void LSPWorkspace::foreach_cache_entry( std::function<void( LSPDocument* )> callback )
+LSPDocument* LSPWorkspace::create_or_get_from_cache( const std::string& path )
 {
-  for ( const auto& entry : _cache )
+  auto env = Env();
+  auto existing = _cache.find( path );
+  if ( existing != _cache.end() )
   {
-    callback( LSPDocument::Unwrap( entry.second.Value() ) );
+    return LSPDocument::Unwrap( existing->second.Value() );
   }
+  auto LSPDocument_ctor = env.GetInstanceData<Napi::Reference<Napi::Object>>()
+                              ->Value()
+                              .Get( "LSPDocument" )
+                              .As<Napi::Function>();
+  auto document = LSPDocument_ctor.New( { Value(), Napi::String::New( env, path ) } );
+  _cache[path] = Persistent( document );
+  return LSPDocument::Unwrap( document );
 }
 
 Napi::Value LSPWorkspace::CacheCompiledScripts( const Napi::CallbackInfo& info )

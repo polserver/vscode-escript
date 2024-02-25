@@ -3,6 +3,7 @@
 #include "../compiler/DefinitionBuilder.h"
 #include "../compiler/HoverBuilder.h"
 #include "../compiler/ReferencesFinder.h"
+#include "../compiler/ReferencesBuilder.h"
 #include "../compiler/SignatureHelpBuilder.h"
 #include "ExtensionConfig.h"
 #include "LSPWorkspace.h"
@@ -16,11 +17,11 @@
 #include <filesystem>
 
 using namespace Pol::Bscript;
-
 namespace VSCodeEscript
 {
 LSPDocument::LSPDocument( const Napi::CallbackInfo& info )
     : ObjectWrap( info ),
+      referenced_by(),
       reporter( std::make_unique<Compiler::DiagnosticReporter>() ),
       report( std::make_unique<Compiler::Report>( *reporter ) )
 {
@@ -57,6 +58,37 @@ const std::string& LSPDocument::pathname()
   return pathname_;
 }
 
+void LSPDocument::add_reference_by( const Compiler::SourceLocation& defined_at,
+                                    const Compiler::SourceLocation& used_at )
+{
+  add_reference_by( defined_at.range, used_at.source_file_identifier->pathname, used_at.range );
+}
+
+void LSPDocument::add_reference_by( const Compiler::Range& defined_at,
+                                    const std::string& used_at_pathname,
+                                    const Compiler::Range& used_at_range )
+{
+  auto itr = referenced_by.find( defined_at );
+  if ( itr != referenced_by.end() )
+  {
+    itr->second.emplace( CompilerExt::ReferenceLocation{ used_at_pathname, used_at_range } );
+  }
+  else
+  {
+    referenced_by.emplace(
+        defined_at,
+        std::set<CompilerExt::ReferenceLocation, CompilerExt::ReferenceLocationComparator>{
+            CompilerExt::ReferenceLocation{ used_at_pathname, used_at_range } } );
+  }
+}
+
+
+void LSPDocument::add_reference_by( const Compiler::Range& defined_at,
+                                    const Compiler::SourceLocation& used_at )
+{
+  add_reference_by( defined_at, used_at.source_file_identifier->pathname, used_at.range );
+}
+
 Napi::Function LSPDocument::GetClass( Napi::Env env )
 {
   return DefineClass( env, "LSPDocument",
@@ -69,6 +101,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "signatureHelp", &LSPDocument::SignatureHelp ),
                         LSPDocument::InstanceMethod( "references", &LSPDocument::References ),
                         LSPDocument::InstanceMethod( "toStringTree", &LSPDocument::ToStringTree ),
+                        LSPDocument::InstanceMethod( "buildReferences", &LSPDocument::BuildReferences ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -370,7 +403,7 @@ Napi::Value LSPDocument::References( const Napi::CallbackInfo& info )
         rangeEnd["character"] = locationRange.end.character_column - 1;
 
         result["range"] = range;
-        result["fsPath"] = location.source_file_identifier->pathname;
+        result["fsPath"] = location.pathname;
         push.Call( results, { result } );
       }
 
@@ -503,6 +536,44 @@ void LSPDocument::accept_visitor( Pol::Bscript::Compiler::NodeVisitor& visitor )
   {
     compiler_workspace->accept( visitor );
   }
+}
+
+Napi::Value LSPDocument::BuildReferences( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  auto local_reporter = std::make_unique<Compiler::DiagnosticReporter>();
+  auto local_report = std::make_unique<Compiler::Report>( *reporter );
+
+  auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
+  auto compiler = lsp_workspace->make_compiler();
+  if ( type == LSPDocumentType::INC )
+  {
+    compiler->set_include_compile_mode();
+  }
+
+  bool continue_on_error =
+      info.Length() > 0 && info[0].IsBoolean() ? info[0].As<Napi::Boolean>().Value() : true;
+
+  if ( auto local_compiler_workspace = compiler->analyze(
+           pathname_, *local_report, type == LSPDocumentType::EM, continue_on_error ) )
+  {
+    CompilerExt::ReferencesBuilder builder( lsp_workspace, *local_compiler_workspace, pathname_ );
+
+    local_compiler_workspace->top_level_statements->accept( builder );
+
+    if ( auto& program = local_compiler_workspace->program )
+    {
+      program->accept( builder );
+    }
+
+    for ( auto& user_function : local_compiler_workspace->user_functions )
+    {
+      user_function->accept( builder );
+    }
+  }
+
+  return env.Undefined();
 }
 
 }  // namespace VSCodeEscript

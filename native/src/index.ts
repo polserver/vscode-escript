@@ -49,6 +49,7 @@ export interface LSPDocument {
     signatureHelp(position: Position): SignatureHelp | undefined;
     tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
     toStringTree(): string | undefined;
+    buildReferences(): undefined;
     references(position: Position): Location[] | undefined;
 }
 
@@ -125,7 +126,13 @@ function updateCache(this: LSPWorkspace, progress?: UpdateCacheProgressCallback,
 				return false;
 			}
 
-			this.getDocument(p).analyze();
+			try {
+				this.getDocument(p).buildReferences();
+			} catch (e) {
+				// Should never happen
+				console.error(`Failed to process ${p}: ${e}`);
+			}
+
 			++count;
 			if (existing) {
 				existing.progresses.forEach(progress => progress({ count, total }));

@@ -41,7 +41,7 @@ public:
 
   std::unique_ptr<Pol::Bscript::Compiler::Compiler> make_compiler();
 
-  void foreach_cache_entry( std::function<void( LSPDocument* )> callback );
+  LSPDocument* create_or_get_from_cache( const std::string& pathname );
 
 private:
   void make_absolute( std::string& path );
