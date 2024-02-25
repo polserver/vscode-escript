@@ -1,54 +1,43 @@
-#ifndef VSCODEESCRIPT_REFERENCESBUILDER_H
-#define VSCODEESCRIPT_REFERENCESBUILDER_H
+#pragma once
 
-#include "SemanticContextBuilder.h"
+#include "bscript/compiler/ast/NodeVisitor.h"
 
-#include <set>
+#include <string>
+
+namespace Pol::Bscript::Compiler
+{
+class CompilerWorkspace;
+}
+
 namespace VSCodeEscript
 {
 class LSPWorkspace;
 }
+
 namespace VSCodeEscript::CompilerExt
 {
-class SourceLocationComparator
+
+class ReferencesBuilder : public Pol::Bscript::Compiler::NodeVisitor
 {
 public:
-  bool operator()( const Pol::Bscript::Compiler::SourceLocation& x1,
-                   const Pol::Bscript::Compiler::SourceLocation& x2 ) const;
-};
+  ReferencesBuilder( LSPWorkspace* lsp_workspace, Pol::Bscript::Compiler::CompilerWorkspace&,
+                     const std::string& pathname );
 
-using ReferencesResult = std::set<Pol::Bscript::Compiler::SourceLocation, SourceLocationComparator>;
+  void visit_identifier( Pol::Bscript::Compiler::Identifier& ) override;
+  void visit_function_call( Pol::Bscript::Compiler::FunctionCall& ) override;
 
-class ReferencesBuilder : public SemanticContextBuilder<ReferencesResult>
-{
-public:
-  ReferencesBuilder( Pol::Bscript::Compiler::CompilerWorkspace&, VSCodeEscript::LSPWorkspace*,
-                     const Pol::Bscript::Compiler::Position& position );
+  void visit_float_value( Pol::Bscript::Compiler::FloatValue& ) override;
+  void visit_integer_value( Pol::Bscript::Compiler::IntegerValue& ) override;
+  void visit_string_value( Pol::Bscript::Compiler::StringValue& ) override;
+  void visit_uninitialized_value( Pol::Bscript::Compiler::UninitializedValue& ) override;
 
-  ~ReferencesBuilder() override = default;
-
-  virtual std::optional<ReferencesResult> get_variable(
-      std::shared_ptr<Pol::Bscript::Compiler::Variable> variable ) override;
-
-  virtual std::optional<ReferencesResult> get_user_function(
-      Pol::Bscript::Compiler::UserFunction* ) override;
-
-  virtual std::optional<ReferencesResult> get_constant(
-      Pol::Bscript::Compiler::ConstDeclaration* ) override;
-
-  virtual std::optional<ReferencesResult> get_module_function(
-      Pol::Bscript::Compiler::ModuleFunctionDeclaration* ) override;
-
-  virtual std::optional<ReferencesResult> get_program_parameter(const std::string& name ) override;
-
-  virtual std::optional<ReferencesResult> get_user_function_parameter(
-      Pol::Bscript::Compiler::UserFunction* function_def,
-      Pol::Bscript::Compiler::FunctionParameterDeclaration* param ) override;
+  void visit_children( Pol::Bscript::Compiler::Node& node ) override;
 
 private:
   LSPWorkspace* lsp_workspace;
+  Pol::Bscript::Compiler::CompilerWorkspace& compiler_workspace;
+  const std::string& pathname;
+
+  void add_unoptimized_constant_reference( const Pol::Bscript::Compiler::Node& );
 };
-
 }  // namespace VSCodeEscript::CompilerExt
-
-#endif  // VSCODEESCRIPT_REFERENCESBUILDER_H

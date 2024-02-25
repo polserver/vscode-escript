@@ -49,6 +49,7 @@ export interface LSPDocument {
     signatureHelp(position: Position): SignatureHelp | undefined;
     tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
     toStringTree(): string | undefined;
+    buildReferences(): undefined;
     references(position: Position): Location[] | undefined;
 }
 
@@ -56,6 +57,7 @@ export interface ExtensionConfiguration {
     polCommitId: string;
     showModuleFunctionComments: boolean;
     continueAnalysisOnError: boolean;
+	disableWorkspaceReferences: boolean;
 }
 
 export interface EscriptVscodeNative {
@@ -66,6 +68,7 @@ export interface EscriptVscodeNative {
         get(setting: 'polCommitId'): string;
         get(setting: 'showModuleFunctionComments'): boolean;
         get(setting: 'continueAnalysisOnError'): boolean;
+        get(setting: 'disableWorkspaceReferences'): boolean;
     }
 }
 
@@ -122,10 +125,18 @@ function updateCache(this: LSPWorkspace, progress?: UpdateCacheProgressCallback,
 			const canceled = Boolean(existing?.signals.some(signal => signal.aborted));
 
 			if (canceled) {
+				// Delete from the map, so a new call to updateCache() creates a new task.
+				updateCacheMap.delete(this);
 				return false;
 			}
 
-			this.getDocument(p).analyze();
+			try {
+				this.getDocument(p).buildReferences();
+			} catch (e) {
+				// Should never happen
+				console.error(`Failed to process ${p}: ${e}`);
+			}
+
 			++count;
 			if (existing) {
 				existing.progresses.forEach(progress => progress({ count, total }));

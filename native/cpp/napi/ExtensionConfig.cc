@@ -6,7 +6,10 @@ namespace VSCodeEscript
 ExtensionConfiguration gExtensionConfiguration;
 
 ExtensionConfiguration::ExtensionConfiguration()
-    : polCommitId( "" ), showModuleFunctionComments( false ), continueAnalysisOnError( true )
+    : polCommitId( "" ),
+      showModuleFunctionComments( false ),
+      continueAnalysisOnError( true ),
+      disableWorkspaceReferences( false )
 {
 }
 
@@ -35,6 +38,10 @@ Napi::Value ExtensionConfiguration::Get( const Napi::CallbackInfo& info )
   {
     return Napi::Boolean::New( env, gExtensionConfiguration.continueAnalysisOnError );
   }
+  else if ( property == "disableWorkspaceReferences" )
+  {
+    return Napi::Boolean::New( env, gExtensionConfiguration.disableWorkspaceReferences );
+  }
   Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
       .ThrowAsJavaScriptException();
   return Napi::Value();
@@ -52,7 +59,7 @@ Napi::Value ExtensionConfiguration::SetFromObject( const Napi::CallbackInfo& inf
   }
 
   auto config = info[0].As<Napi::Object>();
-
+  // TODO simplify this... maybe templated function?
   if ( config.Has( "polCommitId" ) )
   {
     auto value = config.Get( "polCommitId" );
@@ -89,6 +96,19 @@ Napi::Value ExtensionConfiguration::SetFromObject( const Napi::CallbackInfo& inf
     else
     {
       gExtensionConfiguration.continueAnalysisOnError = false;
+    }
+  }
+
+  if ( config.Has( "disableWorkspaceReferences" ) )
+  {
+    auto value = config.Get( "disableWorkspaceReferences" );
+    if ( value.IsBoolean() )
+    {
+      gExtensionConfiguration.disableWorkspaceReferences = value.As<Napi::Boolean>().Value();
+    }
+    else
+    {
+      gExtensionConfiguration.disableWorkspaceReferences = false;
     }
   }
 

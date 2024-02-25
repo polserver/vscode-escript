@@ -2,286 +2,142 @@
 
 #include "../napi/LSPDocument.h"
 #include "../napi/LSPWorkspace.h"
+#include "bscript/compiler/ast/ConstDeclaration.h"
+#include "bscript/compiler/ast/FloatValue.h"
+#include "bscript/compiler/ast/Function.h"
 #include "bscript/compiler/ast/FunctionCall.h"
 #include "bscript/compiler/ast/Identifier.h"
+#include "bscript/compiler/ast/IntegerValue.h"
+#include "bscript/compiler/ast/ModuleFunctionDeclaration.h"
+#include "bscript/compiler/ast/StringValue.h"
+#include "bscript/compiler/ast/UninitializedValue.h"
 #include "bscript/compiler/ast/UserFunction.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
+#include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compiler/model/FunctionLink.h"
-#include <filesystem>
-
-namespace fs = std::filesystem;
-using namespace Pol::Bscript::Compiler;
+#include "bscript/compiler/model/Variable.h"
 
 namespace VSCodeEscript::CompilerExt
 {
+using namespace Pol::Bscript::Compiler;
 
-bool source_location_equal( const SourceLocation& a, const SourceLocation& b )
+ReferencesBuilder::ReferencesBuilder( LSPWorkspace* lsp_workspace,
+                                      CompilerWorkspace& compiler_workspace,
+                                      const std::string& pathname )
+    : NodeVisitor(),
+      lsp_workspace( lsp_workspace ),
+      compiler_workspace( compiler_workspace ),
+      pathname( pathname )
 {
-  return a.range.start.line_number == b.range.start.line_number &&
-         a.range.start.character_column == b.range.start.character_column &&
-         a.range.end.line_number == b.range.end.line_number &&
-         a.range.end.character_column == b.range.end.character_column &&
-         stricmp( a.source_file_identifier->pathname.c_str(),
-                  b.source_file_identifier->pathname.c_str() ) == 0;
 }
 
-bool SourceLocationComparator::operator()( const SourceLocation& x1,
-                                           const SourceLocation& x2 ) const
+void ReferencesBuilder::visit_identifier( Identifier& node )
 {
-  if ( x1.range.start.line_number != x2.range.start.line_number )
+  if ( node.variable )
   {
-    return x1.range.start.line_number < x2.range.start.line_number;
+    auto* doc = lsp_workspace->create_or_get_from_cache(
+        node.variable->source_location.source_file_identifier->pathname );
+    doc->add_reference_by( node.variable->source_location, node.source_location );
   }
-  if ( x1.range.start.character_column != x2.range.start.character_column )
-  {
-    return x1.range.start.character_column < x2.range.start.character_column;
-  }
-  if ( x1.range.start.token_index != x2.range.start.token_index )
-  {
-    return x1.range.start.token_index < x2.range.start.token_index;
-  }
-
-  if ( x1.range.end.line_number != x2.range.end.line_number )
-  {
-    return x1.range.end.line_number < x2.range.end.line_number;
-  }
-  if ( x1.range.end.character_column != x2.range.end.character_column )
-  {
-    return x1.range.end.character_column < x2.range.end.character_column;
-  }
-  if ( x1.range.end.token_index != x2.range.end.token_index )
-  {
-    return x1.range.end.token_index < x2.range.end.token_index;
-  }
-
-  // Compare source file identifiers
-  auto compare = stricmp( x1.source_file_identifier->pathname.c_str(),
-                          x2.source_file_identifier->pathname.c_str() );
-
-  if ( compare != 0 )
-  {
-    return compare < 0;
-  }
-
-  return false;
+  visit_children( node );
 }
 
-class GlobalIdentifierFinder : public NodeVisitor
+
+void add_function_reference( LSPDocument* doc, Function* user_function_link, FunctionCall& node )
 {
-public:
-  GlobalIdentifierFinder( ReferencesResult& results,
-                          const SourceLocation& definition_source_location )
-      : results( results ), definition_source_location( definition_source_location )
-  {
-  }
+  // We need to make a new location for only the method name, as FunctionCall source
+  // location includes the arguments
+  const auto& start = user_function_link->source_location.range.start;
+  const auto& used_at_start = node.source_location.range.start;
+  Range defined_at{
+      { start.line_number, start.character_column },
+      { start.line_number, static_cast<unsigned short>( start.character_column +
+                                                        user_function_link->name.length() ) } };
 
-  void visit_identifier( Identifier& node ) override
-  {
-    if ( node.variable &&
-         source_location_equal( definition_source_location, node.variable->source_location ) )
-    {
-      results.emplace( node.source_location );
-    }
+  Range used_at{ { used_at_start.line_number, used_at_start.character_column },
+                 { used_at_start.line_number,
+                   static_cast<unsigned short>( used_at_start.character_column +
+                                                user_function_link->name.length() ) } };
 
-    visit_children( node );
-  };
+  doc->add_reference_by( defined_at, node.source_location.source_file_identifier->pathname,
+                         used_at );
+}
 
-  ReferencesResult& results;
-
-  const SourceLocation& definition_source_location;
-};
-
-class GlobalFunctionFinder : public NodeVisitor
+void ReferencesBuilder::visit_function_call( FunctionCall& node )
 {
-public:
-  GlobalFunctionFinder( ReferencesResult& results, Function* function )
-      : results( results ), function( function )
+  if ( auto link = node.function_link )
   {
-  }
-
-  template <typename T>
-  void add_if_matched( FunctionCall& node, T user_function_link )
-  {
-    if ( source_location_equal( user_function_link->source_location, function->source_location ) )
+    if ( auto user_function_link = link->user_function() )
     {
-      // We need to make a new location for only the method name, as FunctionCall source
-      // location includes the arguments
+      auto* doc = lsp_workspace->create_or_get_from_cache(
+          user_function_link->source_location.source_file_identifier->pathname );
 
-      const auto& start = node.source_location.range.start;
-      Range r{ { start.line_number, start.character_column },
-               { start.line_number, static_cast<unsigned short>( start.character_column +
-                                                                 node.method_name.length() ) } };
+      add_function_reference( doc, user_function_link, node );
+    }
+    else if ( auto module_function_decl = link->module_function_declaration() )
+    {
+      auto* doc = lsp_workspace->create_or_get_from_cache(
+          module_function_decl->source_location.source_file_identifier->pathname );
 
-      results.emplace( SourceLocation( node.source_location.source_file_identifier, r ) );
+      add_function_reference( doc, module_function_decl, node );
     }
   }
-
-  void visit_function_call( FunctionCall& node ) override
+  // for includes, the children of function calls are empty...?
+  for ( auto& child : node.children )
   {
-    if ( auto link = node.function_link )
+    if ( child )
     {
-      if ( auto user_function_link = link->user_function() )
-      {
-        add_if_matched( node, user_function_link );
-      }
-      else if ( auto module_function_decl = link->module_function_declaration() )
-      {
-        add_if_matched( node, module_function_decl );
-      }
-    }
-
-    // for includes, the children of function calls are empty...?
-    for ( auto& child : node.children )
-    {
-      if ( child )
-      {
-        child->accept( *this );
-      }
-    }
-  };
-
-  ReferencesResult& results;
-
-  const Function* function;
-};
-
-class GlobalConstantFinder : public NodeVisitor
-{
-public:
-  GlobalConstantFinder( ReferencesResult& results, ConstDeclaration* const_decl )
-      : results( results ), const_decl( const_decl )
-  {
-  }
-
-  void visit_children( Node& node )
-  {
-    for ( auto& child : node.children )
-    {
-      if ( !child )
-      {
-        continue;
-      }
-
-      if ( child->unoptimized_node )
-      {
-        if ( auto identifier = dynamic_cast<Identifier*>( child->unoptimized_node.get() ) )
-        {
-          if ( identifier->name == const_decl->identifier )
-          {
-            results.emplace( identifier->source_location );
-          }
-        }
-      }
       child->accept( *this );
     }
   }
-
-  ReferencesResult& results;
-
-  ConstDeclaration* const_decl;
-};
-
-ReferencesBuilder::ReferencesBuilder( CompilerWorkspace& workspace, LSPWorkspace* lsp_workspace,
-                                      const Position& position )
-    : SemanticContextBuilder( workspace, position ), lsp_workspace( lsp_workspace )
-{
-}
-
-std::optional<ReferencesResult> ReferencesBuilder::get_variable(
-    std::shared_ptr<Variable> variable )
-{
-  auto ext = fs::path( variable->source_location.source_file_identifier->pathname ).extension();
-  auto is_source = !ext.compare( ".src" );
-
-  ReferencesResult results;
-  GlobalIdentifierFinder finder( results, variable->source_location );
-  if ( is_source )
-  {
-    workspace.accept( finder );
-  }
-  else
-  {
-    lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
-                                        { document->accept_visitor( finder ); } );
-  }
-  return results;
 }
 
 
-std::optional<ReferencesResult> ReferencesBuilder::get_constant( ConstDeclaration* const_decl )
+void ReferencesBuilder::visit_float_value( FloatValue& node )
 {
-  auto ext = fs::path( const_decl->source_location.source_file_identifier->pathname ).extension();
-  auto is_source = !ext.compare( ".src" );
-
-  ReferencesResult results;
-  GlobalConstantFinder finder( results, const_decl );
-  if ( is_source )
-  {
-    workspace.accept( finder );
-  }
-  else
-  {
-    lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
-                                        { document->accept_visitor( finder ); } );
-  }
-  return results;
+  add_unoptimized_constant_reference( node );
 }
 
-std::optional<ReferencesResult> ReferencesBuilder::get_module_function(
-    ModuleFunctionDeclaration* funct )
+void ReferencesBuilder::visit_integer_value( IntegerValue& node )
 {
-  ReferencesResult results;
-  GlobalFunctionFinder finder( results, funct );
-  lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
-                                      { document->accept_visitor( finder ); } );
-  return results;
+  add_unoptimized_constant_reference( node );
 }
 
-std::optional<ReferencesResult> ReferencesBuilder::get_program_parameter( const std::string& name )
+void ReferencesBuilder::visit_string_value( StringValue& node )
 {
-  ReferencesResult results;
-  if ( auto& program = workspace.program )
+  add_unoptimized_constant_reference( node );
+}
+
+void ReferencesBuilder::visit_uninitialized_value( UninitializedValue& node )
+{
+  add_unoptimized_constant_reference( node );
+}
+
+void ReferencesBuilder::visit_children( Node& node )
+{
+  for ( auto& child : node.children )
   {
-    for ( auto& child : program->parameter_list().children )
+    if ( !child )
     {
-      auto& program_parameter = static_cast<ProgramParameterDeclaration&>( *child );
-      if ( program_parameter.name == name )
+      continue;
+    }
+    add_unoptimized_constant_reference( *child );
+    child->accept( *this );
+  }
+}
+void ReferencesBuilder::add_unoptimized_constant_reference( const Node& node )
+{
+  if ( node.unoptimized_node )
+  {
+    if ( auto identifier = dynamic_cast<Identifier*>( node.unoptimized_node.get() ) )
+    {
+      if ( auto constant = compiler_workspace.constants.find( identifier->name ) )
       {
-        GlobalIdentifierFinder finder( results, program_parameter.source_location );
-        finder.visit_function_body( program->body() );
-        return results;
+        auto* doc = lsp_workspace->create_or_get_from_cache(
+            constant->source_location.source_file_identifier->pathname );
+        doc->add_reference_by( constant->source_location, node.source_location );
       }
     }
   }
-  return results;
 }
-
-std::optional<ReferencesResult> ReferencesBuilder::get_user_function_parameter(
-    UserFunction* function_def, FunctionParameterDeclaration* param )
-{
-  ReferencesResult results;
-  GlobalIdentifierFinder finder( results, param->source_location );
-  workspace.accept( finder );
-  return results;
-}
-
-std::optional<ReferencesResult> ReferencesBuilder::get_user_function( UserFunction* funct )
-{
-  auto ext = fs::path( funct->source_location.source_file_identifier->pathname ).extension();
-  auto is_source = !ext.compare( ".src" );
-
-  ReferencesResult results;
-  GlobalFunctionFinder finder( results, funct );
-  if ( is_source )
-  {
-    workspace.accept( finder );
-  }
-  else
-  {
-    lsp_workspace->foreach_cache_entry( [&]( LSPDocument* document )
-                                        { document->accept_visitor( finder ); } );
-  }
-  return results;
-}
-
 }  // namespace VSCodeEscript::CompilerExt

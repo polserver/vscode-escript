@@ -17,6 +17,7 @@ public:
   std::string polCommitId;
   bool showModuleFunctionComments;
   bool continueAnalysisOnError;
+  bool disableWorkspaceReferences;
 };
 
 extern ExtensionConfiguration gExtensionConfiguration;

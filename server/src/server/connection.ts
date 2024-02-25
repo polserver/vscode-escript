@@ -1,4 +1,4 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, Diagnostic } from 'vscode-languageserver/node';
+import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportKind, DocumentUri, FullDocumentDiagnosticReport } from 'vscode-languageserver/node';
 import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { readFileSync } from 'fs';
@@ -34,7 +34,7 @@ export class LSPServer {
     private sources: Map<string, typeof LSPDocument> = new Map();
     private downloader: DocsDownloader;
     private configuration: ExtensionConfiguration | undefined;
-    private openTabs = new Array<string>();
+    private updateCacheAbortController: AbortController | undefined;
 
     public hasDiagnosticRelatedInformationCapability: boolean = false;
 
@@ -55,7 +55,7 @@ export class LSPServer {
         this.connection.onSignatureHelp(this.onSignatureHelp);
         this.connection.onNotification('didChangeConfiguration', this.onDidChangeConfiguration);
         this.connection.onReferences(this.onReferences);
-        this.connection.onNotification('$workspace/openTabs', this.onWorkspaceOpenTabs);
+        this.connection.languages.diagnostics.on(this.onDocumentDiagnostics);
 
         this.documents.listen(this.connection);
         this.downloader = new DocsDownloader(LSPServer.options.storageFsPath);
@@ -123,6 +123,10 @@ export class LSPServer {
         const result: InitializeResult = {
             capabilities: {
                 textDocumentSync: TextDocumentSyncKind.Incremental,
+                diagnosticProvider: {
+                    interFileDependencies: true,
+                    workspaceDiagnostics: false
+                },
                 hoverProvider: true,
                 definitionProvider: true,
                 completionProvider: {
@@ -147,52 +151,8 @@ export class LSPServer {
             }
         };
 
-        if (found) {
-            // Must do next tick because `window/workDoneProgress/create` will not be registered yet.
-            process.nextTick(async () => {
-                const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
-                serverInitiatedReporter.begin('Workspace Cache');
-                this.workspace.updateCache(({ count, total }) => {
-                    serverInitiatedReporter.report(100 * count / total, `Reading files ${count}/${total}`);
-                }).then(() => {
-                    serverInitiatedReporter.done();
-                    console.log(`Cache loaded.`);
-                });
-            });
-        }
-
         return result;
     };
-
-
-    private onWorkspaceOpenTabs = (params: { uris: string[] }) => {
-        const { uris } = params;
-        const closedTabs = this.openTabs.filter(uri => uris.indexOf(uri) === -1);
-        const newTabs = uris.filter(uri => this.openTabs.indexOf(uri) === -1);
-        console.log('New tabs', newTabs, 'Closed tabs', closedTabs);
-        this.openTabs = uris;
-        for (const uri of closedTabs) {
-            const { fsPath } = URI.parse(uri);
-            if (this.sources.has(fsPath)) {
-                this.sendDiagnostics(uri, [], false);
-            }
-        }
-
-        for (const uri of newTabs) {
-            const { fsPath } = URI.parse(uri);
-            const document = this.sources.get(fsPath);
-            if (document) {
-                document.analyze(this.configuration?.continueAnalysisOnError);
-                const diagnostics = document.diagnostics();
-
-                this.sendDiagnostics(
-                    uri,
-                    diagnostics
-                );
-            }
-        }
-    };
-
 
     private onDidOpen = async (e: TextDocumentChangeEvent<TextDocument>) => {
         const { fsPath } = URI.parse(e.document.uri);
@@ -203,17 +163,11 @@ export class LSPServer {
         const { uri } = e.document;
         const { fsPath } = URI.parse(uri);
 
-        // Clear diagnostics
-        this.sendDiagnostics(uri, [], false);
         this.sources.delete(fsPath);
     };
 
     private onDidChangeContent = async (e: TextDocumentChangeEvent<TextDocument>) => {
         const { uri } = e.document;
-
-        if (this.openTabs.indexOf(uri) === -1) {
-            return;
-        }
 
         const { fsPath } = URI.parse(uri);
         const document = this.sources.get(fsPath);
@@ -222,24 +176,37 @@ export class LSPServer {
                 throw new Error('Document not opened');
             }
             document.analyze(this.configuration?.continueAnalysisOnError);
-            const diagnostics = document.diagnostics();
-
-            this.sendDiagnostics(uri, diagnostics);
-
-            for (const [dependeePathname, dependeeDoc] of this.sources.entries()) {
-                if (dependeePathname !== fsPath && dependeeDoc.dependents().includes(fsPath)) {
-                    const uri = URI.file(dependeePathname).toString();
-                    dependeeDoc.analyze();
-                    const diagnostics = dependeeDoc.diagnostics();
-                    this.sendDiagnostics(
-                        uri,
-                        diagnostics
-                    );
-                }
-            }
         } catch (ex) {
             console.error(ex);
         }
+    };
+
+    private onDocumentDiagnostics = async (e: DocumentDiagnosticParams): Promise<DocumentDiagnosticReport> => {
+        const { uri } = e.textDocument;
+        const { fsPath } = URI.parse(uri);
+
+        const document = this.sources.get(fsPath) ?? this.workspace.getDocument(fsPath);
+        this.sources.set(fsPath, document);
+        const diagnostics = document.diagnostics();
+
+        const relatedDocuments: {[uri: DocumentUri]: FullDocumentDiagnosticReport} = {};
+
+        for (const [dependeePathname, dependeeDoc] of this.sources.entries()) {
+            if (dependeePathname !== fsPath && dependeeDoc.dependents().includes(fsPath)) {
+                const uri = URI.file(dependeePathname).toString();
+                dependeeDoc.analyze();
+                const diagnostics = dependeeDoc.diagnostics();
+                relatedDocuments[uri] = {
+                    kind: DocumentDiagnosticReportKind.Full,
+                    items: diagnostics
+                };
+            }
+        }
+        return {
+            kind: DocumentDiagnosticReportKind.Full,
+            items: diagnostics,
+            relatedDocuments
+        };
     };
 
     private onSemanticTokens = async (params: SemanticTokensParams): Promise<SemanticTokens> => {
@@ -348,6 +315,30 @@ export class LSPServer {
                 console.warn(`Could not download polserver documentation: ${e?.message ?? e}`);
             });
         }
+
+        if (params.configuration.disableWorkspaceReferences === false) {
+            // Since the updateCache runs on next tick, it's possible (though
+            // unlikely) that multiple calls to onDidChangeConfiguration()
+            // occurred. Cancel any existing updateCache task.
+            this.updateCacheAbortController?.abort();
+
+            const updateCacheAbortController = this.updateCacheAbortController = new AbortController();
+
+            // Must do next tick because `window/workDoneProgress/create` will not be registered yet.
+            process.nextTick(async () => {
+                const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
+                serverInitiatedReporter.begin('Workspace Cache');
+                this.workspace.updateCache(({ count, total }) => {
+                    serverInitiatedReporter.report(100 * count / total, `Reading files ${count}/${total}`);
+                }, updateCacheAbortController.signal).then(() => {
+                    serverInitiatedReporter.done();
+                    console.log(`Cache loaded.`);
+                });
+            });
+        } else {
+            this.updateCacheAbortController?.abort();
+            this.updateCacheAbortController = undefined;
+        }
     };
 
     private onReferences = async (params: ReferenceParams): Promise<Location[] | null | undefined> => {
@@ -355,23 +346,24 @@ export class LSPServer {
         const { position: { line, character } } = params;
         const position: Position = { line: line + 1, character: character + 1 };
 
-        const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
+        if (this.configuration?.disableWorkspaceReferences === false) {
+            const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
 
-        serverInitiatedReporter.begin('References', undefined, undefined, true);
+            serverInitiatedReporter.begin('References', undefined, undefined, true);
 
-        const controller = new AbortController();
-        serverInitiatedReporter.token.onCancellationRequested(() => {
-            controller.abort();
-        });
+            const controller = new AbortController();
+            serverInitiatedReporter.token.onCancellationRequested(() => {
+                controller.abort();
+            });
 
-        const loaded = await this.workspace.updateCache(({ count, total }) => {
-            serverInitiatedReporter.report(100 * count / total, `Waiting for workspace cache...`);
-        }, controller.signal);
+            const loaded = await this.workspace.updateCache(({ count, total }) => {
+                serverInitiatedReporter.report(100 * count / total, `Waiting for workspace cache...`);
+            }, controller.signal);
 
-        serverInitiatedReporter.done();
-
-        if (!loaded) {
-            return undefined;
+            serverInitiatedReporter.done();
+            if (!loaded) {
+                return undefined;
+            }
         }
 
         const document = this.sources.get(fsPath);
@@ -388,15 +380,5 @@ export class LSPServer {
             }
         }
         return null;
-    };
-
-    private sendDiagnostics = (uri: string, diagnostics: Diagnostic[], tabCheck = true) => {
-        if (!tabCheck || this.openTabs.some(openTab => openTab === uri)) {
-            return this.connection.sendDiagnostics({
-                uri,
-                diagnostics
-            });
-        }
-        return Promise.resolve(undefined);
     };
 }

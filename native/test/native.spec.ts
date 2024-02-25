@@ -887,7 +887,7 @@ describe('References - SRC', () => {
                 return;
             }
         }
-        throw new Error(`Reference for '${filename} at ${JSON.stringify(range)} not found.`);
+        throw new Error(`Reference for '${filename} at ${JSON.stringify(range)} not found. References: ${JSON.stringify(references, undefined, 2)}`);
     }
 
     it('Can get constants inside source that are defined in source', async () => {
@@ -901,7 +901,7 @@ describe('References - SRC', () => {
     });
 
     it('Can get constants inside source that are defined in module files', async () => {
-        const references = await getReferences('Print(TRIM_BOTH);', 11);
+        const references = await getReferences('use uo; Print(MOVEOBJECT_FORCELOCATION);', 19);
 
         toBeDefined(references, "No references found");
 
@@ -1083,4 +1083,3 @@ describe('Workspace Cache', () => {
         expect(lastProgress.count / lastProgress.total).toBeGreaterThanOrEqual(0.5);
     });
 });
-
