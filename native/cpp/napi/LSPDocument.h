@@ -57,6 +57,8 @@ public:
                          const std::string& used_at_pathname,
                          const Pol::Bscript::Compiler::Range& used_at_range );
 
+  void build_references( Pol::Bscript::Compiler::CompilerWorkspace& compiler_workspace );
+
   std::map<Pol::Bscript::Compiler::Range /*defined at*/,
            std::set<CompilerExt::ReferenceLocation,
                     CompilerExt::ReferenceLocationComparator> /*used at*/,

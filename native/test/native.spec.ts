@@ -867,9 +867,6 @@ describe('References - SRC', () => {
         await workspace.updateCache();
 
         const document = workspace.getDocument(src);
-        // Have to build references for this doc, since the cache does not
-        // contain in-memory-file.src (since it doesn't exist on filesystem)
-        document.buildReferences();
         document.analyze();
         if (document.diagnostics().length) {
             throw new Error(inspect(document.diagnostics()));

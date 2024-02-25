@@ -82,6 +82,23 @@ void LSPDocument::add_reference_by( const Compiler::Range& defined_at,
   }
 }
 
+void LSPDocument::build_references( Pol::Bscript::Compiler::CompilerWorkspace& compiler_workspace )
+{
+  auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
+  CompilerExt::ReferencesBuilder builder( lsp_workspace, compiler_workspace, pathname_ );
+
+  compiler_workspace.top_level_statements->accept( builder );
+
+  if ( auto& program = compiler_workspace.program )
+  {
+    program->accept( builder );
+  }
+
+  for ( auto& user_function : compiler_workspace.user_functions )
+  {
+    user_function->accept( builder );
+  }
+}
 
 void LSPDocument::add_reference_by( const Compiler::Range& defined_at,
                                     const Compiler::SourceLocation& used_at )
@@ -130,6 +147,12 @@ Napi::Value LSPDocument::Analyze( const Napi::CallbackInfo& info )
 
     compiler_workspace =
         compiler->analyze( pathname_, *report, type == LSPDocumentType::EM, continue_on_error );
+
+    if ( compiler_workspace )
+    {
+      build_references( *compiler_workspace );
+    }
+
     return env.Undefined();
   }
   catch ( const std::exception& ex )
@@ -542,34 +565,29 @@ Napi::Value LSPDocument::BuildReferences( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
 
-  auto local_reporter = std::make_unique<Compiler::DiagnosticReporter>();
-  auto local_report = std::make_unique<Compiler::Report>( *reporter );
-
-  auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
-  auto compiler = lsp_workspace->make_compiler();
-  if ( type == LSPDocumentType::INC )
+  if ( compiler_workspace )
   {
-    compiler->set_include_compile_mode();
+    build_references( *compiler_workspace );
   }
-
-  bool continue_on_error =
-      info.Length() > 0 && info[0].IsBoolean() ? info[0].As<Napi::Boolean>().Value() : true;
-
-  if ( auto local_compiler_workspace = compiler->analyze(
-           pathname_, *local_report, type == LSPDocumentType::EM, continue_on_error ) )
+  else
   {
-    CompilerExt::ReferencesBuilder builder( lsp_workspace, *local_compiler_workspace, pathname_ );
+    auto local_reporter = std::make_unique<Compiler::DiagnosticReporter>();
+    auto local_report = std::make_unique<Compiler::Report>( *reporter );
 
-    local_compiler_workspace->top_level_statements->accept( builder );
-
-    if ( auto& program = local_compiler_workspace->program )
+    auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
+    auto compiler = lsp_workspace->make_compiler();
+    if ( type == LSPDocumentType::INC )
     {
-      program->accept( builder );
+      compiler->set_include_compile_mode();
     }
 
-    for ( auto& user_function : local_compiler_workspace->user_functions )
+    bool continue_on_error =
+        info.Length() > 0 && info[0].IsBoolean() ? info[0].As<Napi::Boolean>().Value() : true;
+
+    if ( auto local_compiler_workspace = compiler->analyze(
+             pathname_, *local_report, type == LSPDocumentType::EM, continue_on_error ) )
     {
-      user_function->accept( builder );
+      build_references( *local_compiler_workspace );
     }
   }
 
