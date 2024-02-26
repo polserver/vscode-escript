@@ -1,4 +1,4 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportKind, DocumentUri, FullDocumentDiagnosticReport } from 'vscode-languageserver/node';
+import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportKind, DocumentUri, FullDocumentDiagnosticReport, DocumentFormattingParams, TextEdit, DocumentRangeFormattingParams, FormattingOptions, Range } from 'vscode-languageserver/node';
 import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { readFileSync } from 'fs';
@@ -50,6 +50,8 @@ export class LSPServer {
         this.documents.onDidClose(this.onDidClose);
         this.connection.languages.semanticTokens.on(this.onSemanticTokens);
         this.connection.onHover(this.onHover);
+        this.connection.onDocumentFormatting(this.onDocumentFormatting);
+        this.connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting);
         this.connection.onDefinition(this.onDefinition);
         this.connection.onCompletion(this.onCompletion);
         this.connection.onSignatureHelp(this.onSignatureHelp);
@@ -122,6 +124,8 @@ export class LSPServer {
 
         const result: InitializeResult = {
             capabilities: {
+                documentFormattingProvider: true,
+                documentRangeFormattingProvider: true,
                 textDocumentSync: TextDocumentSyncKind.Incremental,
                 diagnosticProvider: {
                     interFileDependencies: true,
@@ -257,6 +261,17 @@ export class LSPServer {
         return null;
     };
 
+    private onDocumentRangeFormatting = async (params: DocumentRangeFormattingParams): Promise<TextEdit[] | null | undefined> => {
+        const { textDocument: { uri }, options, range } = params;
+        return this.getFormattedTextEdit(uri, options, range);
+        return null;
+    };
+
+    private onDocumentFormatting = async (params: DocumentFormattingParams): Promise<TextEdit[] | null | undefined> => {
+        const { textDocument: { uri }, options } = params;
+        return this.getFormattedTextEdit(uri, options);
+    };
+
     private onDefinition = async (params: DefinitionParams): Promise<Location | null> => {
         const { fsPath } = URI.parse(params.textDocument.uri);
         const { position: { line, character } } = params;
@@ -381,4 +396,38 @@ export class LSPServer {
         }
         return null;
     };
+
+    private getFormattedTextEdit(uri: string, options: FormattingOptions, range?: Range): TextEdit[] | null {
+        const { fsPath } = URI.parse(uri);
+        const document = this.sources.get(fsPath);
+
+        if (!document) {
+            return null;
+        }
+
+        const textDocument = this.documents.get(uri);
+
+        if (!textDocument) {
+            return null;
+        }
+
+        const formatted = range ?
+            document.toFormattedString(options, {
+                start: { line: range.start.line + 1, character: range.start.character },
+                end: { line: range.end.line + 1, character: range.end.character }
+            }) :
+            document.toFormattedString(options);
+
+        const originalText = textDocument.getText();
+
+        const edit: TextEdit = {
+            range: {
+                start: {line:0,character:0},
+                end: textDocument.positionAt(originalText.length)
+            },
+            newText: formatted
+        };
+
+        return [edit];
+    }
 }
