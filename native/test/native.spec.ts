@@ -578,8 +578,8 @@ describe('Definition - SRC', () => {
     });
 
     it('Can define include declaration (string)', () => {
-        const definition = getDefinition('include "sysevent";', 13);
-        const pathname = resolve(includeDirectory, 'sysevent.inc');
+        const definition = getDefinition('include ":TestClient:communication";', 13);
+        const pathname = resolve(polDirectory, 'testpkgs', 'client', 'communication.inc');
         expect(definition).toEqual({
             range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
             fsPath: pathname
