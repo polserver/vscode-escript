@@ -6,7 +6,7 @@ POL shards by providing:
  - code completion
  - compile errors and warnings
  - signature help
- - go-to-definition
+ - go to definition
  - hover information
  - references
  - debugger
@@ -44,6 +44,15 @@ Code errors are shown as you type (both as red squiggle underlines, and in the
 "Problems" panel). These are the same as produced by the Escript compiler.
 
 ![Problems](doc-assets/problems.png)
+
+### Go to Definition
+
+The extension provides support for "go to definition" for various symbols
+(variables, constants, user and module functions) as well as jumping to the
+definition of a module (specified in a `use` declaration) and include file
+(specified in an `include` declaration).
+
+![go-to-definition](doc-assets/go-to-definition.gif)
 
 ### Signature help
 

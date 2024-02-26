@@ -15,6 +15,8 @@ const dir = resolve(__dirname);
 
 // Uses relative path
 const moduleDirectory = join('..', 'polserver', 'pol-core', 'support', 'scripts');
+const polDirectory = resolve(__dirname, '..', 'polserver', 'testsuite', 'pol');
+const includeDirectory = resolve(polDirectory, 'scripts', 'include');
 
 function toBeDefined<T>(val: T, message = 'Value is undefined'): asserts val is NonNullable<T> {
     if (val === undefined) { throw new Error(message); }
@@ -29,8 +31,6 @@ beforeAll(async () => {
     try {
         await access(cfg, F_OK);
     } catch {
-        const polDirectory = resolve(__dirname, '..', 'polserver', 'testsuite', 'pol');
-        const includeDirectory = resolve(polDirectory, 'scripts', 'include');
         const cfgText = `ModuleDirectory ${moduleDirectory}\nIncludeDirectory ${includeDirectory}\nPolScriptRoot ${polDirectory}\nPackageRoot ${polDirectory}\nDisplayWarnings 1\n`;
         try {
             await mkdir(dirname(cfg), { recursive: true });
@@ -547,6 +547,42 @@ describe('Definition - SRC', () => {
         expect(definition).toEqual({
             range: { start: { line: 0, character: 12 }, end: { line: 0, character: 15 } },
             fsPath: 'in-memory-file.src'
+        });
+    });
+
+    it('Can define use declaration (identifier)', () => {
+        const definition = getDefinition('use file;', 7);
+        const pathname = resolve(dir, moduleDirectory, 'file.em');
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+            fsPath: pathname
+        });
+    });
+
+    it('Can define use declaration (string)', () => {
+        const definition = getDefinition('use "file";', 7);
+        const pathname = resolve(dir, moduleDirectory, 'file.em');
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+            fsPath: pathname
+        });
+    });
+
+    it('Can define include declaration (identifier)', () => {
+        const definition = getDefinition('include sysevent;', 13);
+        const pathname = resolve(includeDirectory, 'sysevent.inc');
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+            fsPath: pathname
+        });
+    });
+
+    it('Can define include declaration (string)', () => {
+        const definition = getDefinition('include ":TestClient:communication";', 13);
+        const pathname = resolve(polDirectory, 'testpkgs', 'client', 'communication.inc');
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+            fsPath: pathname
         });
     });
 });
