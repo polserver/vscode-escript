@@ -58,6 +58,7 @@ Napi::Function LSPWorkspace::GetClass( Napi::Env env )
   return DefineClass(
       env, "LSPWorkspace",
       { LSPWorkspace::InstanceMethod( "open", &LSPWorkspace::Open ),
+        LSPWorkspace::InstanceMethod( "reopen", &LSPWorkspace::Reopen ),
         LSPWorkspace::InstanceMethod( "getConfigValue", &LSPWorkspace::GetConfigValue ),
         LSPWorkspace::InstanceAccessor( "workspaceRoot", &LSPWorkspace::GetWorkspaceRoot, nullptr ),
         LSPWorkspace::InstanceAccessor( "scripts", &LSPWorkspace::AutoCompiledScripts, nullptr ),
@@ -250,6 +251,93 @@ Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
   }
 
   return Napi::Value();
+}
+
+Napi::Value LSPWorkspace::Reopen( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( _workspaceRoot.empty() )
+  {
+    Napi::Error::New( env, "Workspace was never open()'ed." ).ThrowAsJavaScriptException();
+    return Napi::Value();
+  }
+
+  std::string cfg( ( _workspaceRoot / "scripts" / "ecompile.cfg" ).u8string() );
+
+  try
+  {
+    bool has_changes = false;
+
+    auto ModuleDirectory = compilercfg.ModuleDirectory;
+    auto PolScriptRoot = compilercfg.PolScriptRoot;
+    auto IncludeDirectory = compilercfg.IncludeDirectory;
+
+    std::set<std::string> PackageRoot( compilercfg.PackageRoot.begin(),
+                                       compilercfg.PackageRoot.end() );
+
+    compilercfg.Read( cfg );
+
+    make_absolute( compilercfg.ModuleDirectory );
+    make_absolute( compilercfg.PolScriptRoot );
+    make_absolute( compilercfg.IncludeDirectory );
+
+    if ( ModuleDirectory.compare( compilercfg.ModuleDirectory ) != 0 )
+      has_changes = true;
+    else if ( PolScriptRoot.compare( compilercfg.PolScriptRoot ) != 0 )
+      has_changes = true;
+    else if ( IncludeDirectory.compare( compilercfg.IncludeDirectory ) != 0 )
+      has_changes = true;
+
+    for ( std::string& packageRoot : compilercfg.PackageRoot )
+    {
+      make_absolute( packageRoot );
+
+      if ( !has_changes )
+      {
+        auto existing = PackageRoot.find( packageRoot );
+
+        if ( existing == PackageRoot.end() )
+        {
+          has_changes = true;
+        }
+      }
+    }
+
+    if ( !has_changes && PackageRoot.size() != compilercfg.PackageRoot.size() )
+    {
+      has_changes = true;
+    }
+
+    if ( has_changes )
+    {
+      CompiledScripts.Reset();
+      _cache.clear();
+      Pol::Plib::systemstate.packages.clear();
+      Pol::Plib::systemstate.packages_byname.clear();
+
+      for ( const auto& elem : compilercfg.PackageRoot )
+      {
+        Pol::Plib::load_packages( elem, true /* quiet */ );
+      }
+      Pol::Plib::replace_packages();
+      Pol::Plib::check_package_deps();
+    }
+
+    return Napi::Boolean::New( env, has_changes );
+  }
+  catch ( const std::exception& ex )
+  {
+    _workspaceRoot = "";
+    Napi::Error::New( env, ex.what() ).ThrowAsJavaScriptException();
+    return Napi::Value();
+  }
+  catch ( ... )
+  {
+    _workspaceRoot = "";
+    Napi::Error::New( env, "Unknown Error" ).ThrowAsJavaScriptException();
+    return Napi::Value();
+  }
 }
 
 void LSPWorkspace::make_absolute( std::string& path )

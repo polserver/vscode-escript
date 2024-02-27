@@ -1,4 +1,4 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportKind, DocumentUri, FullDocumentDiagnosticReport, DocumentFormattingParams, TextEdit, DocumentRangeFormattingParams, FormattingOptions, Range } from 'vscode-languageserver/node';
+import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportKind, DocumentUri, FullDocumentDiagnosticReport, DocumentFormattingParams, TextEdit, DocumentRangeFormattingParams, FormattingOptions, Range, DidChangeWatchedFilesParams, FileChangeType } from 'vscode-languageserver/node';
 import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { readFileSync } from 'fs';
@@ -58,6 +58,7 @@ export class LSPServer {
         this.connection.onNotification('didChangeConfiguration', this.onDidChangeConfiguration);
         this.connection.onReferences(this.onReferences);
         this.connection.languages.diagnostics.on(this.onDocumentDiagnostics);
+        this.connection.onDidChangeWatchedFiles(this.onDidChangeWatchedFiles);
 
         this.documents.listen(this.connection);
         this.downloader = new DocsDownloader(LSPServer.options.storageFsPath);
@@ -213,6 +214,18 @@ export class LSPServer {
         };
     };
 
+    private onDidChangeWatchedFiles = (e: DidChangeWatchedFilesParams) => {
+        const ecompileCfg = join(this.workspace.workspaceRoot, 'scripts', 'ecompile.cfg');
+        const shouldReopen = e.changes.some(change => change.type === FileChangeType.Changed && URI.parse(change.uri).fsPath === ecompileCfg);
+
+        if (shouldReopen) {
+            const hasChanges = this.workspace.reopen();
+            if (hasChanges && this.configuration?.disableWorkspaceReferences === false) {
+                this.updateCache();
+            }
+        }
+    };
+
     private onSemanticTokens = async (params: SemanticTokensParams): Promise<SemanticTokens> => {
         const builder = new SemanticTokensBuilder();
         const { fsPath } = URI.parse(params.textDocument.uri);
@@ -264,7 +277,6 @@ export class LSPServer {
     private onDocumentRangeFormatting = async (params: DocumentRangeFormattingParams): Promise<TextEdit[] | null | undefined> => {
         const { textDocument: { uri }, options, range } = params;
         return this.getFormattedTextEdit(uri, options, range);
-        return null;
     };
 
     private onDocumentFormatting = async (params: DocumentFormattingParams): Promise<TextEdit[] | null | undefined> => {
@@ -332,24 +344,7 @@ export class LSPServer {
         }
 
         if (params.configuration.disableWorkspaceReferences === false) {
-            // Since the updateCache runs on next tick, it's possible (though
-            // unlikely) that multiple calls to onDidChangeConfiguration()
-            // occurred. Cancel any existing updateCache task.
-            this.updateCacheAbortController?.abort();
-
-            const updateCacheAbortController = this.updateCacheAbortController = new AbortController();
-
-            // Must do next tick because `window/workDoneProgress/create` will not be registered yet.
-            process.nextTick(async () => {
-                const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
-                serverInitiatedReporter.begin('Workspace Cache');
-                this.workspace.updateCache(({ count, total }) => {
-                    serverInitiatedReporter.report(100 * count / total, `Reading files ${count}/${total}`);
-                }, updateCacheAbortController.signal).then(() => {
-                    serverInitiatedReporter.done();
-                    console.log(`Cache loaded.`);
-                });
-            });
+            this.updateCache();
         } else {
             this.updateCacheAbortController?.abort();
             this.updateCacheAbortController = undefined;
@@ -396,6 +391,27 @@ export class LSPServer {
         }
         return null;
     };
+
+    private updateCache() {
+        // Since the updateCache runs on next tick, it's possible (though
+        // unlikely) that multiple calls to onDidChangeConfiguration()
+        // occurred. Cancel any existing updateCache task.
+        this.updateCacheAbortController?.abort();
+
+        const updateCacheAbortController = this.updateCacheAbortController = new AbortController();
+
+        // Must do next tick because `window/workDoneProgress/create` will not be registered yet.
+        process.nextTick(async () => {
+            const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
+            serverInitiatedReporter.begin('Workspace Cache');
+            this.workspace.updateCache(({ count, total }) => {
+                serverInitiatedReporter.report(100 * count / total, `Reading files ${count}/${total}`);
+            }, updateCacheAbortController.signal).then(() => {
+                serverInitiatedReporter.done();
+                console.log(`Cache loaded.`);
+            });
+        });
+    }
 
     private getFormattedTextEdit(uri: string, options: FormattingOptions, range?: Range): TextEdit[] | null {
         const { fsPath } = URI.parse(uri);

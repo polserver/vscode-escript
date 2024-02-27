@@ -28,6 +28,7 @@ export interface LSPWorkspace {
     new(config: LSPWorkspaceConfig): LSPWorkspace;
     workspaceRoot: string;
     open(workspaceRoot: string): void;
+    reopen(): boolean; // `true` if folder changes occurred in scripts/ecompile.cfg
     getConfigValue(key: 'PackageRoot'): Array<string>;
     getConfigValue(key: 'IncludeDirectory' | 'ModuleDirectory' | 'PolScriptRoot'): string;
 	scripts: { inc: string[], src: string[] };
