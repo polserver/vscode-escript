@@ -1174,18 +1174,18 @@ describe('Formatter', () => {
 
     const formatSrcsDir = join(__dirname, 'format-srcs');
     const files = readdirSync(formatSrcsDir)
-        .reduce((p, c) => p.add(c.substring(0, c.indexOf('.'))), new Set<string>())
+        .reduce((p, c) => c.endsWith(".src") ? p.add(c.substring(0, c.indexOf('.'))) : p, new Set<string>());
 
     for (const file of files) {
         const src = readFileSync(join(formatSrcsDir, file + ".src"), 'utf-8').replace(/\r/g, '');
-        const out = readFileSync(join(formatSrcsDir, file + ".out.src"), 'utf-8').replace(/\r/g, '');;
+        const out = readFileSync(join(formatSrcsDir, file + ".out.src"), 'utf-8').replace(/\r/g, '');
         const rawLines = src.split(/\n/);
         const firstCommentIndex = rawLines[0].indexOf('// ');
         const testName = firstCommentIndex > -1 ? rawLines[0].substring(firstCommentIndex + 3) : rawLines[0];
 
         it(testName, () => {
             const formatRange = findRange(src);
-            const formatted = getFormattedString(src.replace(/#/g, ''), formatRange);
+            const formatted = getFormattedString(src.replace(/#/g, ''), formatRange).replace(/\r/g, '');
             expect(formatted).toEqual(out);
         })
     }
