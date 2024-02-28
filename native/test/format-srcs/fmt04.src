@@ -1,0 +1,9 @@
+// Case 3: Skipline is completely contained inside head.
+VAR a;
+VAR b;
+// format-off
+VAR c;
+VAR d;
+// format-on
+#VAR e;#
+VAR f;

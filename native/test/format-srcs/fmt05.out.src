@@ -1,0 +1,9 @@
+// Case 4: Skipline exists inside formatting range.
+VAR a;
+var b;
+// format-off
+VAR c;
+VAR d;
+// format-on
+var e;
+VAR f;

@@ -1,0 +1,8 @@
+// Case 1: `format_range` is completely inside a skipline.
+VAR a;
+// format-off
+VAR b;
+VAR c;
+// format-on
+VAR d;
+VAR e;
