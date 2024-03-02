@@ -42,6 +42,7 @@ public:
   Napi::Value References( const Napi::CallbackInfo& );
   Napi::Value ToStringTree( const Napi::CallbackInfo& );
   Napi::Value BuildReferences( const Napi::CallbackInfo& );
+  Napi::Value ToFormattedString( const Napi::CallbackInfo& );
 
   std::unique_ptr<Pol::Bscript::Compiler::DiagnosticReporter> reporter;
 
@@ -66,6 +67,8 @@ public:
       referenced_by;
 
 private:
+  Napi::Value throwError( const std::string& what );
+
   std::unique_ptr<Pol::Bscript::Compiler::Report> report;
   std::unique_ptr<Pol::Bscript::Compiler::CompilerWorkspace> compiler_workspace;
   std::string pathname_;

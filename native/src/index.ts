@@ -1,6 +1,6 @@
 import { resolve } from 'path';
 import { existsSync } from 'fs';
-import type { Diagnostic, Position, Range, CompletionItem, Location } from 'vscode-languageserver-types';
+import type { Diagnostic, Position, Range, CompletionItem, Location, FormattingOptions } from 'vscode-languageserver-types';
 
 // The native module uses this specific format for a SignatureHelp
 export type ParameterInformation = {
@@ -28,6 +28,7 @@ export interface LSPWorkspace {
     new(config: LSPWorkspaceConfig): LSPWorkspace;
     workspaceRoot: string;
     open(workspaceRoot: string): void;
+    reopen(): boolean; // `true` if folder changes occurred in scripts/ecompile.cfg
     getConfigValue(key: 'PackageRoot'): Array<string>;
     getConfigValue(key: 'IncludeDirectory' | 'ModuleDirectory' | 'PolScriptRoot'): string;
 	scripts: { inc: string[], src: string[] };
@@ -47,6 +48,7 @@ export interface LSPDocument {
     definition(position: Position, options?: { nameOnly?: boolean }): { range: Range, fsPath: string } | undefined;
     references(position: Position): { range: Range, fsPath: string }[] | undefined;
     signatureHelp(position: Position): SignatureHelp | undefined;
+	toFormattedString(options?: Partial<Pick<FormattingOptions, "tabSize"|"insertSpaces">>, formatRange?: Range): string; // throws
     tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
     toStringTree(): string | undefined;
     buildReferences(): undefined;
@@ -89,7 +91,7 @@ const filename = tries.find(filepath => existsSync(filepath));
 
 /* istanbul ignore next */
 if (!filename) {
-    throw new Error(`Unable to locate ${baseFilename}`);
+    throw new Error(`Unable to locate ${baseFilename}, tried ${tries.join('; ')}`);
 }
 
 export type UpdateCacheProgressCallback = (progress: { count: number, total: number }) => void;

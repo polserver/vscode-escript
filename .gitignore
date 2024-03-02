@@ -11,3 +11,4 @@ native/test/scripts/ecompile.cfg
 .vscode/c_cpp_properties.json
 .vscode/settings.json
 .cache
+.DS_Store

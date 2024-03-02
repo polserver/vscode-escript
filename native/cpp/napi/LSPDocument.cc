@@ -13,10 +13,12 @@
 #include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "bscript/compiler/file/SourceLocation.h"
 #include "bscript/compiler/model/CompilerWorkspace.h"
+#include "bscript/compilercfg.h"
 #include "clib/strutil.h"
 #include <filesystem>
 
 using namespace Pol::Bscript;
+
 namespace VSCodeEscript
 {
 LSPDocument::LSPDocument( const Napi::CallbackInfo& info )
@@ -106,6 +108,13 @@ void LSPDocument::add_reference_by( const Compiler::Range& defined_at,
   add_reference_by( defined_at, used_at.source_file_identifier->pathname, used_at.range );
 }
 
+Napi::Value LSPDocument::throwError( const std::string& what = "Invalid arguments" )
+{
+  auto env = Value().Env();
+  Napi::TypeError::New( env, Napi::String::New( env, what ) ).ThrowAsJavaScriptException();
+  return Napi::Value();
+}
+
 Napi::Function LSPDocument::GetClass( Napi::Env env )
 {
   return DefineClass( env, "LSPDocument",
@@ -119,6 +128,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "references", &LSPDocument::References ),
                         LSPDocument::InstanceMethod( "toStringTree", &LSPDocument::ToStringTree ),
                         LSPDocument::InstanceMethod( "buildReferences", &LSPDocument::BuildReferences ),
+                        LSPDocument::InstanceMethod( "toFormattedString", &LSPDocument::ToFormattedString ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -592,6 +602,116 @@ Napi::Value LSPDocument::BuildReferences( const Napi::CallbackInfo& info )
   }
 
   return env.Undefined();
+}
+
+Napi::Value LSPDocument::ToFormattedString( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  std::optional<Compiler::Range> format_range;
+
+  unsigned short tabSize = compilercfg.FormatterTabWidth;
+  bool insertSpaces = !compilercfg.FormatterUseTabs;
+
+    if ( info.Length() > 0 && !info[0].IsUndefined() )
+  {
+    if ( !info[0].IsObject() )
+    {
+      return throwError();
+    }
+
+    auto optionsObj = info[0].As<Napi::Object>();
+
+    if ( optionsObj.Has( "tabSize" ) )
+    {
+      auto tabSizeValue = optionsObj.Get( "tabSize" );
+      if ( !tabSizeValue.IsNumber() )
+      {
+        return throwError();
+      }
+      tabSize = static_cast<unsigned short>( tabSizeValue.As<Napi::Number>().Int32Value() );
+    }
+
+    if ( optionsObj.Has( "insertSpaces" ) )
+    {
+      auto insertSpacesValue = optionsObj.Get( "insertSpaces" );
+      if ( !insertSpacesValue.IsBoolean() )
+      {
+        return throwError();
+      }
+      insertSpaces = insertSpacesValue.As<Napi::Boolean>().Value();
+    }
+  }
+
+  if ( info.Length() > 1 && !info[1].IsUndefined() )
+  {
+    if ( !info[1].IsObject() )
+    {
+      return throwError();
+    }
+
+    auto rangeObj = info[1].As<Napi::Object>();
+    if ( !rangeObj.Has( "start" ) || !rangeObj.Has( "end" ) )
+    {
+      return throwError();
+    }
+
+    auto startValue = rangeObj.Get( "start" );
+    auto endValue = rangeObj.Get( "end" );
+    if ( !startValue.IsObject() || !endValue.IsObject() )
+    {
+      return throwError();
+    }
+
+    auto startObj = startValue.As<Napi::Object>();
+    auto endObj = endValue.As<Napi::Object>();
+    if ( !startObj.Has( "line" ) || !startObj.Has( "character" ) || !endObj.Has( "line" ) ||
+         !endObj.Has( "character" ) )
+    {
+      return throwError();
+    }
+
+    auto startLineValue = startObj.Get( "line" );
+    auto startCharacterValue = startObj.Get( "character" );
+    auto endLineValue = endObj.Get( "line" );
+    auto endCharacterValue = endObj.Get( "character" );
+    if ( !startLineValue.IsNumber() || !startCharacterValue.IsNumber() ||
+         !endLineValue.IsNumber() || !endCharacterValue.IsNumber() )
+    {
+      return throwError();
+    }
+
+    unsigned short startLine = startLineValue.As<Napi::Number>().Int32Value();
+    unsigned short startCharacter = startCharacterValue.As<Napi::Number>().Int32Value();
+    unsigned short endLine = endLineValue.As<Napi::Number>().Int32Value();
+    unsigned short endCharacter = endCharacterValue.As<Napi::Number>().Int32Value();
+
+    format_range = Compiler::Range( Compiler::Position{ startLine, startCharacter },
+                                    Compiler::Position{ endLine, endCharacter } );
+  }
+
+
+  auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
+  auto compiler = lsp_workspace->make_compiler();
+
+  auto oldFormatterTabWidth = compilercfg.FormatterTabWidth;
+  auto oldFormatterUseTabs = compilercfg.FormatterUseTabs;
+  try
+  {
+    compilercfg.FormatterTabWidth = tabSize;
+    compilercfg.FormatterUseTabs = !insertSpaces;
+    auto formatted_string =
+        compiler->to_formatted_string( pathname(), type == LSPDocumentType::EM, format_range );
+    compilercfg.FormatterTabWidth = oldFormatterTabWidth;
+    compilercfg.FormatterUseTabs = oldFormatterUseTabs;
+    return Napi::String::New( env, formatted_string );
+  }
+  catch ( std::exception& ex )
+  {
+    compilercfg.FormatterTabWidth = oldFormatterTabWidth;
+    compilercfg.FormatterUseTabs = oldFormatterUseTabs;
+    return throwError(ex.what());
+  }
 }
 
 }  // namespace VSCodeEscript

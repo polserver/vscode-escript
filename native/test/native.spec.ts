@@ -5,7 +5,7 @@ import { inspect } from 'util';
 import { F_OK } from 'constants';
 import { writeFile, access, mkdir, readFile } from "fs/promises";
 import { dirname, join } from "path";
-import type { Range } from 'vscode-languageclient/node';
+import type { Range, Position } from 'vscode-languageclient/node';
 
 const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
 
@@ -1118,4 +1118,75 @@ describe('Workspace Cache', () => {
         expect(result).toBe(false);
         expect(lastProgress.count / lastProgress.total).toBeGreaterThanOrEqual(0.5);
     });
+});
+
+describe('Formatter', () => {
+    const getFormattedString = (source: string, range?: Range) => {
+        const workspace = new LSPWorkspace({
+            getContents(pathname) {
+                if (pathname.endsWith('in-memory-file.src')) {
+                    return source;
+                }
+                return readFileSync(pathname, 'utf-8');
+            }
+        });
+        workspace.open(dir);
+
+        const document = workspace.getDocument('in-memory-file.src');
+        return document.toFormattedString(undefined, range);
+    };
+
+    const findRange = (text: string): Range | undefined => {
+        const lines = text.split('\n');
+        let line = 0;
+        let character = -1;
+        let start: Position | undefined;
+        let end: Position | undefined;
+
+        for (let i = 0; i < lines.length; i++) {
+            const text = lines[i];
+            const index = text.indexOf('#');
+            const lastIndex = text.lastIndexOf('#');
+            if (index !== -1) {
+                line = i + 1;
+                character = index;
+                if (start) {
+                    end = { line, character };
+                    break;
+                }
+                else {
+                    start = { line, character };
+                }
+            }
+            if (lastIndex !== index) {
+                line = i + 1;
+                character = lastIndex;
+                end = { line, character };
+                break;
+            }
+        }
+        if (!start || !end) {
+            return undefined;
+        }
+        return { start, end };
+    }
+
+
+    const formatSrcsDir = join(__dirname, 'format-srcs');
+    const files = readdirSync(formatSrcsDir)
+        .reduce((p, c) => c.endsWith(".src") ? p.add(c.substring(0, c.indexOf('.'))) : p, new Set<string>());
+
+    for (const file of files) {
+        const src = readFileSync(join(formatSrcsDir, file + ".src"), 'utf-8').replace(/\r/g, '');
+        const out = readFileSync(join(formatSrcsDir, file + ".out.src"), 'utf-8').replace(/\r/g, '');
+        const rawLines = src.split(/\n/);
+        const firstCommentIndex = rawLines[0].indexOf('// ');
+        const testName = firstCommentIndex > -1 ? rawLines[0].substring(firstCommentIndex + 3) : rawLines[0];
+
+        it(testName, () => {
+            const formatRange = findRange(src);
+            const formatted = getFormattedString(src.replace(/#/g, ''), formatRange).replace(/\r/g, '');
+            expect(formatted).toEqual(out);
+        })
+    }
 });

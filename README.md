@@ -9,6 +9,7 @@ POL shards by providing:
  - go to definition
  - hover information
  - references
+ - document and selection-based formatting
  - debugger
 
 ## Setup
@@ -75,6 +76,17 @@ and globally-scoped), constants, user functions, and module functions across the
 entire workspace.
 
 ![references](doc-assets/find-references.gif)
+
+### Formatting
+
+The extension provides support for both full-document as well as selection-based
+formatting using the functionality provided by `ecompile`'s libraries.
+Formatting can be configured via changing the options in the workspace's
+`scripts/ecompile.cfg`. See [polserver
+docs](https://docs.polserver.com/pol100/configfiles.php#ecompile.cfg) for
+configuration options.
+
+![format-selection](doc-assets/format-selection.gif)
 
 ### Debugger
 

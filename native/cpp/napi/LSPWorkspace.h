@@ -29,6 +29,7 @@ public:
   static Napi::Function GetClass( Napi::Env );
 
   Napi::Value Open( const Napi::CallbackInfo& );
+  Napi::Value Reopen( const Napi::CallbackInfo& );
   Napi::Value GetConfigValue( const Napi::CallbackInfo& );
   Napi::Value GetWorkspaceRoot( const Napi::CallbackInfo& );
   Napi::Value AutoCompiledScripts( const Napi::CallbackInfo& );

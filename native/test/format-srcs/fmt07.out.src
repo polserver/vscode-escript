@@ -1,0 +1,9 @@
+// Case 6: Skipline is completely contained inside foot.
+var a;
+VAR b;
+// format-off
+VAR c;
+VAR d;
+// format-on
+VAR e;
+VAR f;
