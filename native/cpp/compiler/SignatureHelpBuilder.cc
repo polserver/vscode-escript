@@ -36,7 +36,7 @@ SignatureHelp make_signature_help(
 
   if ( function_def != nullptr )
   {
-    auto pathname = function_def->module_name + ".em";
+    auto pathname = function_def->scope + ".em";
     auto xmlDoc = lsp_workspace->get_xml_doc_path( pathname );
     if ( xmlDoc.has_value() )
       parsed = XmlDocParser::parse_function( xmlDoc.value(), function_name );
@@ -54,13 +54,13 @@ SignatureHelp make_signature_help(
     {
       added = true;
     }
-    result += param.name;
+    result += param.name.name;
 
     std::string documentation;
     if ( parsed )
     {
       auto iter = std::find_if( parsed->parameters.begin(), parsed->parameters.end(),
-                                [&]( const auto& p ) { return param.name == p.name; } );
+                                [&]( const auto& p ) { return param.name.name == p.name; } );
 
       if ( iter != parsed->parameters.end() )
       {
@@ -69,8 +69,8 @@ SignatureHelp make_signature_help(
     }
 
     parameters.push_back( SignatureHelpParameter{
-        current_position, current_position + param.name.size(), documentation } );
-    current_position += param.name.size();
+        current_position, current_position + param.name.name.size(), documentation } );
+    current_position += param.name.name.size();
 
     auto* default_value = param.default_value();
     if ( default_value )

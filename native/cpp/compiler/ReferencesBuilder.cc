@@ -131,7 +131,7 @@ void ReferencesBuilder::add_unoptimized_constant_reference( const Node& node )
   {
     if ( auto identifier = dynamic_cast<Identifier*>( node.unoptimized_node.get() ) )
     {
-      if ( auto constant = compiler_workspace.constants.find( identifier->name ) )
+      if ( auto constant = compiler_workspace.constants.find( identifier->name() ) )
       {
         auto* doc = lsp_workspace->create_or_get_from_cache(
             constant->source_location.source_file_identifier->pathname );

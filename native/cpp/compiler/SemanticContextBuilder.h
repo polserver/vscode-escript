@@ -54,6 +54,7 @@ public:
   virtual antlrcpp::Any visitChildren( antlr4::tree::ParseTree* node ) override;
 
   bool contains( antlr4::tree::TerminalNode* terminal );
+  bool contains( antlr4::Token* terminal );
   std::optional<T> try_constant( const std::string& name );
   std::optional<T> try_variable( const std::string& name );
   std::optional<T> try_constant_or_variable( const std::string& name );
@@ -317,7 +318,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
                 for ( const auto& param_ref : function_def->parameters() )
                 {
                   auto& param = param_ref.get();
-                  if ( param.name == param_name )
+                  if ( param.name.name == param_name )
                   {
                     return get_module_function_parameter( function_def, &param );
                   }
@@ -432,7 +433,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
                 for ( const auto& param_ref : function_def->parameters() )
                 {
                   auto& param = param_ref.get();
-                  if ( param.name == param_name )
+                  if ( param.name.name == param_name )
                   {
                     return get_user_function_parameter( function_def, &param );
                   }
@@ -446,7 +447,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
     else if ( auto* ctx =
                   dynamic_cast<EscriptGrammar::EscriptParser::FunctionReferenceContext*>( node ) )
     {
-      if ( auto* id = ctx->IDENTIFIER() )
+      if ( auto* id = ctx->function )
       {
         if ( contains( id ) )
         {
@@ -564,17 +565,27 @@ std::optional<T> SemanticContextBuilder<T>::context()
 }
 
 template <typename T>
-bool SemanticContextBuilder<T>::contains( antlr4::tree::TerminalNode* terminal )
+bool SemanticContextBuilder<T>::contains( antlr4::Token* sym )
 {
-  if ( terminal )
+  if ( sym )
   {
-    auto* sym = terminal->getSymbol();
     auto length = sym->getText().length();
     auto line_number = sym->getLine();
     auto character_column = sym->getCharPositionInLine() + 1;
     if ( line_number == position.line_number && character_column <= position.character_column &&
          character_column + length > position.character_column )
       return true;
+  }
+  return false;
+}
+
+template <typename T>
+bool SemanticContextBuilder<T>::contains( antlr4::tree::TerminalNode* terminal )
+{
+  if ( terminal )
+  {
+    auto* sym = terminal->getSymbol();
+    return contains( sym );
   }
   return false;
 }
