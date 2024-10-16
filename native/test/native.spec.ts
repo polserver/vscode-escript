@@ -513,7 +513,7 @@ describe('Definition - SRC', () => {
             definition.fsPath = resolve(definition.fsPath);
         }
         expect(definition).toEqual({
-            range: { start: { line: 9, character: 0 }, end: { line: 9, character: 37 } },
+            range: { start: { line: 10, character: 0 }, end: { line: 10, character: 39 } },
             fsPath
         });
     });
@@ -699,7 +699,9 @@ describe('Completion', () => {
             { label: 'CRMULTI_IGNORE_ALL', kind: 21 },
             { label: 'CRMULTI_IGNORE_MULTIS', kind: 21 },
             { label: 'CRMULTI_IGNORE_OBJECTS', kind: 21 },
-            { label: 'CRMULTI_IGNORE_WORLDZ', kind: 21 }
+            { label: 'CRMULTI_IGNORE_WORLDZ', kind: 21 },
+            { label: 'CRMULTI_KEEP_COMPONENTS', kind: 21 },
+            { label: 'CRMULTI_RECREATE_COMPONENTS', kind: 21 },
         ]);
     });
 
@@ -872,7 +874,8 @@ describeLongTest('Actively typing sources', () => {
             it(`Processing ${file}`, async () => {
                 const data = await readFile(file, 'utf-8');
                 const doc = new DynamicDocument(data, 0);
-                const process = () => {
+                // process.stderr.write(`Processing ${file}\n`);
+                const processFile = () => {
                     while (!doc.finished()) {
                         try {
                             doc.analyze();
@@ -881,7 +884,7 @@ describeLongTest('Actively typing sources', () => {
                         }
                     }
                 };
-                expect(process).not.toThrow();
+                expect(processFile).not.toThrow();
             });
         }
     }
