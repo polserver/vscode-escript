@@ -15,6 +15,7 @@ const dir = resolve(__dirname);
 
 // Uses relative path
 const moduleDirectory = join('..', 'polserver', 'pol-core', 'support', 'scripts');
+const moduleDirectoryAbs = resolve(__dirname, '..', 'polserver', 'pol-core', 'support', 'scripts');
 const polDirectory = resolve(__dirname, '..', 'polserver', 'testsuite', 'pol');
 const includeDirectory = resolve(polDirectory, 'scripts', 'include');
 
@@ -25,6 +26,36 @@ function toBeDefined<T>(val: T, message = 'Value is undefined'): asserts val is 
 const escriptdoc = (text: string) => "```escriptdoc\n" + text + "\n```";
 
 const xmlDocDir = resolve(__dirname, '..', 'polserver', 'docs', 'docs.polserver.com', 'pol100');
+
+const classes_src = `class bar()
+  var other;
+  function bar( this, other := 5 )
+    this.funcexpr := @( foo123 ) { print( foo123 ); };
+    bar::other := other;
+  endfunction
+endclass
+
+class FOO( bar )
+  function foo( this )
+    SUPER();
+  endfunction
+
+  function method_func( this, what := "everything" )
+    basicio::print( $"{this} attacks {what}!" );
+  endfunction
+
+  function static_func( what := "everything" )
+    print( $"static method {what}" );
+  endfunction
+endclass
+
+var bar;
+bar := FOO::foo();
+bar := foo();
+
+FOO::method_func( bar );
+FOO::static_func( "what" );
+`;
 
 beforeAll(async () => {
     const cfg = resolve(dir, 'scripts', 'ecompile.cfg');
@@ -294,35 +325,7 @@ describe('Hover - Classes', () => {
         const src = 'in-memory-file.src';
         const getContents = (pathname: string) => {
             if (pathname === src) {
-                return `class bar()
-  var other;
-  function bar( this, other := 5 )
-    this.funcexpr := @( foo123 ) { print( foo123 ); };
-    bar::other := other;
-  endfunction
-endclass
-
-class FOO( bar )
-  function foo( this )
-    SUPER();
-  endfunction
-
-  function method_func( this, what := "everything" )
-    basicio::print( $"{this} attacks {what}!" );
-  endfunction
-
-  function static_func( what := "everything" )
-    print( $"static method {what}" );
-  endfunction
-endclass
-
-var bar;
-bar := FOO::foo();
-bar := foo();
-
-FOO::method_func( bar );
-FOO::static_func( "what" );
-`;
+                return classes_src;
             }
             return readFileSync(pathname, 'utf-8');
         };
@@ -685,6 +688,57 @@ describe('Definition - SRC', () => {
         });
     });
 });
+
+
+describe('Definition - Classes', () => {
+    let document: LSPDocument;
+
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return classes_src;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.open(dir);
+
+        document = workspace.getDocument(src);
+    });
+
+    const getDefinition = (line: number, character: number) => {
+        document.analyze();
+        return document.definition({ line, character });
+    };
+
+    it('Can define class', () => {
+        const definition = getDefinition(24, 10);
+        expect(definition).toEqual({
+            range: {
+                start: { line: 8, character: 0 },
+                end: { line: 20, character: 8 }
+            },
+            fsPath: 'in-memory-file.src'
+        });
+    });
+
+    it('Can define module', () => {
+        const definition = getDefinition(15, 9);
+        expect(definition).toEqual({
+            range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 }
+            },
+            fsPath: resolve(moduleDirectoryAbs, 'basicio.em')
+        });
+    });
+
+});
+
 
 describe('Definition - Module', () => {
     let document: LSPDocument;
