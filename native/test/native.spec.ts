@@ -203,7 +203,7 @@ describe('Hover - SRC', () => {
 
     it('Can hover user function declaration', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 11);
-        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
+        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'))
     });
 
     it('Can hover foreach (loop identifier)', () => {
@@ -233,7 +233,7 @@ describe('Hover - SRC', () => {
 
     it('Can hover program declaration', () => {
         const hover = getHover('program foo(bar, baz) endprogram', 10);
-        expect(hover).toEqual(escriptdoc('(program) foo(bar, baz)'))
+        expect(hover).toEqual(escriptdoc('(program) foo( bar, baz )'))
     });
 
     it('Can hover program parameter', () => {
@@ -253,7 +253,7 @@ describe('Hover - SRC', () => {
 
     it('Can hover function reference', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction @Foo.call();', 42);
-        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
+        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'))
     });
 
     it('Can hover primary', () => {
@@ -273,17 +273,116 @@ describe('Hover - SRC', () => {
 
     it('Can hover user function call', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction Foo(1);', 42);
-        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
+        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'))
     });
 
     it('Can hover module function call', () => {
         const hover = getHover('print(1);', 3);
-        expect(hover).toEqual(escriptdoc("(module function) Print(anything, console_color := \"\")"))
+        expect(hover).toEqual(escriptdoc("(module function) Print( anything, console_color := \"\" )"))
     });
 
     it('Can hover struct init member', () => {
         const hover = getHover('var foo := struct{ bar := 3 };', 20);
         expect(hover).toEqual(escriptdoc('(member) bar'))
+    });
+});
+
+describe('Hover - Classes', () => {
+    let document: LSPDocument;
+
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return `class bar()
+  var other;
+  function bar( this, other := 5 )
+    this.funcexpr := @( foo123 ) { print( foo123 ); };
+    bar::other := other;
+  endfunction
+endclass
+
+class FOO( bar )
+  function foo( this )
+    SUPER();
+  endfunction
+
+  function method_func( this, what := "everything" )
+    basicio::print( $"{this} attacks {what}!" );
+  endfunction
+
+  function static_func( what := "everything" )
+    print( $"static method {what}" );
+  endfunction
+endclass
+
+var bar;
+bar := FOO::foo();
+bar := foo();
+
+FOO::method_func( bar );
+FOO::static_func( "what" );
+`;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.open(dir);
+
+        document = workspace.getDocument(src);
+    });
+
+    const getHover = (line: number, character: number) => {
+        document.analyze();
+        return document.hover({ line, character });
+    };
+
+    it('Can hover class name in class declaration', () => {
+        const hover = getHover(1, 8);
+        expect(hover).toEqual(escriptdoc('(class) bar'))
+    });
+
+    it('Can hover class name in class parameter list', () => {
+        const hover = getHover(9, 14);
+        expect(hover).toEqual(escriptdoc('(class) bar'))
+    });
+
+    it('Can hover module name in scoped function call', () => {
+        const hover = getHover(15, 9);
+        expect(hover).toEqual(escriptdoc('(module) basicio'))
+    });
+
+    it('Can hover variable name in class body', () => {
+        const hover = getHover(2, 10);
+        expect(hover).toEqual(escriptdoc('(variable) bar::other'))
+    });
+
+    it('Can hover class constructor', () => {
+        const hover = getHover(3, 14);
+        expect(hover).toEqual(escriptdoc('(class constructor) bar::bar( other := 5 )'))
+    });
+
+    it('Can hover function parameter in function expression', () => {
+        const hover = getHover(4, 28);
+        expect(hover).toEqual(escriptdoc('(parameter) foo123'))
+    });
+
+    it('Can hover super function', () => {
+        const hover = getHover(11, 8);
+        expect(hover).toEqual(escriptdoc('(super) FOO::super( other := 5 )'))
+    });
+
+    it('Can hover method function', () => {
+        const hover = getHover(14, 19);
+        expect(hover).toEqual(escriptdoc('(class method) FOO::method_func( this, what := "everything" )'))
+    });
+
+    it('Can hover method function', () => {
+        const hover = getHover(18, 18);
+        expect(hover).toEqual(escriptdoc('(user function) FOO::static_func( what := "everything" )'))
     });
 });
 
@@ -315,7 +414,7 @@ describe('Hover - Module', () => {
 
     it('Can hover module function declaration', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 9);
-        expect(hover).toEqual(escriptdoc('(module function) ModuleFunction(a, b := 5)'))
+        expect(hover).toEqual(escriptdoc('(module function) ModuleFunction( a, b := 5 )'))
     });
 
     it('Can hover module function parameter (no default)', () => {
@@ -368,7 +467,7 @@ describe('Hover Docs', () => {
     it('Can hover module functions with XML docs', () => {
         const hover = getHover('use uo; CreateItemInBackpack( "of_character", "objtype", amount := 1, x := -1, y := -1 );', 15);
         const expected = `\`\`\`escriptdoc
-(module function) CreateItemInBackpack(of_character, objtype, amount := 1, x := -1, y := -1)
+(module function) CreateItemInBackpack( of_character, objtype, amount := 1, x := -1, y := -1 )
 \`\`\`
 ---
 Creates an item in a character's backpack. Notes: Adds to an existing stack in the top level of the container, if an appropriate stack can be found (meaning, can hold the new amount, the existing item stack has color equal to its itemdesc.cfg color property AND has equal CProps as its itemdesc.cfg entry (not counting locally and globally ignored cprops).  If no appropritate stack is found, creates a new stack. Runs the item's create script, if any.Calls the container's canInsert and onInsert scripts, if any.

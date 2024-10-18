@@ -8,6 +8,7 @@ patterns:
   - include: '#moduleUnit'
   - include: '#functionDef'
   - include: '#closeParen'
+  - include: '#scope'
   - include: '#variable'
   - include: '#assignment'
   - include: '#strings'
@@ -29,6 +30,12 @@ repository:
         captures:
           '1': { name: entity.name.function.escriptdoc }
           '2': { name: meta.function.definition.parameters.escriptdoc }
+  scope:
+    patterns:
+      - comment: Scope
+        match: '([a-zA-Z$_][0-9a-zA-Z$_]*)(::)'
+        captures:
+          '1': { name: entity.name.type.escriptdoc }
   variable:
     patterns:
       - comment: Variables and parameters
