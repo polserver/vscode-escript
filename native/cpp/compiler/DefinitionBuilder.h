@@ -35,6 +35,8 @@ public:
       const std::string& include_name ) override;
   virtual std::optional<Pol::Bscript::Compiler::SourceLocation> get_module(
       const std::string& module_name ) override;
+  virtual std::optional<Pol::Bscript::Compiler::SourceLocation> get_class(
+      const std::string& name ) override;
 };
 
 }  // namespace VSCodeEscript::CompilerExt
