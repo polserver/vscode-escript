@@ -149,7 +149,7 @@ std::optional<SourceLocation> DefinitionBuilder::get_include( const std::string&
   return {};
 }
 
-std::optional<SourceLocation> DefinitionBuilder::get_use( const std::string& module_name )
+std::optional<SourceLocation> DefinitionBuilder::get_module( const std::string& module_name )
 {
   std::string pathname = Pol::Clib::FullPath(
       fmt::format( "{}{}.em", Pol::Bscript::compilercfg.ModuleDirectory, module_name ).c_str() );
