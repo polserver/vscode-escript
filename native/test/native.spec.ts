@@ -9,7 +9,7 @@ import type { Range, Position } from 'vscode-languageclient/node';
 
 const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
 
-const describeLongTest = process.env['JEST_RUN_LONG_TESTS'] ? describe : describe.skip;
+const describeLongTest = process.env['JEST_RUN_LONG_TESTS'] ? describe : () => { }; // describe.skip;
 
 const dir = resolve(__dirname);
 
@@ -861,6 +861,20 @@ describe('Completion', () => {
     it('Can complete variables', () => {
         const completion = getCompletion('var varGlobal; program foo() var varLocal; va; endprogram', 45);
         expect(completion).toEqual([{ label: 'varLocal', kind: 6 }, { label: 'varGlobal', kind: 6 }]);
+    });
+
+    it('Will not complete class user function when not in scope', () => {
+        const completion = getCompletion('class Foo() function Foo(this) Meth endfunction function Method(this) endfunction function Static() endfunction endclass Foo::Meth; Meth;', 136);
+        expect(completion).toEqual([]);
+    });
+
+    it('Can complete class user functions via ID::ID in global scope', () => {
+        const completion = getCompletion('class Foo() function Foo(this) Meth endfunction function Method(this) endfunction function Static() endfunction endclass Foo::Meth; Meth;', 129);
+        expect(completion).toEqual([{ label: 'Method', kind: 3 }]);
+    });
+    it('Can complete class user functions via ID inside class calling scope', () => {
+        const completion = getCompletion('class Foo() function Foo(this) Meth endfunction function Method(this) endfunction function Static() endfunction endclass Foo::Meth; Meth;', 35);
+        expect(completion).toEqual([{ label: 'Method', kind: 3 }]);
     });
 });
 
