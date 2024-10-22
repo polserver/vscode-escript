@@ -53,24 +53,28 @@ public:
   virtual std::optional<T> get_method( const std::string& name );
   virtual std::optional<T> get_class( const std::string& name );
 
+
+  virtual antlrcpp::Any visitClassDeclaration(
+      EscriptGrammar::EscriptParser::ClassDeclarationContext* ctx ) override;
   virtual antlrcpp::Any visitChildren( antlr4::tree::ParseTree* node ) override;
 
   bool contains( antlr4::tree::TerminalNode* terminal );
   bool contains( antlr4::Token* terminal );
   std::optional<T> try_constant( const std::string& name );
   std::optional<T> try_variable( const std::string& name );
-  std::optional<T> try_user_function_parameter( const std::string& function_name,
+  std::optional<T> try_user_function_parameter( const Pol::Bscript::Compiler::ScopeTreeQuery& query,
                                                 const std::string& param_name );
   std::optional<T> try_constant_or_variable( const std::string& name );
-  std::optional<T> try_function( const std::string& name );
-  std::optional<T> try_user_function( const std::string& name );
-  std::optional<T> try_module_function( const std::string& name );
+  std::optional<T> try_function( const Pol::Bscript::Compiler::ScopeTreeQuery& query );
+  std::optional<T> try_user_function( const Pol::Bscript::Compiler::ScopeTreeQuery& query );
+  std::optional<T> try_module_function( const Pol::Bscript::Compiler::ScopeTreeQuery& query );
   std::optional<T> try_scope( const std::string& name );
 
 protected:
   Pol::Bscript::Compiler::CompilerWorkspace& workspace;
   Pol::Bscript::Compiler::Position position;
   std::vector<antlr4::ParserRuleContext*> nodes;
+  std::string calling_scope;
 };
 
 template <typename T>
@@ -190,9 +194,9 @@ std::optional<T> SemanticContextBuilder<T>::try_variable( const std::string& nam
 
 template <typename T>
 std::optional<T> SemanticContextBuilder<T>::try_user_function_parameter(
-    const std::string& function_name, const std::string& param_name )
+    const Pol::Bscript::Compiler::ScopeTreeQuery& query, const std::string& param_name )
 {
-  if ( auto* function_def = workspace.scope_tree.find_user_function( function_name ) )
+  if ( auto* function_def = workspace.scope_tree.find_user_function( query ) )
   {
     for ( const auto& param_ref : function_def->parameters() )
     {
@@ -221,9 +225,10 @@ std::optional<T> SemanticContextBuilder<T>::try_constant_or_variable( const std:
 }
 
 template <typename T>
-std::optional<T> SemanticContextBuilder<T>::try_user_function( const std::string& name )
+std::optional<T> SemanticContextBuilder<T>::try_user_function(
+    const Pol::Bscript::Compiler::ScopeTreeQuery& query )
 {
-  if ( auto* function_def = workspace.scope_tree.find_user_function( name ) )
+  if ( auto* function_def = workspace.scope_tree.find_user_function( query ) )
   {
     return get_user_function( function_def );
   }
@@ -231,9 +236,10 @@ std::optional<T> SemanticContextBuilder<T>::try_user_function( const std::string
 }
 
 template <typename T>
-std::optional<T> SemanticContextBuilder<T>::try_module_function( const std::string& name )
+std::optional<T> SemanticContextBuilder<T>::try_module_function(
+    const Pol::Bscript::Compiler::ScopeTreeQuery& query )
 {
-  if ( auto* function_def = workspace.scope_tree.find_module_function( name ) )
+  if ( auto* function_def = workspace.scope_tree.find_module_function( query ) )
   {
     return get_module_function( function_def );
   }
@@ -264,16 +270,17 @@ std::optional<T> SemanticContextBuilder<T>::try_scope( const std::string& name )
 }
 
 template <typename T>
-std::optional<T> SemanticContextBuilder<T>::try_function( const std::string& name )
+std::optional<T> SemanticContextBuilder<T>::try_function(
+    const Pol::Bscript::Compiler::ScopeTreeQuery& query )
 {
-  auto result = try_module_function( name );
+  auto result = try_module_function( query );
   if ( result.has_value() )
   {
     return result;
   }
   else
   {
-    return try_user_function( name );
+    return try_user_function( query );
   }
 }
 
@@ -349,8 +356,8 @@ std::optional<T> SemanticContextBuilder<T>::context()
       {
         if ( contains( id ) )
         {
-          auto name = id->getText();
-          if ( auto* function_def = workspace.scope_tree.find_module_function( name ) )
+          if ( auto* function_def = workspace.scope_tree.find_module_function(
+                   { calling_scope, Pol::Bscript::Compiler::ScopeName::None, id->getText() } ) )
           {
             return get_module_function( function_def );
           }
@@ -364,8 +371,8 @@ std::optional<T> SemanticContextBuilder<T>::context()
       {
         if ( contains( id ) )
         {
-          auto name = id->getText();
-          if ( auto* function_def = workspace.scope_tree.find_user_function( name ) )
+          if ( auto* function_def = workspace.scope_tree.find_user_function(
+                   { calling_scope, Pol::Bscript::Compiler::ScopeName::None, id->getText() } ) )
           {
             return get_user_function( function_def );
           }
@@ -387,8 +394,9 @@ std::optional<T> SemanticContextBuilder<T>::context()
           {
             if ( auto* parent_id = parent_ctx->IDENTIFIER() )
             {
-              auto function_name = parent_id->getSymbol()->getText();
-              if ( auto* function_def = workspace.scope_tree.find_module_function( function_name ) )
+              if ( auto* function_def = workspace.scope_tree.find_module_function(
+                       { calling_scope, Pol::Bscript::Compiler::ScopeName::None,
+                         parent_id->getSymbol()->getText() } ) )
               {
                 for ( const auto& param_ref : function_def->parameters() )
                 {
@@ -502,8 +510,10 @@ std::optional<T> SemanticContextBuilder<T>::context()
           {
             if ( auto* parent_id = parent_ctx->IDENTIFIER() )
             {
-              auto function_name = parent_id->getSymbol()->getText();
-              return try_user_function_parameter( function_name, param_name );
+              return try_user_function_parameter(
+                  { calling_scope, Pol::Bscript::Compiler::ScopeName::None,
+                    parent_id->getSymbol()->getText() },
+                  param_name );
             }
           }
 
@@ -516,7 +526,10 @@ std::optional<T> SemanticContextBuilder<T>::context()
               auto function_name =
                   fmt::format( "funcexpr@{}:{}:{}", 0, parent_ctx->AT()->getSymbol()->getLine(),
                                parent_ctx->AT()->getSymbol()->getCharPositionInLine() + 1 );
-              return try_user_function_parameter( function_name, param_name );
+
+              return try_user_function_parameter(
+                  { calling_scope, Pol::Bscript::Compiler::ScopeName::None, function_name },
+                  param_name );
             }
           }
         }
@@ -529,8 +542,8 @@ std::optional<T> SemanticContextBuilder<T>::context()
       {
         if ( contains( id ) )
         {
-          auto name = id->getText();
-          return try_user_function( name );
+          return try_user_function(
+              { calling_scope, Pol::Bscript::Compiler::ScopeName::None, id->getText() } );
         }
       }
     }
@@ -576,8 +589,23 @@ std::optional<T> SemanticContextBuilder<T>::context()
       {
         if ( contains( id ) )
         {
-          auto name = id->getText();
-          return try_function( name );
+          Pol::Bscript::Compiler::ScopeName scope = Pol::Bscript::Compiler::ScopeName::None;
+
+          if ( auto* parent =
+                   dynamic_cast<EscriptGrammar::EscriptParser::ScopedFunctionCallContext*>(
+                       ctx->parent ) )
+          {
+            if ( auto scope_identifier = parent->IDENTIFIER() )
+            {
+              scope = scope_identifier->getText();
+            }
+            else
+            {
+              scope = Pol::Bscript::Compiler::ScopeName::Global;
+            }
+          }
+
+          return try_function( { calling_scope, scope, id->getText() } );
         }
       }
     }
@@ -674,6 +702,12 @@ std::optional<T> SemanticContextBuilder<T>::context()
         return try_scope( ctx->IDENTIFIER()->getText() );
       }
     }
+
+    // Reset the calling scope if we are popping out of a class declaration
+    if ( node->getRuleIndex() == EscriptGrammar::EscriptParser::RuleClassDeclaration )
+    {
+      calling_scope = "";
+    }
   }
   return std::nullopt;
 }
@@ -702,6 +736,24 @@ bool SemanticContextBuilder<T>::contains( antlr4::tree::TerminalNode* terminal )
     return contains( sym );
   }
   return false;
+}
+
+template <typename T>
+inline std::any SemanticContextBuilder<T>::visitClassDeclaration(
+    EscriptGrammar::EscriptParser::ClassDeclarationContext* ctx )
+{
+  if ( ctx->IDENTIFIER() )
+  {
+    Pol::Bscript::Compiler::Range range( *ctx );
+
+    // Set the calling scope if we are visiting a class declaration inside our range.
+    if ( range.contains( position ) )
+    {
+      calling_scope = ctx->IDENTIFIER()->getText();
+    }
+  }
+
+  return visitChildren( ctx );
 }
 
 template <typename T>
