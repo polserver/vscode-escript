@@ -18,6 +18,7 @@ public:
   bool showModuleFunctionComments;
   bool continueAnalysisOnError;
   bool disableWorkspaceReferences;
+  bool referenceAllFunctions;
 };
 
 extern ExtensionConfiguration gExtensionConfiguration;
