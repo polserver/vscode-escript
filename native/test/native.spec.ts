@@ -908,12 +908,12 @@ describe('Signature Help', () => {
         const signatureHelp = getSignatureHelp('use uo; SendSysMessage();', 24);
         expect(signatureHelp).toEqual({
             'signatures': [{
-                'label': 'SendSysMessage(character, text, font := 3, color := 1000)',
+                'label': 'SendSysMessage( character, text, font := 3, color := 1000 )',
                 'parameters': [
-                    { 'label': [15, 24] },
-                    { 'label': [26, 30] },
-                    { 'label': [32, 36] },
-                    { 'label': [43, 48] }]
+                    { 'label': [16, 25] },
+                    { 'label': [27, 31] },
+                    { 'label': [33, 37] },
+                    { 'label': [44, 49] }]
             }],
             'activeSignature': 0,
             'activeParameter': 0
@@ -925,10 +925,10 @@ describe('Signature Help', () => {
 
         expect(signatureHelp).toEqual({
             'signatures': [{
-                'label': 'hello(foo, bar := 5)',
+                'label': 'hello( foo, bar := 5 )',
                 'parameters': [
-                    { 'label': [6, 9] },
-                    { 'label': [11, 14] }]
+                    { 'label': [7, 10] },
+                    { 'label': [12, 15] }]
             }],
             'activeSignature': 0,
             'activeParameter': 1
@@ -958,6 +958,44 @@ describe('Signature Help', () => {
             expect(functionName).toEqual(expectedFunctionName);
             expect(signatureHelp.activeParameter).toEqual(activeParameter);
         }
+    });
+
+    it('Can signature help constructor', () => {
+        const signatureHelp = getSignatureHelp('class Foo() function Foo( this, a0, a1 := "bar" ) endfunction endclass Foo::Foo()', 81);
+        process.stderr.write(JSON.stringify(signatureHelp) + "\n");
+
+        expect(signatureHelp).toEqual({
+            'signatures': [{
+                'label': 'Foo( a0, a1 := "bar" )',
+                'parameters': [
+                    { 'label': [5, 7] },
+                    { 'label': [9, 11] }
+                ]
+            }],
+            'activeSignature': 0,
+            'activeParameter': 0
+        });
+    });
+
+    it('Can signature help super', () => {
+        const signatureHelp = getSignatureHelp('class Foo() function Foo( this, a0, a1 := "foo" ) endfunction endclass class Bar() function Bar( this , a0, a1 := "bar") endfunction endclass class Baz(Foo,Bar) function Baz( this ) super() endfunction endclass Baz();', 189);
+        process.stderr.write(JSON.stringify(signatureHelp) + "\n");
+
+        expect(signatureHelp).toEqual({
+            'signatures': [
+                {
+                    "label": 'super( a0, a1 := "foo", a0, a1 := "bar" )',
+                    "parameters": [
+                        { "label": [7, 9] },
+                        { "label": [11, 13] },
+                        { "label": [24, 26] },
+                        { "label": [28, 30] }
+                    ]
+                }
+            ],
+            'activeSignature': 0,
+            'activeParameter': 0
+        });
     });
 });
 
