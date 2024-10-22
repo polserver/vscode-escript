@@ -8,6 +8,7 @@
 #include "bscript/compiler/ast/FunctionParameterDeclaration.h"
 #include "bscript/compiler/ast/ModuleFunctionDeclaration.h"
 #include "bscript/compiler/ast/UserFunction.h"
+#include <boost/range/adaptor/sliced.hpp>
 #include <stack>
 
 using namespace Pol::Bscript::Compiler;
@@ -24,7 +25,7 @@ SignatureHelpBuilder::SignatureHelpBuilder( LSPWorkspace* lsp_workspace,
 SignatureHelp make_signature_help(
     LSPWorkspace* lsp_workspace, const std::string& function_name,
     std::vector<std::reference_wrapper<FunctionParameterDeclaration>> params,
-    size_t active_parameter, ModuleFunctionDeclaration* function_def )
+    size_t active_parameter, ModuleFunctionDeclaration* function_def, bool skip_first_param )
 {
   bool added = false;
   std::string result = function_name + "(";
@@ -42,7 +43,8 @@ SignatureHelp make_signature_help(
       parsed = XmlDocParser::parse_function( xmlDoc.value(), function_name );
   }
 
-  for ( const auto& param_ref : params )
+  for ( const auto& param_ref :
+        params | boost::adaptors::sliced( skip_first_param ? 1 : 0, params.size() ) )
   {
     auto& param = param_ref.get();
     if ( added )
@@ -52,6 +54,8 @@ SignatureHelp make_signature_help(
     }
     else
     {
+      result += " ";
+      current_position += 1;
       added = true;
     }
     result += param.name.name;
@@ -83,6 +87,12 @@ SignatureHelp make_signature_help(
       current_position += default_description_formatted.size() + 4;
     }
   }
+
+  if ( added )
+  {
+    result += " ";
+  }
+
   result += ")";
   return SignatureHelp{ result, std::move( parameters ), active_parameter };
 }
@@ -133,14 +143,17 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
                   {
                     return make_signature_help( _lsp_workspace, module_function->name,
                                                 module_function->parameters(), current_param,
-                                                module_function );
+                                                module_function, false );
                   }
                   else if ( auto* user_function =
                                 workspace.scope_tree.find_user_function( function_name ) )
                   {
+                    bool skip_first_param = user_function->type == UserFunctionType::Constructor ||
+                                            user_function->type == UserFunctionType::Super;
+
                     return make_signature_help( _lsp_workspace, user_function->name,
-                                                user_function->parameters(), current_param,
-                                                nullptr );
+                                                user_function->parameters(), current_param, nullptr,
+                                                skip_first_param );
                   }
                 }
               }
