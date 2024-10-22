@@ -316,6 +316,16 @@ describe('Hover - SRC', () => {
         const hover = getHover('var foo := struct{ bar := 3 };', 20);
         expect(hover).toEqual(escriptdoc('(member) bar'))
     });
+
+    it('Can hover correct user function (class scope)', () => {
+        const hover = getHover('function static_func( a0 := "::static_func" ) endfunction class Foo() function static_func( a0 := "Foo::static_func" ) endfunction endclass Foo::static_func(); static_func();', 148)
+        expect(hover).toEqual(escriptdoc('(user function) Foo::static_func( a0 := "Foo::static_func" )'))
+    })
+
+    it('Can hover correct user function (global scope)', () => {
+        const hover = getHover('function static_func( a0 := "::static_func" ) endfunction class Foo() function static_func( a0 := "Foo::static_func" ) endfunction endclass Foo::static_func(); static_func();', 169)
+        expect(hover).toEqual(escriptdoc('(user function) static_func( a0 := "::static_func" )'))
+    })
 });
 
 describe('Hover - Classes', () => {
