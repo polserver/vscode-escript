@@ -56,6 +56,8 @@ public:
 
   virtual antlrcpp::Any visitClassDeclaration(
       EscriptGrammar::EscriptParser::ClassDeclarationContext* ctx ) override;
+  virtual antlrcpp::Any visitFunctionDeclaration(
+      EscriptGrammar::EscriptParser::FunctionDeclarationContext* ctx ) override;
   virtual antlrcpp::Any visitChildren( antlr4::tree::ParseTree* node ) override;
 
   bool contains( antlr4::tree::TerminalNode* terminal );
@@ -75,6 +77,7 @@ protected:
   Pol::Bscript::Compiler::Position position;
   std::vector<antlr4::ParserRuleContext*> nodes;
   std::string calling_scope;
+  std::string current_user_function;  // Excludes function expressions
 };
 
 template <typename T>
@@ -357,7 +360,8 @@ std::optional<T> SemanticContextBuilder<T>::context()
         if ( contains( id ) )
         {
           if ( auto* function_def = workspace.scope_tree.find_module_function(
-                   { calling_scope, Pol::Bscript::Compiler::ScopeName::None, id->getText() } ) )
+                   { calling_scope, current_user_function, Pol::Bscript::Compiler::ScopeName::None,
+                     id->getText() } ) )
           {
             return get_module_function( function_def );
           }
@@ -372,7 +376,8 @@ std::optional<T> SemanticContextBuilder<T>::context()
         if ( contains( id ) )
         {
           if ( auto* function_def = workspace.scope_tree.find_user_function(
-                   { calling_scope, Pol::Bscript::Compiler::ScopeName::None, id->getText() } ) )
+                   { calling_scope, current_user_function, Pol::Bscript::Compiler::ScopeName::None,
+                     id->getText() } ) )
           {
             return get_user_function( function_def );
           }
@@ -395,7 +400,8 @@ std::optional<T> SemanticContextBuilder<T>::context()
             if ( auto* parent_id = parent_ctx->IDENTIFIER() )
             {
               if ( auto* function_def = workspace.scope_tree.find_module_function(
-                       { calling_scope, Pol::Bscript::Compiler::ScopeName::None,
+                       { calling_scope, current_user_function,
+                         Pol::Bscript::Compiler::ScopeName::None,
                          parent_id->getSymbol()->getText() } ) )
               {
                 for ( const auto& param_ref : function_def->parameters() )
@@ -511,7 +517,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
             if ( auto* parent_id = parent_ctx->IDENTIFIER() )
             {
               return try_user_function_parameter(
-                  { calling_scope, Pol::Bscript::Compiler::ScopeName::None,
+                  { calling_scope, current_user_function, Pol::Bscript::Compiler::ScopeName::None,
                     parent_id->getSymbol()->getText() },
                   param_name );
             }
@@ -528,7 +534,8 @@ std::optional<T> SemanticContextBuilder<T>::context()
                                parent_ctx->AT()->getSymbol()->getCharPositionInLine() + 1 );
 
               return try_user_function_parameter(
-                  { calling_scope, Pol::Bscript::Compiler::ScopeName::None, function_name },
+                  { calling_scope, current_user_function, Pol::Bscript::Compiler::ScopeName::None,
+                    function_name },
                   param_name );
             }
           }
@@ -542,8 +549,8 @@ std::optional<T> SemanticContextBuilder<T>::context()
       {
         if ( contains( id ) )
         {
-          return try_user_function(
-              { calling_scope, Pol::Bscript::Compiler::ScopeName::None, id->getText() } );
+          return try_user_function( { calling_scope, current_user_function,
+                                      Pol::Bscript::Compiler::ScopeName::None, id->getText() } );
         }
       }
     }
@@ -605,7 +612,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
             }
           }
 
-          return try_function( { calling_scope, scope, id->getText() } );
+          return try_function( { calling_scope, current_user_function, scope, id->getText() } );
         }
       }
     }
@@ -708,6 +715,11 @@ std::optional<T> SemanticContextBuilder<T>::context()
     {
       calling_scope = "";
     }
+    // Reset the current user function if we are popping out of a function declaration
+    else if ( node->getRuleIndex() == EscriptGrammar::EscriptParser::RuleFunctionDeclaration )
+    {
+      current_user_function = "";
+    }
   }
   return std::nullopt;
 }
@@ -755,6 +767,25 @@ inline std::any SemanticContextBuilder<T>::visitClassDeclaration(
 
   return visitChildren( ctx );
 }
+
+template <typename T>
+inline antlrcpp::Any SemanticContextBuilder<T>::visitFunctionDeclaration(
+    EscriptGrammar::EscriptParser::FunctionDeclarationContext* ctx )
+{
+  if ( ctx->IDENTIFIER() )
+  {
+    Pol::Bscript::Compiler::Range range( *ctx );
+
+    // Set the calling scope if we are visiting a class declaration inside our range.
+    if ( range.contains( position ) )
+    {
+      current_user_function = ctx->IDENTIFIER()->getText();
+    }
+  }
+
+  return visitChildren( ctx );
+}
+
 
 template <typename T>
 antlrcpp::Any SemanticContextBuilder<T>::visitChildren( antlr4::tree::ParseTree* node )

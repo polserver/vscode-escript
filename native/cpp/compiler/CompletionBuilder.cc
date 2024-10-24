@@ -61,6 +61,7 @@ std::vector<CompletionItem> CompletionBuilder::context()
 
   ScopeTreeQuery query;
 
+  query.current_user_function = current_user_function;
   query.calling_scope = calling_scope;
 
   if ( result->getType() == EscriptLexer::IDENTIFIER )
@@ -109,7 +110,10 @@ std::vector<CompletionItem> CompletionBuilder::context()
 
   for ( auto* user_function : workspace.scope_tree.list_user_functions( query, position ) )
   {
-    results.push_back( CompletionItem{ user_function->name, CompletionItemKind::Function } );
+    results.push_back(
+        CompletionItem{ user_function->name, user_function->type == UserFunctionType::Constructor
+                                                 ? CompletionItemKind::Constructor
+                                                 : CompletionItemKind::Function } );
   }
 
   for ( auto* module_function : workspace.scope_tree.list_module_functions( query ) )
@@ -117,9 +121,9 @@ std::vector<CompletionItem> CompletionBuilder::context()
     results.push_back( CompletionItem{ module_function->name, CompletionItemKind::Function } );
   }
 
-  for ( auto& class_decl : workspace.scope_tree.list_classes( query ) )
+  for ( auto& scope_name : workspace.scope_tree.list_scopes( query ) )
   {
-    results.push_back( CompletionItem{ class_decl->name, CompletionItemKind::Class } );
+    results.push_back( CompletionItem{ scope_name, CompletionItemKind::Class } );
   }
 
   for ( auto& module_name : workspace.scope_tree.list_modules( query ) )
@@ -130,7 +134,8 @@ std::vector<CompletionItem> CompletionBuilder::context()
   return results;
 }
 
-std::any CompletionBuilder::visitClassDeclaration( EscriptParser::ClassDeclarationContext* ctx )
+antlrcpp::Any CompletionBuilder::visitClassDeclaration(
+    EscriptParser::ClassDeclarationContext* ctx )
 {
   if ( ctx->IDENTIFIER() )
   {
@@ -138,6 +143,21 @@ std::any CompletionBuilder::visitClassDeclaration( EscriptParser::ClassDeclarati
     if ( range.contains( position ) )
     {
       calling_scope = ctx->IDENTIFIER()->getText();
+    }
+  }
+
+  return visitChildren( ctx );
+}
+
+antlrcpp::Any CompletionBuilder::visitFunctionDeclaration(
+    EscriptGrammar::EscriptParser::FunctionDeclarationContext* ctx )
+{
+  if ( ctx->IDENTIFIER() )
+  {
+    Pol::Bscript::Compiler::Range range( *ctx );
+    if ( range.contains( position ) )
+    {
+      current_user_function = ctx->IDENTIFIER()->getText();
     }
   }
 

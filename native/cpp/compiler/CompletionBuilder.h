@@ -55,8 +55,10 @@ public:
 
   std::vector<CompletionItem> context();
 
-  virtual std::any visitClassDeclaration(
+  virtual antlrcpp::Any visitClassDeclaration(
       EscriptGrammar::EscriptParser::ClassDeclarationContext* ctx ) override;
+  virtual antlrcpp::Any visitFunctionDeclaration(
+      EscriptGrammar::EscriptParser::FunctionDeclarationContext* ctx ) override;
 
   virtual antlrcpp::Any visitChildren( antlr4::tree::ParseTree* node ) override;
 
@@ -65,6 +67,7 @@ protected:
   Pol::Bscript::Compiler::Position position;
   std::vector<antlr4::ParserRuleContext*> nodes;
   std::string calling_scope = "";
+  std::string current_user_function = "";
 };
 
 }  // namespace VSCodeEscript::CompilerExt

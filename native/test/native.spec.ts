@@ -886,6 +886,25 @@ describe('Completion', () => {
         const completion = getCompletion('class Foo() function Foo(this) Meth endfunction function Method(this) endfunction function Static() endfunction endclass Foo::Meth; Meth;', 35);
         expect(completion).toEqual([{ label: 'Method', kind: 3 }]);
     });
+
+    it('Can complete super:: for class scope inside user function', () => {
+        const completion = getCompletion('class Foo() function func() endfunction endclass class Bar( Foo ) function func() sup; endfunction endclass Foo::func(); Bar::func();', 84);
+        expect(completion).toEqual([{ label: 'super', kind: 7 }])
+    });
+
+    it('Can complete super::method for class scope inside user function', () => {
+        const completion = getCompletion('class Foo() function func() endfunction endclass class Bar( Foo ) function my_func() super::; endfunction endclass Foo::func(); Bar::my_func();', 92);
+        expect(completion).toEqual([{ label: 'func', kind: 3 }])
+    });
+
+    it('Can complete constructors', () => {
+        const completion = getCompletion('class Foo() function Foo( unused this ) endfunction function Method( unused this ) endfunction function Static() endfunction endclass Foo:: ; Foo::Static();', 139);
+        expect(completion).toEqual([
+            { label: 'Static', kind: 3 },
+            { label: 'Foo', kind: 4 },
+            { label: 'Method', kind: 3 },
+        ])
+    });
 });
 
 describe('Signature Help', () => {
@@ -972,7 +991,6 @@ describe('Signature Help', () => {
 
     it('Can signature help constructor', () => {
         const signatureHelp = getSignatureHelp('class Foo() function Foo( this, a0, a1 := "bar" ) endfunction endclass Foo::Foo()', 81);
-        process.stderr.write(JSON.stringify(signatureHelp) + "\n");
 
         expect(signatureHelp).toEqual({
             'signatures': [{
@@ -989,7 +1007,6 @@ describe('Signature Help', () => {
 
     it('Can signature help super', () => {
         const signatureHelp = getSignatureHelp('class Foo() function Foo( this, a0, a1 := "foo" ) endfunction endclass class Bar() function Bar( this , a0, a1 := "bar") endfunction endclass class Baz(Foo,Bar) function Baz( this ) super() endfunction endclass Baz();', 189);
-        process.stderr.write(JSON.stringify(signatureHelp) + "\n");
 
         expect(signatureHelp).toEqual({
             'signatures': [

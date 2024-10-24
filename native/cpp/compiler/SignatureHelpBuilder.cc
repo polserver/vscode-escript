@@ -103,6 +103,7 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
   {
     auto tokens = workspace.source->get_all_tokens();
     bool in_class = false;
+    bool in_function = false;
 
     ScopeTreeQuery query;
 
@@ -122,6 +123,15 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
       else if ( token->getType() == EscriptLexer::CLASS )
       {
         in_class = false;
+      }
+
+      else if ( token->getType() == EscriptLexer::ENDFUNCTION )
+      {
+        in_function = true;
+      }
+      else if ( token->getType() == EscriptLexer::FUNCTION )
+      {
+        in_function = false;
       }
 
       // We found the token
@@ -197,19 +207,27 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
           return {};
         }
 
-        if ( in_class && rit != tokens.rend() )
+        if ( ( in_class || in_function ) && rit != tokens.rend() )
         {
           // If in a class, we need to find the class name to get the calling
           // scope. We do this by continuing to move the reverse iterator `rit`
           // toward the beginning of the source, looking for the CLASS token.
           antlr4::Token* class_token = nullptr;
+          antlr4::Token* function_token = nullptr;
           for ( ; rit != tokens.rend(); ++rit )
           {
             token = *rit;
             if ( token->getType() == EscriptLexer::CLASS )
             {
               class_token = token;
-              break;
+              if ( function_token || !in_function )
+                break;
+            }
+            else if ( token->getType() == EscriptLexer::FUNCTION )
+            {
+              function_token = token;
+              if ( class_token || !in_class )
+                break;
             }
           }
 
@@ -229,6 +247,26 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
               if ( forward_token->getType() == EscriptLexer::IDENTIFIER )
               {
                 query.calling_scope = forward_token->getText();
+              }
+
+              break;
+            }
+          }
+
+          if ( function_token && function_token->getTokenIndex() < tokens.size() - 1 )
+          {
+            for ( auto it = tokens.begin() + function_token->getTokenIndex() + 1; it < tokens.end();
+                  ++it )
+            {
+              auto forward_token = *it;
+              if ( forward_token->getType() == EscriptLexer::WS )
+              {
+                continue;
+              }
+
+              if ( forward_token->getType() == EscriptLexer::IDENTIFIER )
+              {
+                query.current_user_function = forward_token->getText();
               }
 
               break;
