@@ -8,6 +8,7 @@
 #include "bscript/compiler/ast/FunctionParameterDeclaration.h"
 #include "bscript/compiler/ast/ModuleFunctionDeclaration.h"
 #include "bscript/compiler/ast/UserFunction.h"
+#include "clib/strutil.h"
 #include <boost/range/adaptor/sliced.hpp>
 #include <stack>
 
@@ -106,6 +107,7 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
     bool in_function = false;
 
     ScopeTreeQuery query;
+    bool is_object_access_query = false;
 
     antlr4::Token* token;
     // Loop the source from the end to find the token containing our position
@@ -173,6 +175,29 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
                          tokens[token->getTokenIndex() - 2]->getType() == EscriptLexer::IDENTIFIER )
                     {
                       query.prefix_scope = tokens[token->getTokenIndex() - 2]->getText();
+                    }
+                    else
+                    {
+                      query.prefix_scope = ScopeName::Global;
+                    }
+                  }
+
+                  // Check for a method call
+                  if ( token->getTokenIndex() > 0 &&
+                       tokens[token->getTokenIndex() - 1]->getType() == EscriptLexer::DOT )
+                  {
+                    if ( token->getTokenIndex() > 1 &&
+                         tokens[token->getTokenIndex() - 2]->getType() == EscriptLexer::IDENTIFIER )
+                    {
+                      if ( Pol::Clib::caseInsensitiveEqual(
+                               "this", tokens[token->getTokenIndex() - 2]->getText() ) )
+                      {
+                        is_object_access_query = true;
+                      }
+                      else
+                      {
+                        return {};
+                      }
                     }
                     else
                     {
@@ -280,10 +305,13 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
                                       module_function->parameters(), current_param, module_function,
                                       false );
         }
-        else if ( auto* user_function = workspace.scope_tree.find_user_function( query ) )
+        else if ( auto* user_function = ( is_object_access_query
+                                              ? workspace.scope_tree.find_class_method( query )
+                                              : workspace.scope_tree.find_user_function( query ) ) )
         {
           bool skip_first_param = user_function->type == UserFunctionType::Constructor ||
-                                  user_function->type == UserFunctionType::Super;
+                                  user_function->type == UserFunctionType::Super ||
+                                  user_function->type == UserFunctionType::Method;
 
           return make_signature_help( _lsp_workspace, user_function->name,
                                       user_function->parameters(), current_param, nullptr,

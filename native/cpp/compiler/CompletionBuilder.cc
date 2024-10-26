@@ -1,6 +1,8 @@
 #include "CompletionBuilder.h"
 
 #include "bscript/compiler/ast/ClassDeclaration.h"
+#include "bscript/compiler/ast/Identifier.h"
+#include "bscript/compiler/ast/MemberAssignment.h"
 #include "bscript/compiler/model/ScopeName.h"
 
 #include "clib/strutil.h"
@@ -60,6 +62,7 @@ std::vector<CompletionItem> CompletionBuilder::context()
   }
 
   ScopeTreeQuery query;
+  bool is_object_access_query = false;
 
   query.current_user_function = current_user_function;
   query.calling_scope = calling_scope;
@@ -78,6 +81,20 @@ std::vector<CompletionItem> CompletionBuilder::context()
         query.prefix_scope = ScopeName::Global;
       }
     }
+    else if ( prev_token && prev_token->getType() == EscriptLexer::DOT )
+    {
+      if ( second_prev_token && second_prev_token->getType() == EscriptLexer::IDENTIFIER )
+      {
+        if ( Pol::Clib::caseInsensitiveEqual( second_prev_token->getText(), "this" ) )
+        {
+          is_object_access_query = true;
+        }
+      }
+      else
+      {
+        return {};
+      }
+    }
   }
   else if ( result->getType() == EscriptLexer::COLONCOLON )
   {
@@ -90,6 +107,20 @@ std::vector<CompletionItem> CompletionBuilder::context()
       query.prefix_scope = ScopeName::Global;
     }
   }
+  else if ( result->getType() == EscriptLexer::DOT )
+  {
+    if ( prev_token && prev_token->getType() == EscriptLexer::IDENTIFIER )
+    {
+      if ( Pol::Clib::caseInsensitiveEqual( prev_token->getText(), "this" ) )
+      {
+        is_object_access_query = true;
+      }
+    }
+    else
+    {
+      return {};
+    }
+  }
   else
   {
     return {};
@@ -97,38 +128,52 @@ std::vector<CompletionItem> CompletionBuilder::context()
 
   std::vector<CompletionItem> results;
 
-  for ( auto* constant : workspace.scope_tree.list_constants( query ) )
+  if ( is_object_access_query )
   {
-    results.push_back( CompletionItem{ constant->identifier, CompletionItemKind::Constant } );
+    for ( auto* user_function : workspace.scope_tree.list_class_methods( query ) )
+    {
+      results.push_back( CompletionItem{ user_function->name, CompletionItemKind::Method } );
+    }
+    for ( auto* assignment_statement : workspace.scope_tree.list_class_members( query ) )
+    {
+      results.push_back( CompletionItem{ assignment_statement->name, CompletionItemKind::Field } );
+    }
   }
-
-  for ( auto variable : workspace.scope_tree.list_variables( query, position ) )
+  else
   {
-    results.push_back(
-        CompletionItem{ variable->scoped_name().name, CompletionItemKind::Variable } );
-  }
+    for ( auto* constant : workspace.scope_tree.list_constants( query ) )
+    {
+      results.push_back( CompletionItem{ constant->identifier, CompletionItemKind::Constant } );
+    }
 
-  for ( auto* user_function : workspace.scope_tree.list_user_functions( query, position ) )
-  {
-    results.push_back(
-        CompletionItem{ user_function->name, user_function->type == UserFunctionType::Constructor
-                                                 ? CompletionItemKind::Constructor
-                                                 : CompletionItemKind::Function } );
-  }
+    for ( auto variable : workspace.scope_tree.list_variables( query, position ) )
+    {
+      results.push_back(
+          CompletionItem{ variable->scoped_name().name, CompletionItemKind::Variable } );
+    }
 
-  for ( auto* module_function : workspace.scope_tree.list_module_functions( query ) )
-  {
-    results.push_back( CompletionItem{ module_function->name, CompletionItemKind::Function } );
-  }
+    for ( auto* user_function : workspace.scope_tree.list_user_functions( query, position ) )
+    {
+      results.push_back(
+          CompletionItem{ user_function->name, user_function->type == UserFunctionType::Constructor
+                                                   ? CompletionItemKind::Constructor
+                                                   : CompletionItemKind::Function } );
+    }
 
-  for ( auto& scope_name : workspace.scope_tree.list_scopes( query ) )
-  {
-    results.push_back( CompletionItem{ scope_name, CompletionItemKind::Class } );
-  }
+    for ( auto* module_function : workspace.scope_tree.list_module_functions( query ) )
+    {
+      results.push_back( CompletionItem{ module_function->name, CompletionItemKind::Function } );
+    }
 
-  for ( auto& module_name : workspace.scope_tree.list_modules( query ) )
-  {
-    results.push_back( CompletionItem{ module_name, CompletionItemKind::Module } );
+    for ( auto& scope_name : workspace.scope_tree.list_scopes( query ) )
+    {
+      results.push_back( CompletionItem{ scope_name, CompletionItemKind::Class } );
+    }
+
+    for ( auto& module_name : workspace.scope_tree.list_modules( query ) )
+    {
+      results.push_back( CompletionItem{ module_name, CompletionItemKind::Module } );
+    }
   }
 
   return results;

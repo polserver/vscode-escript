@@ -326,6 +326,16 @@ describe('Hover - SRC', () => {
         const hover = getHover('function static_func( a0 := "::static_func" ) endfunction class Foo() function static_func( a0 := "Foo::static_func" ) endfunction endclass Foo::static_func(); static_func();', 169)
         expect(hover).toEqual(escriptdoc('(user function) static_func( a0 := "::static_func" )'))
     })
+
+    it('Can hover parent method inside child class', () => {
+        const hover = getHover('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 332);
+        expect(hover).toEqual(escriptdoc('(class method) Foo::parent_method_func( this )'))
+    });
+
+    it('Can hover own method inside child class', () => {
+        const hover = getHover('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 236);
+        expect(hover).toEqual(escriptdoc('(class method) Bar::child_method_func( this )'))
+    });
 });
 
 describe('Hover - Classes', () => {
@@ -600,6 +610,12 @@ describe('Definition - SRC', () => {
         return document.definition({ line: 1, character });
     };
 
+    const expectColumnRange = (definition: ReturnType<typeof getDefinition>, start: number, end: number) => {
+        expect(definition).toBeDefined();
+        expect(definition?.range.start.character).toEqual(start);
+        expect(definition?.range.end.character).toEqual(end);
+    };
+
     it('Can define variable', () => {
         const definition = getDefinition('var foo := struct{ bar := 3 }; foo;', 33);
         expect(definition).toEqual({
@@ -696,6 +712,26 @@ describe('Definition - SRC', () => {
             range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
             fsPath: pathname
         });
+    });
+
+    it('Can define parent class member inside child class', () => {
+        const definition = getDefinition('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 304);
+        expectColumnRange(definition, 33, 50);
+    });
+
+    it('Can define own class member inside child class', () => {
+        const definition = getDefinition('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 314);
+        expectColumnRange(definition, 205, 222);
+    });
+
+    it('Can define parent method inside child class', () => {
+        const definition = getDefinition('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 332);
+        expectColumnRange(definition, 91, 148);
+    });
+
+    it('Can define own method inside child class', () => {
+        const definition = getDefinition('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 236);
+        expectColumnRange(definition, 262, 355);
     });
 });
 
@@ -905,6 +941,23 @@ describe('Completion', () => {
             { label: 'Method', kind: 3 },
         ])
     });
+
+    it('Can complete methods and members inside parent class only', () => {
+        const completion = getCompletion('class Foo() function Foo( this ) this.foo := "foo"; endfunction function parent_method_func( this ) this.; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; endfunction function child_method_func( this ) this.; endfunction endclass Bar::Bar();', 106)
+        expect(completion).toEqual([
+            { label: 'parent_method_func', kind: 2 },
+            { label: 'foo', kind: 5 }
+        ]);
+    });
+    it('Can complete methods and members inside child class', () => {
+        const completion = getCompletion('class Foo() function Foo( this ) this.foo := "foo"; endfunction function parent_method_func( this ) this.; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; endfunction function child_method_func( this ) this.; endfunction endclass Bar:Bar();', 247)
+        expect(completion).toEqual([
+            { label: 'child_method_func', kind: 2 },
+            { label: 'parent_method_func', kind: 2 },
+            { label: 'bar', kind: 5 },
+            { label: 'foo', kind: 5 }
+        ]);
+    });
 });
 
 describe('Signature Help', () => {
@@ -1022,6 +1075,35 @@ describe('Signature Help', () => {
             ],
             'activeSignature': 0,
             'activeParameter': 0
+        });
+    });
+
+    it('Can signature help parent method inside child class', () => {
+        const signatureHelp = getSignatureHelp('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this, a0, a1 ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this, a0 ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 354);
+
+        expect(signatureHelp).toEqual({
+            "signatures": [{
+                "label": "parent_method_func( a0, a1 )",
+                "parameters": [
+                    { "label": [20, 22] },
+                    { "label": [24, 26] }]
+            }],
+            "activeSignature": 0,
+            "activeParameter": 0
+        });
+    });
+
+    it('Can signature help own method inside child class', () => {
+        const signatureHelp = getSignatureHelp('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this, a0, a1 ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this, a0 ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 256);
+
+        expect(signatureHelp).toEqual({
+            "signatures": [{
+                "label": "child_method_func( a0 )",
+                "parameters": [
+                    { "label": [19, 21] }]
+            }],
+            "activeSignature": 0,
+            "activeParameter": 0
         });
     });
 });

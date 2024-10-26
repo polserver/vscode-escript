@@ -1,5 +1,6 @@
 #include "DefinitionBuilder.h"
 
+#include "bscript/compiler/ast/MemberAssignment.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
 #include "bscript/compilercfg.h"
 #include "clib/fileutil.h"
@@ -173,6 +174,34 @@ std::optional<Pol::Bscript::Compiler::SourceLocation> DefinitionBuilder::get_cla
   {
     return itr->second;
   }
+  return {};
+}
+
+std::optional<Pol::Bscript::Compiler::SourceLocation> DefinitionBuilder::get_method(
+    const std::string& name )
+{
+  auto user_function = workspace.scope_tree.find_class_method(
+      { calling_scope, current_user_function, ScopeName::None, name } );
+
+  if ( user_function )
+  {
+    return user_function->source_location;
+  }
+
+  return {};
+}
+
+std::optional<Pol::Bscript::Compiler::SourceLocation> DefinitionBuilder::get_member(
+    const std::string& name )
+{
+  auto member = workspace.scope_tree.find_class_member(
+      { calling_scope, current_user_function, ScopeName::None, name } );
+
+  if ( member )
+  {
+    return member->source_location;
+  }
+
   return {};
 }
 
