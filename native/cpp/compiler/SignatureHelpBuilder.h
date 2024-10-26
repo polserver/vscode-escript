@@ -40,6 +40,7 @@ protected:
   Pol::Bscript::Compiler::CompilerWorkspace& workspace;
   Pol::Bscript::Compiler::Position position;
   LSPWorkspace* _lsp_workspace;
+  std::string calling_scope = "";
 };
 
 }  // namespace VSCodeEscript::CompilerExt

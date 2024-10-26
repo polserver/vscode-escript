@@ -85,6 +85,11 @@
 					"type": "boolean",
 					"default": false,
 					"markdownDescription": "Disable support for finding references across the whole workspace. If `true`, loading of the workspace cache is skipped, and finding references will only work across open files in the editor and their dependents.\n\nChanging this option does nothing if the workspace cache has already been loaded."
+				},
+				"escript.referenceAllFunctions": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "By default, the compiler will only include functions that have been called when analyzing sources. If `true`, all functions will be analyzed, regardless if they are used."
 				}
 			}
 		},

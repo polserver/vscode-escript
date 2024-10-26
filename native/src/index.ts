@@ -60,6 +60,7 @@ export interface ExtensionConfiguration {
     showModuleFunctionComments: boolean;
     continueAnalysisOnError: boolean;
 	disableWorkspaceReferences: boolean;
+	referenceAllFunctions: boolean;
 }
 
 export interface EscriptVscodeNative {
@@ -71,6 +72,7 @@ export interface EscriptVscodeNative {
         get(setting: 'showModuleFunctionComments'): boolean;
         get(setting: 'continueAnalysisOnError'): boolean;
         get(setting: 'disableWorkspaceReferences'): boolean;
+        get(setting: 'referenceAllFunctions'): boolean;
     }
 }
 

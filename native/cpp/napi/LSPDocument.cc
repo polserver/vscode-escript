@@ -147,7 +147,7 @@ Napi::Value LSPDocument::Analyze( const Napi::CallbackInfo& info )
 
     auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
     auto compiler = lsp_workspace->make_compiler();
-    if ( type == LSPDocumentType::INC )
+    if ( type == LSPDocumentType::INC || gExtensionConfiguration.referenceAllFunctions )
     {
       compiler->set_include_compile_mode();
     }

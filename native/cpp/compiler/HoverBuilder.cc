@@ -5,9 +5,13 @@
 
 #include "bscript/compiler/file/SourceFile.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
+#include "bscript/compiler/model/ClassLink.h"
+#include "bscript/compilercfg.h"
+#include "clib/fileutil.h"
 #include "clib/strutil.h"
 
 #include <algorithm>
+#include <boost/range/adaptor/sliced.hpp>
 #include <regex>
 #include <string>
 #include <tinyxml/tinyxml.h>
@@ -62,11 +66,12 @@ std::optional<HoverResult> HoverBuilder::get_variable(
 }
 
 std::string parameters_to_string(
-    std::vector<std::reference_wrapper<FunctionParameterDeclaration>> params )
+    std::vector<std::reference_wrapper<FunctionParameterDeclaration>> params, bool exclude_first )
 {
   bool added = false;
   std::string result;
-  for ( const auto& param_ref : params )
+  for ( const auto& param_ref :
+        boost::adaptors::slice( params, exclude_first ? 1 : 0, params.size() ) )
   {
     auto& param = param_ref.get();
     if ( added )
@@ -75,15 +80,25 @@ std::string parameters_to_string(
     }
     else
     {
+      result += " ";
       added = true;
     }
-    result += param.name;
+    result += param.name.name;
     auto* default_value = param.default_value();
     if ( default_value )
     {
       result += " := ";
       result += HoverBuilder::replace_literal_tags( default_value->describe() );
     }
+
+    if ( param.rest )
+    {
+      result += "...";
+    }
+  }
+  if ( added )
+  {
+    result += " ";
   }
   return result;
 }
@@ -94,7 +109,7 @@ std::optional<HoverResult> HoverBuilder::get_module_function(
   std::string hover = "```escriptdoc\n(module function) ";
   hover += function_def->name;
   hover += "(";
-  hover += parameters_to_string( function_def->parameters() );
+  hover += parameters_to_string( function_def->parameters(), false );
   hover += ")\n```";
   HoverResult result{ HoverResult::SymbolType::MODULE_FUNCTION, function_def->name, hover };
   return append_comment( function_def, result );
@@ -103,10 +118,36 @@ std::optional<HoverResult> HoverBuilder::get_module_function(
 std::optional<HoverResult> HoverBuilder::get_user_function(
     Pol::Bscript::Compiler::UserFunction* function_def )
 {
-  std::string hover = "```escriptdoc\n(user function) ";
+  std::string hover = "```escriptdoc\n";
+
+  if ( function_def->type == UserFunctionType::Constructor )
+  {
+    hover += "(class constructor) ";
+  }
+  else if ( function_def->type == UserFunctionType::Method )
+  {
+    hover += "(class method) ";
+  }
+  else if ( function_def->type == UserFunctionType::Super )
+  {
+    hover += "(super) ";
+  }
+  else
+  {
+    hover += "(user function) ";
+  }
+
+  if ( function_def->class_link )
+  {
+    hover += function_def->class_link->name;
+    hover += "::";
+  }
+
   hover += function_def->name;
   hover += "(";
-  hover += parameters_to_string( function_def->parameters() );
+  hover += parameters_to_string( function_def->parameters(),
+                                 function_def->type == UserFunctionType::Constructor ||
+                                     function_def->type == UserFunctionType::Super );
   hover += ")\n```";
   HoverResult result{ HoverResult::SymbolType::USER_FUNCTION, function_def->name, hover };
   return append_comment( function_def, result );
@@ -132,10 +173,17 @@ std::optional<HoverResult> HoverBuilder::get_program( const std::string& name,
       else
       {
         added = true;
+        hover += " ";
       }
       hover += param->name;
     }
   }
+
+  if ( added )
+  {
+    hover += " ";
+  }
+
   hover += ")\n```";
   HoverResult result{ HoverResult::SymbolType::PROGRAM, name, hover };
   return append_comment( program, result );
@@ -146,14 +194,14 @@ std::optional<HoverResult> HoverBuilder::get_module_function_parameter(
     Pol::Bscript::Compiler::FunctionParameterDeclaration* param )
 {
   std::string hover = "```escriptdoc\n(parameter) ";
-  hover += param->name;
+  hover += param->name.name;
   if ( auto* default_value = param->default_value() )
   {
     hover += " := ";
     hover += replace_literal_tags( default_value->describe() );
   }
   hover += "\n```";
-  HoverResult result{ HoverResult::SymbolType::MODULE_FUNCTION_PARAMETER, param->name, hover,
+  HoverResult result{ HoverResult::SymbolType::MODULE_FUNCTION_PARAMETER, param->name.name, hover,
                       function_def };
   return append_comment( param, result );
 }
@@ -164,14 +212,14 @@ std::optional<HoverResult> HoverBuilder::get_user_function_parameter(
     Pol::Bscript::Compiler::FunctionParameterDeclaration* param )
 {
   std::string hover = "```escriptdoc\n(parameter) ";
-  hover += param->name;
+  hover += param->name.name;
   if ( auto* default_value = param->default_value() )
   {
     hover += " := ";
     hover += replace_literal_tags( default_value->describe() );
   }
   hover += "\n```";
-  HoverResult result{ HoverResult::SymbolType::USER_FUNCTION_PARAMETER, param->name, hover };
+  HoverResult result{ HoverResult::SymbolType::USER_FUNCTION_PARAMETER, param->name.name, hover };
   return append_comment( param, result );
 }
 
@@ -194,10 +242,34 @@ std::optional<HoverResult> HoverBuilder::get_member( const std::string& name )
 
 std::optional<HoverResult> HoverBuilder::get_method( const std::string& name )
 {
+  auto user_function = workspace.scope_tree.find_class_method(
+      { calling_scope, current_user_function, ScopeName::None, name } );
+
+  if ( user_function )
+  {
+    return get_user_function( user_function );
+  }
+
   std::string hover = "```escriptdoc\n(method) ";
   hover += name;
   hover += "\n```";
   return HoverResult{ HoverResult::SymbolType::METHOD, name, hover };
+}
+
+std::optional<HoverResult> HoverBuilder::get_class( const std::string& name )
+{
+  std::string hover = "```escriptdoc\n(class) ";
+  hover += name;
+  hover += "\n```";
+  return HoverResult{ HoverResult::SymbolType::CLASS, name, hover };
+}
+
+std::optional<HoverResult> HoverBuilder::get_module( const std::string& name )
+{
+  std::string hover = "```escriptdoc\n(module) ";
+  hover += name;
+  hover += "\n```";
+  return HoverResult{ HoverResult::SymbolType::MODULE, name, hover };
 }
 
 HoverResult& HoverBuilder::append_comment( const SourceLocation& source_location,

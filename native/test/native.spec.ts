@@ -9,12 +9,13 @@ import type { Range, Position } from 'vscode-languageclient/node';
 
 const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
 
-const describeLongTest = process.env['JEST_RUN_LONG_TESTS'] ? describe : describe.skip;
+const describeLongTest = process.env['JEST_RUN_LONG_TESTS'] ? describe : () => { }; // describe.skip;
 
 const dir = resolve(__dirname);
 
 // Uses relative path
 const moduleDirectory = join('..', 'polserver', 'pol-core', 'support', 'scripts');
+const moduleDirectoryAbs = resolve(__dirname, '..', 'polserver', 'pol-core', 'support', 'scripts');
 const polDirectory = resolve(__dirname, '..', 'polserver', 'testsuite', 'pol');
 const includeDirectory = resolve(polDirectory, 'scripts', 'include');
 
@@ -25,6 +26,36 @@ function toBeDefined<T>(val: T, message = 'Value is undefined'): asserts val is 
 const escriptdoc = (text: string) => "```escriptdoc\n" + text + "\n```";
 
 const xmlDocDir = resolve(__dirname, '..', 'polserver', 'docs', 'docs.polserver.com', 'pol100');
+
+const classes_src = `class bar()
+  var other;
+  function bar( this, other := 5 )
+    this.funcexpr := @( foo123 ) { print( foo123 ); };
+    bar::other := other;
+  endfunction
+endclass
+
+class FOO( bar )
+  function foo( this )
+    SUPER();
+  endfunction
+
+  function method_func( this, what := "everything" )
+    basicio::print( $"{this} attacks {what}!" );
+  endfunction
+
+  function static_func( what := "everything" )
+    print( $"static method {what}" );
+  endfunction
+endclass
+
+var bar;
+bar := FOO::foo();
+bar := foo();
+
+FOO::method_func( bar );
+FOO::static_func( "what" );
+`;
 
 beforeAll(async () => {
     const cfg = resolve(dir, 'scripts', 'ecompile.cfg');
@@ -203,7 +234,7 @@ describe('Hover - SRC', () => {
 
     it('Can hover user function declaration', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 11);
-        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
+        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'))
     });
 
     it('Can hover foreach (loop identifier)', () => {
@@ -233,7 +264,7 @@ describe('Hover - SRC', () => {
 
     it('Can hover program declaration', () => {
         const hover = getHover('program foo(bar, baz) endprogram', 10);
-        expect(hover).toEqual(escriptdoc('(program) foo(bar, baz)'))
+        expect(hover).toEqual(escriptdoc('(program) foo( bar, baz )'))
     });
 
     it('Can hover program parameter', () => {
@@ -253,7 +284,7 @@ describe('Hover - SRC', () => {
 
     it('Can hover function reference', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction @Foo.call();', 42);
-        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
+        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'))
     });
 
     it('Can hover primary', () => {
@@ -273,17 +304,108 @@ describe('Hover - SRC', () => {
 
     it('Can hover user function call', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction Foo(1);', 42);
-        expect(hover).toEqual(escriptdoc('(user function) foo(bar, baz := 1)'))
+        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'))
     });
 
     it('Can hover module function call', () => {
         const hover = getHover('print(1);', 3);
-        expect(hover).toEqual(escriptdoc("(module function) Print(anything, console_color := \"\")"))
+        expect(hover).toEqual(escriptdoc("(module function) Print( anything, console_color := \"\" )"))
     });
 
     it('Can hover struct init member', () => {
         const hover = getHover('var foo := struct{ bar := 3 };', 20);
         expect(hover).toEqual(escriptdoc('(member) bar'))
+    });
+
+    it('Can hover correct user function (class scope)', () => {
+        const hover = getHover('function static_func( a0 := "::static_func" ) endfunction class Foo() function static_func( a0 := "Foo::static_func" ) endfunction endclass Foo::static_func(); static_func();', 148)
+        expect(hover).toEqual(escriptdoc('(user function) Foo::static_func( a0 := "Foo::static_func" )'))
+    })
+
+    it('Can hover correct user function (global scope)', () => {
+        const hover = getHover('function static_func( a0 := "::static_func" ) endfunction class Foo() function static_func( a0 := "Foo::static_func" ) endfunction endclass Foo::static_func(); static_func();', 169)
+        expect(hover).toEqual(escriptdoc('(user function) static_func( a0 := "::static_func" )'))
+    })
+
+    it('Can hover parent method inside child class', () => {
+        const hover = getHover('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 332);
+        expect(hover).toEqual(escriptdoc('(class method) Foo::parent_method_func( this )'))
+    });
+
+    it('Can hover own method inside child class', () => {
+        const hover = getHover('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 236);
+        expect(hover).toEqual(escriptdoc('(class method) Bar::child_method_func( this )'))
+    });
+});
+
+describe('Hover - Classes', () => {
+    let document: LSPDocument;
+
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return classes_src;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.open(dir);
+
+        document = workspace.getDocument(src);
+    });
+
+    const getHover = (line: number, character: number) => {
+        document.analyze();
+        return document.hover({ line, character });
+    };
+
+    it('Can hover class name in class declaration', () => {
+        const hover = getHover(1, 8);
+        expect(hover).toEqual(escriptdoc('(class) bar'))
+    });
+
+    it('Can hover class name in class parameter list', () => {
+        const hover = getHover(9, 14);
+        expect(hover).toEqual(escriptdoc('(class) bar'))
+    });
+
+    it('Can hover module name in scoped function call', () => {
+        const hover = getHover(15, 9);
+        expect(hover).toEqual(escriptdoc('(module) basicio'))
+    });
+
+    it('Can hover variable name in class body', () => {
+        const hover = getHover(2, 10);
+        expect(hover).toEqual(escriptdoc('(variable) bar::other'))
+    });
+
+    it('Can hover class constructor', () => {
+        const hover = getHover(3, 14);
+        expect(hover).toEqual(escriptdoc('(class constructor) bar::bar( other := 5 )'))
+    });
+
+    it('Can hover function parameter in function expression', () => {
+        const hover = getHover(4, 28);
+        expect(hover).toEqual(escriptdoc('(parameter) foo123'))
+    });
+
+    it('Can hover super function', () => {
+        const hover = getHover(11, 8);
+        expect(hover).toEqual(escriptdoc('(super) FOO::super( other := 5 )'))
+    });
+
+    it('Can hover method function', () => {
+        const hover = getHover(14, 19);
+        expect(hover).toEqual(escriptdoc('(class method) FOO::method_func( this, what := "everything" )'))
+    });
+
+    it('Can hover method function', () => {
+        const hover = getHover(18, 18);
+        expect(hover).toEqual(escriptdoc('(user function) FOO::static_func( what := "everything" )'))
     });
 });
 
@@ -315,7 +437,7 @@ describe('Hover - Module', () => {
 
     it('Can hover module function declaration', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 9);
-        expect(hover).toEqual(escriptdoc('(module function) ModuleFunction(a, b := 5)'))
+        expect(hover).toEqual(escriptdoc('(module function) ModuleFunction( a, b := 5 )'))
     });
 
     it('Can hover module function parameter (no default)', () => {
@@ -368,7 +490,7 @@ describe('Hover Docs', () => {
     it('Can hover module functions with XML docs', () => {
         const hover = getHover('use uo; CreateItemInBackpack( "of_character", "objtype", amount := 1, x := -1, y := -1 );', 15);
         const expected = `\`\`\`escriptdoc
-(module function) CreateItemInBackpack(of_character, objtype, amount := 1, x := -1, y := -1)
+(module function) CreateItemInBackpack( of_character, objtype, amount := 1, x := -1, y := -1 )
 \`\`\`
 ---
 Creates an item in a character's backpack. Notes: Adds to an existing stack in the top level of the container, if an appropriate stack can be found (meaning, can hold the new amount, the existing item stack has color equal to its itemdesc.cfg color property AND has equal CProps as its itemdesc.cfg entry (not counting locally and globally ignored cprops).  If no appropritate stack is found, creates a new stack. Runs the item's create script, if any.Calls the container's canInsert and onInsert scripts, if any.
@@ -488,6 +610,12 @@ describe('Definition - SRC', () => {
         return document.definition({ line: 1, character });
     };
 
+    const expectColumnRange = (definition: ReturnType<typeof getDefinition>, start: number, end: number) => {
+        expect(definition).toBeDefined();
+        expect(definition?.range.start.character).toEqual(start);
+        expect(definition?.range.end.character).toEqual(end);
+    };
+
     it('Can define variable', () => {
         const definition = getDefinition('var foo := struct{ bar := 3 }; foo;', 33);
         expect(definition).toEqual({
@@ -513,7 +641,7 @@ describe('Definition - SRC', () => {
             definition.fsPath = resolve(definition.fsPath);
         }
         expect(definition).toEqual({
-            range: { start: { line: 9, character: 0 }, end: { line: 9, character: 37 } },
+            range: { start: { line: 10, character: 0 }, end: { line: 10, character: 39 } },
             fsPath
         });
     });
@@ -585,7 +713,78 @@ describe('Definition - SRC', () => {
             fsPath: pathname
         });
     });
+
+    it('Can define parent class member inside child class', () => {
+        const definition = getDefinition('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 304);
+        expectColumnRange(definition, 33, 50);
+    });
+
+    it('Can define own class member inside child class', () => {
+        const definition = getDefinition('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 314);
+        expectColumnRange(definition, 205, 222);
+    });
+
+    it('Can define parent method inside child class', () => {
+        const definition = getDefinition('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 332);
+        expectColumnRange(definition, 91, 148);
+    });
+
+    it('Can define own method inside child class', () => {
+        const definition = getDefinition('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 236);
+        expectColumnRange(definition, 262, 355);
+    });
 });
+
+
+describe('Definition - Classes', () => {
+    let document: LSPDocument;
+
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return classes_src;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.open(dir);
+
+        document = workspace.getDocument(src);
+    });
+
+    const getDefinition = (line: number, character: number) => {
+        document.analyze();
+        return document.definition({ line, character });
+    };
+
+    it('Can define class', () => {
+        const definition = getDefinition(24, 10);
+        expect(definition).toEqual({
+            range: {
+                start: { line: 8, character: 0 },
+                end: { line: 20, character: 8 }
+            },
+            fsPath: 'in-memory-file.src'
+        });
+    });
+
+    it('Can define module', () => {
+        const definition = getDefinition(15, 9);
+        expect(definition).toEqual({
+            range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 }
+            },
+            fsPath: resolve(moduleDirectoryAbs, 'basicio.em')
+        });
+    });
+
+});
+
 
 describe('Definition - Module', () => {
     let document: LSPDocument;
@@ -699,13 +898,65 @@ describe('Completion', () => {
             { label: 'CRMULTI_IGNORE_ALL', kind: 21 },
             { label: 'CRMULTI_IGNORE_MULTIS', kind: 21 },
             { label: 'CRMULTI_IGNORE_OBJECTS', kind: 21 },
-            { label: 'CRMULTI_IGNORE_WORLDZ', kind: 21 }
+            { label: 'CRMULTI_IGNORE_WORLDZ', kind: 21 },
+            { label: 'CRMULTI_KEEP_COMPONENTS', kind: 21 },
+            { label: 'CRMULTI_RECREATE_COMPONENTS', kind: 21 },
         ]);
     });
 
     it('Can complete variables', () => {
         const completion = getCompletion('var varGlobal; program foo() var varLocal; va; endprogram', 45);
         expect(completion).toEqual([{ label: 'varLocal', kind: 6 }, { label: 'varGlobal', kind: 6 }]);
+    });
+
+    it('Will not complete class user function when not in scope', () => {
+        const completion = getCompletion('class Foo() function Foo(this) Meth endfunction function Method(this) endfunction function Static() endfunction endclass Foo::Meth; Meth;', 136);
+        expect(completion).toEqual([]);
+    });
+
+    it('Can complete class user functions via ID::ID in global scope', () => {
+        const completion = getCompletion('class Foo() function Foo(this) Meth endfunction function Method(this) endfunction function Static() endfunction endclass Foo::Meth; Meth;', 129);
+        expect(completion).toEqual([{ label: 'Method', kind: 3 }]);
+    });
+    it('Can complete class user functions via ID inside class calling scope', () => {
+        const completion = getCompletion('class Foo() function Foo(this) Meth endfunction function Method(this) endfunction function Static() endfunction endclass Foo::Meth; Meth;', 35);
+        expect(completion).toEqual([{ label: 'Method', kind: 3 }]);
+    });
+
+    it('Can complete super:: for class scope inside user function', () => {
+        const completion = getCompletion('class Foo() function func() endfunction endclass class Bar( Foo ) function func() sup; endfunction endclass Foo::func(); Bar::func();', 84);
+        expect(completion).toEqual([{ label: 'super', kind: 7 }])
+    });
+
+    it('Can complete super::method for class scope inside user function', () => {
+        const completion = getCompletion('class Foo() function func() endfunction endclass class Bar( Foo ) function my_func() super::; endfunction endclass Foo::func(); Bar::my_func();', 92);
+        expect(completion).toEqual([{ label: 'func', kind: 3 }])
+    });
+
+    it('Can complete constructors', () => {
+        const completion = getCompletion('class Foo() function Foo( unused this ) endfunction function Method( unused this ) endfunction function Static() endfunction endclass Foo:: ; Foo::Static();', 139);
+        expect(completion).toEqual([
+            { label: 'Static', kind: 3 },
+            { label: 'Foo', kind: 4 },
+            { label: 'Method', kind: 3 },
+        ])
+    });
+
+    it('Can complete methods and members inside parent class only', () => {
+        const completion = getCompletion('class Foo() function Foo( this ) this.foo := "foo"; endfunction function parent_method_func( this ) this.; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; endfunction function child_method_func( this ) this.; endfunction endclass Bar::Bar();', 106)
+        expect(completion).toEqual([
+            { label: 'parent_method_func', kind: 2 },
+            { label: 'foo', kind: 5 }
+        ]);
+    });
+    it('Can complete methods and members inside child class', () => {
+        const completion = getCompletion('class Foo() function Foo( this ) this.foo := "foo"; endfunction function parent_method_func( this ) this.; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; endfunction function child_method_func( this ) this.; endfunction endclass Bar:Bar();', 247)
+        expect(completion).toEqual([
+            { label: 'child_method_func', kind: 2 },
+            { label: 'parent_method_func', kind: 2 },
+            { label: 'bar', kind: 5 },
+            { label: 'foo', kind: 5 }
+        ]);
     });
 });
 
@@ -739,12 +990,12 @@ describe('Signature Help', () => {
         const signatureHelp = getSignatureHelp('use uo; SendSysMessage();', 24);
         expect(signatureHelp).toEqual({
             'signatures': [{
-                'label': 'SendSysMessage(character, text, font := 3, color := 1000)',
+                'label': 'SendSysMessage( character, text, font := 3, color := 1000 )',
                 'parameters': [
-                    { 'label': [15, 24] },
-                    { 'label': [26, 30] },
-                    { 'label': [32, 36] },
-                    { 'label': [43, 48] }]
+                    { 'label': [16, 25] },
+                    { 'label': [27, 31] },
+                    { 'label': [33, 37] },
+                    { 'label': [44, 49] }]
             }],
             'activeSignature': 0,
             'activeParameter': 0
@@ -756,10 +1007,10 @@ describe('Signature Help', () => {
 
         expect(signatureHelp).toEqual({
             'signatures': [{
-                'label': 'hello(foo, bar := 5)',
+                'label': 'hello( foo, bar := 5 )',
                 'parameters': [
-                    { 'label': [6, 9] },
-                    { 'label': [11, 14] }]
+                    { 'label': [7, 10] },
+                    { 'label': [12, 15] }]
             }],
             'activeSignature': 0,
             'activeParameter': 1
@@ -789,6 +1040,71 @@ describe('Signature Help', () => {
             expect(functionName).toEqual(expectedFunctionName);
             expect(signatureHelp.activeParameter).toEqual(activeParameter);
         }
+    });
+
+    it('Can signature help constructor', () => {
+        const signatureHelp = getSignatureHelp('class Foo() function Foo( this, a0, a1 := "bar" ) endfunction endclass Foo::Foo()', 81);
+
+        expect(signatureHelp).toEqual({
+            'signatures': [{
+                'label': 'Foo( a0, a1 := "bar" )',
+                'parameters': [
+                    { 'label': [5, 7] },
+                    { 'label': [9, 11] }
+                ]
+            }],
+            'activeSignature': 0,
+            'activeParameter': 0
+        });
+    });
+
+    it('Can signature help super', () => {
+        const signatureHelp = getSignatureHelp('class Foo() function Foo( this, a0, a1 := "foo" ) endfunction endclass class Bar() function Bar( this , a0, a1 := "bar") endfunction endclass class Baz(Foo,Bar) function Baz( this ) super() endfunction endclass Baz();', 189);
+
+        expect(signatureHelp).toEqual({
+            'signatures': [
+                {
+                    "label": 'super( a0, a1 := "foo", a0, a1 := "bar" )',
+                    "parameters": [
+                        { "label": [7, 9] },
+                        { "label": [11, 13] },
+                        { "label": [24, 26] },
+                        { "label": [28, 30] }
+                    ]
+                }
+            ],
+            'activeSignature': 0,
+            'activeParameter': 0
+        });
+    });
+
+    it('Can signature help parent method inside child class', () => {
+        const signatureHelp = getSignatureHelp('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this, a0, a1 ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this, a0 ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 354);
+
+        expect(signatureHelp).toEqual({
+            "signatures": [{
+                "label": "parent_method_func( a0, a1 )",
+                "parameters": [
+                    { "label": [20, 22] },
+                    { "label": [24, 26] }]
+            }],
+            "activeSignature": 0,
+            "activeParameter": 0
+        });
+    });
+
+    it('Can signature help own method inside child class', () => {
+        const signatureHelp = getSignatureHelp('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this, a0, a1 ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this, a0 ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 256);
+
+        expect(signatureHelp).toEqual({
+            "signatures": [{
+                "label": "child_method_func( a0 )",
+                "parameters": [
+                    { "label": [19, 21] }]
+            }],
+            "activeSignature": 0,
+            "activeParameter": 0
+        });
     });
 });
 
@@ -872,7 +1188,8 @@ describeLongTest('Actively typing sources', () => {
             it(`Processing ${file}`, async () => {
                 const data = await readFile(file, 'utf-8');
                 const doc = new DynamicDocument(data, 0);
-                const process = () => {
+                // process.stderr.write(`Processing ${file}\n`);
+                const processFile = () => {
                     while (!doc.finished()) {
                         try {
                             doc.analyze();
@@ -881,7 +1198,7 @@ describeLongTest('Actively typing sources', () => {
                         }
                     }
                 };
-                expect(process).not.toThrow();
+                expect(processFile).not.toThrow();
             });
         }
     }

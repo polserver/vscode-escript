@@ -9,7 +9,8 @@ ExtensionConfiguration::ExtensionConfiguration()
     : polCommitId( "" ),
       showModuleFunctionComments( false ),
       continueAnalysisOnError( true ),
-      disableWorkspaceReferences( false )
+      disableWorkspaceReferences( false ),
+      referenceAllFunctions( false )
 {
 }
 
@@ -41,6 +42,10 @@ Napi::Value ExtensionConfiguration::Get( const Napi::CallbackInfo& info )
   else if ( property == "disableWorkspaceReferences" )
   {
     return Napi::Boolean::New( env, gExtensionConfiguration.disableWorkspaceReferences );
+  }
+  else if ( property == "referenceAllFunctions" )
+  {
+    return Napi::Boolean::New( env, gExtensionConfiguration.referenceAllFunctions );
   }
   Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
       .ThrowAsJavaScriptException();
@@ -109,6 +114,19 @@ Napi::Value ExtensionConfiguration::SetFromObject( const Napi::CallbackInfo& inf
     else
     {
       gExtensionConfiguration.disableWorkspaceReferences = false;
+    }
+  }
+
+  if ( config.Has( "referenceAllFunctions" ) )
+  {
+    auto value = config.Get( "referenceAllFunctions" );
+    if ( value.IsBoolean() )
+    {
+      gExtensionConfiguration.referenceAllFunctions = value.As<Napi::Boolean>().Value();
+    }
+    else
+    {
+      gExtensionConfiguration.referenceAllFunctions = false;
     }
   }
 

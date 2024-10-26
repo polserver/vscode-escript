@@ -135,7 +135,7 @@ export class LSPServer {
                 hoverProvider: true,
                 definitionProvider: true,
                 completionProvider: {
-                    triggerCharacters: []
+                    triggerCharacters: [':', '.']
                 },
                 referencesProvider: {
                     workDoneProgress: true

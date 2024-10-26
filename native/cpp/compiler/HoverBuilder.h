@@ -31,7 +31,9 @@ struct HoverResult
     PROGRAM,
     PROGRAM_PARAMETER,
     MEMBER,
-    METHOD
+    METHOD,
+    CLASS,
+    MODULE,
   } type;
 
   std::string symbol;
@@ -67,6 +69,8 @@ public:
   virtual std::optional<HoverResult> get_program_parameter( const std::string& param ) override;
   virtual std::optional<HoverResult> get_member( const std::string& name ) override;
   virtual std::optional<HoverResult> get_method( const std::string& name ) override;
+  virtual std::optional<HoverResult> get_class( const std::string& name ) override;
+  virtual std::optional<HoverResult> get_module( const std::string& name ) override;
 
   static std::string replace_literal_tags( const std::string& input );
   static std::string strip_comment_code( const std::string& comment );

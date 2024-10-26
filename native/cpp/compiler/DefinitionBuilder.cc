@@ -1,7 +1,8 @@
 #include "DefinitionBuilder.h"
 
-#include "bscript/compilercfg.h"
+#include "bscript/compiler/ast/MemberAssignment.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
+#include "bscript/compilercfg.h"
 #include "clib/fileutil.h"
 #include "plib/pkg.h"
 
@@ -149,7 +150,7 @@ std::optional<SourceLocation> DefinitionBuilder::get_include( const std::string&
   return {};
 }
 
-std::optional<SourceLocation> DefinitionBuilder::get_use( const std::string& module_name )
+std::optional<SourceLocation> DefinitionBuilder::get_module( const std::string& module_name )
 {
   std::string pathname = Pol::Clib::FullPath(
       fmt::format( "{}{}.em", Pol::Bscript::compilercfg.ModuleDirectory, module_name ).c_str() );
@@ -162,6 +163,45 @@ std::optional<SourceLocation> DefinitionBuilder::get_use( const std::string& mod
   {
     return SourceLocation( itr->get(), Range( Position{ 1, 1, 0 }, Position{ 1, 1, 0 } ) );
   }
+  return {};
+}
+
+std::optional<Pol::Bscript::Compiler::SourceLocation> DefinitionBuilder::get_class(
+    const std::string& name )
+{
+  auto itr = workspace.all_class_locations.find( name );
+  if ( itr != workspace.all_class_locations.end() )
+  {
+    return itr->second;
+  }
+  return {};
+}
+
+std::optional<Pol::Bscript::Compiler::SourceLocation> DefinitionBuilder::get_method(
+    const std::string& name )
+{
+  auto user_function = workspace.scope_tree.find_class_method(
+      { calling_scope, current_user_function, ScopeName::None, name } );
+
+  if ( user_function )
+  {
+    return user_function->source_location;
+  }
+
+  return {};
+}
+
+std::optional<Pol::Bscript::Compiler::SourceLocation> DefinitionBuilder::get_member(
+    const std::string& name )
+{
+  auto member = workspace.scope_tree.find_class_member(
+      { calling_scope, current_user_function, ScopeName::None, name } );
+
+  if ( member )
+  {
+    return member->source_location;
+  }
+
   return {};
 }
 
