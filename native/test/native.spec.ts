@@ -336,6 +336,16 @@ describe('Hover - SRC', () => {
         const hover = getHover('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 236);
         expect(hover).toEqual(escriptdoc('(class method) Bar::child_method_func( this )'))
     });
+
+    it('Can hover global functions without specifying query prefix', () => {
+        const hover = getHover('function StaticFunction(a0) endfunction class Foo() function Foo(this) StaticFunction(0); endfunction endclass StaticFunction("");', 74)
+        expect(hover).toEqual(escriptdoc('(user function) StaticFunction( a0 )'))
+    });
+
+    it('Can hover global functions with specifying query prefix', () => {
+        const hover = getHover('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::StaticFunction(0); endfunction endclass StaticFunction("");', 76)
+        expect(hover).toEqual(escriptdoc('(user function) StaticFunction( a0 )'))
+    });
 });
 
 describe('Hover - Classes', () => {
@@ -611,9 +621,9 @@ describe('Definition - SRC', () => {
     };
 
     const expectColumnRange = (definition: ReturnType<typeof getDefinition>, start: number, end: number) => {
-        expect(definition).toBeDefined();
-        expect(definition?.range.start.character).toEqual(start);
-        expect(definition?.range.end.character).toEqual(end);
+        toBeDefined(definition);
+        expect(definition.range.start.character).toEqual(start);
+        expect(definition.range.end.character).toEqual(end);
     };
 
     it('Can define variable', () => {
@@ -732,6 +742,16 @@ describe('Definition - SRC', () => {
     it('Can define own method inside child class', () => {
         const definition = getDefinition('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 236);
         expectColumnRange(definition, 262, 355);
+    });
+
+    it('Can define global functions without specifying query prefix', () => {
+        const definition = getDefinition('function StaticFunction(a0) endfunction class Foo() function Foo(this) StaticFunction(0); endfunction endclass StaticFunction("");', 74)
+        expectColumnRange(definition, 0, 39);
+    });
+
+    it('Can define global functions with specifying query prefix', () => {
+        const definition = getDefinition('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::StaticFunction(0); endfunction endclass StaticFunction("");', 76)
+        expectColumnRange(definition, 0, 39);
     });
 });
 
@@ -956,6 +976,20 @@ describe('Completion', () => {
             { label: 'parent_method_func', kind: 2 },
             { label: 'bar', kind: 5 },
             { label: 'foo', kind: 5 }
+        ]);
+    });
+
+    it('Can complete global functions without specifying query prefix', () => {
+        const completion = getCompletion('function StaticFunction(a0) endfunction class Foo() function Foo(this) Sta endfunction endclass StaticFunction("");', 74)
+        expect(completion).toEqual([
+            { label: 'StaticFunction', kind: 3 },
+        ]);
+    });
+
+    it('Can complete global functions with specifying query prefix', () => {
+        const completion = getCompletion('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::Sta endfunction endclass StaticFunction("");', 76)
+        expect(completion).toEqual([
+            { label: 'StaticFunction', kind: 3 },
         ]);
     });
 });
