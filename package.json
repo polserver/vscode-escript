@@ -243,7 +243,7 @@
 		"test": "jest --coverage --detectOpenHandles --runInBand",
 		"test-all": "cross-env JEST_RUN_LONG_TESTS=1 jest --coverage --detectOpenHandles --runInBand",
 		"grammar": "js-yaml grammars/escript.yml > grammars/escript.json && js-yaml grammars/cfg.yml > grammars/cfg.json && js-yaml grammars/codeblock.yml > grammars/codeblock.json && js-yaml grammars/doc.yml > grammars/doc.json",
-		"eslint": "eslint \"**/*.{js,ts}\""
+		"eslint": "eslint"
 	},
 	"dependencies": {
 		"vscode-languageclient": "^9.0.1"

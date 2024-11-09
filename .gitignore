@@ -12,3 +12,4 @@ native/test/scripts/ecompile.cfg
 .vscode/settings.json
 .cache
 .DS_Store
+tsconfig.tsbuildinfo
