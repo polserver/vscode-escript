@@ -246,21 +246,21 @@
 		"eslint": "eslint \"**/*.{js,ts}\""
 	},
 	"dependencies": {
-		"vscode-languageclient": "^8.1.0"
+		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
-		"@types/jest": "^29.5.1",
-		"@types/mock-fs": "^4.13.1",
-		"@types/node": "^20.2.4",
-		"@typescript-eslint/parser": "^5.59.7",
+		"@types/jest": "^29.5.14",
+		"@types/mock-fs": "^4.13.4",
+		"@types/node": "^22.9.0",
+		"@typescript-eslint/parser": "^8.13.0",
 		"cross-env": "^7.0.3",
-		"eslint": "^8.41.0",
-		"jest": "^29.5.0",
+		"eslint": "^9.14.0",
+		"jest": "^29.7.0",
 		"js-yaml": "^4.1.0",
-		"mock-fs": "^5.2.0",
-		"rimraf": "^5.0.1",
-		"ts-jest": "^29.1.0",
-		"ts-loader": "^9.4.3",
-		"typescript": "^5.0.4"
+		"mock-fs": "^5.4.1",
+		"rimraf": "^6.0.1",
+		"ts-jest": "^29.2.5",
+		"ts-loader": "^9.5.1",
+		"typescript": "^5.6.3"
 	}
 }

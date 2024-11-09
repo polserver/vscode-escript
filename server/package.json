@@ -17,15 +17,15 @@
 		"url": "https://github.com/polserver/vscode-escript"
 	},
 	"dependencies": {
-		"async": "^3.2.5",
+		"async": "^3.2.6",
 		"vscode-escript-native": "file:../native",
-		"vscode-languageserver": "^8.1.0",
-		"vscode-languageserver-textdocument": "^1.0.8",
-		"vscode-uri": "^3.0.7"
+		"vscode-languageserver": "^9.0.1",
+		"vscode-languageserver-textdocument": "^1.0.12",
+		"vscode-uri": "^3.0.8"
 	},
 	"scripts": {},
 	"devDependencies": {
 		"@types/async": "^3.2.24",
-		"@types/node": "^18.15.0"
+		"@types/node": "^22.9.0"
 	}
 }
