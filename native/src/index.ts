@@ -48,7 +48,7 @@ export interface LSPDocument {
     definition(position: Position, options?: { nameOnly?: boolean }): { range: Range, fsPath: string } | undefined;
     references(position: Position): { range: Range, fsPath: string }[] | undefined;
     signatureHelp(position: Position): SignatureHelp | undefined;
-	toFormattedString(options?: Partial<Pick<FormattingOptions, "tabSize"|"insertSpaces">>, formatRange?: Range): string; // throws
+	toFormattedString(options?: Partial<Pick<FormattingOptions, 'tabSize'|'insertSpaces'>>, formatRange?: Range): string; // throws
     tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
     toStringTree(): string | undefined;
     buildReferences(): undefined;
@@ -103,60 +103,60 @@ native.LSPWorkspace.prototype.updateCache = updateCache;
 const updateCacheMap = new WeakMap<LSPWorkspace, { promise: Promise<boolean>, progresses: UpdateCacheProgressCallback[], signals: AbortSignal[] }>();
 
 function updateCache(this: LSPWorkspace, progress?: UpdateCacheProgressCallback, signal?: AbortSignal) {
-	const existing = updateCacheMap.get(this);
-	if (existing) {
-		const { promise, progresses } = existing;
-		if (progress) {
-			progresses.push(progress);
-		}
-		return promise.then((completed) => {
-			const existing = updateCacheMap.get(this);
-			if (existing) {
-				existing.progresses.length = 0;
-				existing.signals.length = 0;
-			}
-			return completed;
-		});
-	}
+    const existing = updateCacheMap.get(this);
+    if (existing) {
+        const { promise, progresses } = existing;
+        if (progress) {
+            progresses.push(progress);
+        }
+        return promise.then((completed) => {
+            const existing = updateCacheMap.get(this);
+            if (existing) {
+                existing.progresses.length = 0;
+                existing.signals.length = 0;
+            }
+            return completed;
+        });
+    }
 
-	const update = async () => {
-		const { autoCompiledScripts } = this;
-		let count = 0;
-		const total = autoCompiledScripts.length;
-		for (const p of autoCompiledScripts) {
-			await new Promise(resolve => setImmediate(resolve));
-			const existing = updateCacheMap.get(this);
-			const canceled = Boolean(existing?.signals.some(signal => signal.aborted));
+    const update = async () => {
+        const { autoCompiledScripts } = this;
+        let count = 0;
+        const total = autoCompiledScripts.length;
+        for (const p of autoCompiledScripts) {
+            await new Promise(resolve => setImmediate(resolve));
+            const existing = updateCacheMap.get(this);
+            const canceled = Boolean(existing?.signals.some(signal => signal.aborted));
 
-			if (canceled) {
-				// Delete from the map, so a new call to updateCache() creates a new task.
-				updateCacheMap.delete(this);
-				return false;
-			}
+            if (canceled) {
+                // Delete from the map, so a new call to updateCache() creates a new task.
+                updateCacheMap.delete(this);
+                return false;
+            }
 
-			try {
-				this.getDocument(p).buildReferences();
-			} catch (e) {
-				// Should never happen
-				console.error(`Failed to process ${p}: ${e}`);
-			}
+            try {
+                this.getDocument(p).buildReferences();
+            } catch (e) {
+                // Should never happen
+                console.error(`Failed to process ${p}: ${e}`);
+            }
 
-			++count;
-			if (existing) {
-				existing.progresses.forEach(progress => progress({ count, total }));
-			}
-		}
-		return true;
-	}
-	const promise = update();
-	updateCacheMap.set(this, { promise, progresses: progress ? [progress] : [], signals: signal ? [signal] : [] });
+            ++count;
+            if (existing) {
+                existing.progresses.forEach(progress => progress({ count, total }));
+            }
+        }
+        return true;
+    };
+    const promise = update();
+    updateCacheMap.set(this, { promise, progresses: progress ? [progress] : [], signals: signal ? [signal] : [] });
 
-	return promise.then((completed) => {
-		const existing = updateCacheMap.get(this);
-		if (existing) {
-			existing.progresses.length = 0;
-			existing.signals.length = 0;
-		}
-		return completed;
-	});
+    return promise.then((completed) => {
+        const existing = updateCacheMap.get(this);
+        if (existing) {
+            existing.progresses.length = 0;
+            existing.signals.length = 0;
+        }
+        return completed;
+    });
 }

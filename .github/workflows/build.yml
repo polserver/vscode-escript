@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -24,13 +24,13 @@ jobs:
           echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
       - name: Cache polserver-build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: native/build/polserver
           key: linux-polserver-build-full-${{ steps.get-ref.outputs.ref }}
 
       - name: Cache polserver-src
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: native/polserver
           key: linux-polserver-src-full-${{ steps.get-ref.outputs.ref }}
@@ -40,7 +40,7 @@ jobs:
       - run: npm test
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vscode-escript-native.linux-x64
           path: native/build/Release/vscode-escript-native.linux-x64.node
@@ -50,7 +50,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -61,13 +61,13 @@ jobs:
           echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
       - name: Cache polserver-build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: native/build/polserver
           key: windows-polserver-build-full-${{ steps.get-ref.outputs.ref }}
 
       - name: Cache polserver-src
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: native/polserver
           key: windows-polserver-src-full-${{ steps.get-ref.outputs.ref }}
@@ -79,7 +79,7 @@ jobs:
       - run: npm test
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vscode-escript-native.win32-x64
           path: native/build/Release/vscode-escript-native.win32-x64.node
@@ -89,7 +89,7 @@ jobs:
     runs-on: macos-13
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -99,13 +99,13 @@ jobs:
           echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
       - name: Cache polserver-build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: native/build/polserver
           key: mac-polserver-build-full-${{ steps.get-ref.outputs.ref }}
 
       - name: Cache polserver-src
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: native/polserver
           key: mac-polserver-src-full-${{ steps.get-ref.outputs.ref }}
@@ -123,7 +123,7 @@ jobs:
       - run: npm test
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vscode-escript-native.darwin-universal
           path: native/build/Release/vscode-escript-native.darwin-universal.node
@@ -134,7 +134,7 @@ jobs:
     needs: [windows, mac, linux]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -144,13 +144,13 @@ jobs:
           echo "ref=$( cd native/polserver && git log -1 --format=%h )" >> $GITHUB_OUTPUT
 
       - name: Cache polserver-build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: native/build/polserver
           key: linux-polserver-build-full-${{ steps.get-ref.outputs.ref }}
 
       - name: Cache polserver-src
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: native/polserver
           key: linux-polserver-src-full-${{ steps.get-ref.outputs.ref }}
@@ -158,19 +158,19 @@ jobs:
       - run: npm install
 
       - name: Download Temporary Artifact darwin-universal
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: vscode-escript-native.darwin-universal
           path: native/build/Release
 
       - name: Download Temporary Artifact win32-x64
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: vscode-escript-native.win32-x64
           path: native/build/Release
 
       - name: Download Temporary Artifact linux-x64
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: vscode-escript-native.linux-x64
           path: native/build/Release
@@ -178,22 +178,22 @@ jobs:
       - run: npx vsce package
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: escript-lsp-universal
           path: escript-lsp-*.vsix
 
       - name: Delete Temporary Artifact darwin-universal
-        uses: geekyeggo/delete-artifact@v2
+        uses: geekyeggo/delete-artifact@v5
         with:
             name: vscode-escript-native.darwin-universal
 
       - name: Delete Temporary Artifact win32-x64
-        uses: geekyeggo/delete-artifact@v2
+        uses: geekyeggo/delete-artifact@v5
         with:
             name: vscode-escript-native.win32-x64
 
       - name: Delete Temporary Artifact linux-x64
-        uses: geekyeggo/delete-artifact@v2
+        uses: geekyeggo/delete-artifact@v5
         with:
             name: vscode-escript-native.linux-x64

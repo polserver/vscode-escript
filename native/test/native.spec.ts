@@ -3,8 +3,8 @@ import { readFileSync, readdirSync } from 'fs';
 import { LSPDocument, LSPWorkspace, native } from '../src/index';
 import { inspect } from 'util';
 import { F_OK } from 'constants';
-import { writeFile, access, mkdir, readFile } from "fs/promises";
-import { dirname, join } from "path";
+import { writeFile, access, mkdir, readFile } from 'fs/promises';
+import { dirname, join } from 'path';
 import type { Range, Position } from 'vscode-languageclient/node';
 
 const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
@@ -23,7 +23,7 @@ function toBeDefined<T>(val: T, message = 'Value is undefined'): asserts val is 
     if (val === undefined) { throw new Error(message); }
 }
 
-const escriptdoc = (text: string) => "```escriptdoc\n" + text + "\n```";
+const escriptdoc = (text: string) => '```escriptdoc\n' + text + '\n```';
 
 const xmlDocDir = resolve(__dirname, '..', 'polserver', 'docs', 'docs.polserver.com', 'pol100');
 
@@ -224,127 +224,127 @@ describe('Hover - SRC', () => {
 
     it('Can hover constant', () => {
         const hover = getHover('const hello := 1;', 8);
-        expect(hover).toEqual(escriptdoc('(constant) hello := 1'))
+        expect(hover).toEqual(escriptdoc('(constant) hello := 1'));
     });
 
     it('Can hover variable', () => {
         const hover = getHover('var hello := 1;', 5);
-        expect(hover).toEqual(escriptdoc('(variable) hello'))
+        expect(hover).toEqual(escriptdoc('(variable) hello'));
     });
 
     it('Can hover user function declaration', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 11);
-        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'))
+        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'));
     });
 
     it('Can hover foreach (loop identifier)', () => {
         const hover = getHover('const bar := 5; foreach foo in bar endforeach', 33);
-        expect(hover).toEqual(escriptdoc('(constant) bar := 5'))
+        expect(hover).toEqual(escriptdoc('(constant) bar := 5'));
     });
 
     it('Can hover foreach (iterator identifier)', () => {
         const hover = getHover('foreach foo in (0) endforeach', 10);
-        expect(hover).toEqual(escriptdoc('(variable) foo'))
+        expect(hover).toEqual(escriptdoc('(variable) foo'));
     });
 
     it('Can hover enum declaration', () => {
         const hover = getHover('enum FOO BAR endenum', 11);
-        expect(hover).toEqual(escriptdoc('(constant) BAR := 0'))
+        expect(hover).toEqual(escriptdoc('(constant) BAR := 0'));
     });
 
     it('Can hover switch label', () => {
         const hover = getHover('const foo := 5; case(5) foo: print(5); endcase', 26);
-        expect(hover).toEqual(escriptdoc('(constant) foo := 5'))
+        expect(hover).toEqual(escriptdoc('(constant) foo := 5'));
     });
 
     it('Can hover basic for', () => {
         const hover = getHover('for foo := 1 to 5 endfor', 6);
-        expect(hover).toEqual(escriptdoc('(variable) foo'))
+        expect(hover).toEqual(escriptdoc('(variable) foo'));
     });
 
     it('Can hover program declaration', () => {
         const hover = getHover('program foo(bar, baz) endprogram', 10);
-        expect(hover).toEqual(escriptdoc('(program) foo( bar, baz )'))
+        expect(hover).toEqual(escriptdoc('(program) foo( bar, baz )'));
     });
 
     it('Can hover program parameter', () => {
         const hover = getHover('program foo(bar, baz) endprogram', 14);
-        expect(hover).toEqual(escriptdoc('(program parameter) bar'))
+        expect(hover).toEqual(escriptdoc('(program parameter) bar'));
     });
 
     it('Can hover function parameter (no default)', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 14);
-        expect(hover).toEqual(escriptdoc('(parameter) bar'))
+        expect(hover).toEqual(escriptdoc('(parameter) bar'));
     });
 
     it('Can hover function parameter (with default)', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction foo(0);', 20);
-        expect(hover).toEqual(escriptdoc('(parameter) baz := 1'))
+        expect(hover).toEqual(escriptdoc('(parameter) baz := 1'));
     });
 
     it('Can hover function reference', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction @Foo.call();', 42);
-        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'))
+        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'));
     });
 
     it('Can hover primary', () => {
         const hover = getHover('const foo := 5; foo;', 18);
-        expect(hover).toEqual(escriptdoc('(constant) foo := 5'))
+        expect(hover).toEqual(escriptdoc('(constant) foo := 5'));
     });
 
     it('Can hover navigation suffix', () => {
         const hover = getHover('var foo; foo.bar;', 15);
-        expect(hover).toEqual(escriptdoc('(member) bar'))
+        expect(hover).toEqual(escriptdoc('(member) bar'));
     });
 
     it('Can hover method', () => {
         const hover = getHover('var foo; foo.bar();', 15);
-        expect(hover).toEqual(escriptdoc('(method) bar'))
+        expect(hover).toEqual(escriptdoc('(method) bar'));
     });
 
     it('Can hover user function call', () => {
         const hover = getHover('function foo(bar, baz := 1) endfunction Foo(1);', 42);
-        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'))
+        expect(hover).toEqual(escriptdoc('(user function) foo( bar, baz := 1 )'));
     });
 
     it('Can hover module function call', () => {
         const hover = getHover('print(1);', 3);
-        expect(hover).toEqual(escriptdoc("(module function) Print( anything, console_color := \"\" )"))
+        expect(hover).toEqual(escriptdoc('(module function) Print( anything, console_color := "" )'));
     });
 
     it('Can hover struct init member', () => {
         const hover = getHover('var foo := struct{ bar := 3 };', 20);
-        expect(hover).toEqual(escriptdoc('(member) bar'))
+        expect(hover).toEqual(escriptdoc('(member) bar'));
     });
 
     it('Can hover correct user function (class scope)', () => {
-        const hover = getHover('function static_func( a0 := "::static_func" ) endfunction class Foo() function static_func( a0 := "Foo::static_func" ) endfunction endclass Foo::static_func(); static_func();', 148)
-        expect(hover).toEqual(escriptdoc('(user function) Foo::static_func( a0 := "Foo::static_func" )'))
-    })
+        const hover = getHover('function static_func( a0 := "::static_func" ) endfunction class Foo() function static_func( a0 := "Foo::static_func" ) endfunction endclass Foo::static_func(); static_func();', 148);
+        expect(hover).toEqual(escriptdoc('(user function) Foo::static_func( a0 := "Foo::static_func" )'));
+    });
 
     it('Can hover correct user function (global scope)', () => {
-        const hover = getHover('function static_func( a0 := "::static_func" ) endfunction class Foo() function static_func( a0 := "Foo::static_func" ) endfunction endclass Foo::static_func(); static_func();', 169)
-        expect(hover).toEqual(escriptdoc('(user function) static_func( a0 := "::static_func" )'))
-    })
+        const hover = getHover('function static_func( a0 := "::static_func" ) endfunction class Foo() function static_func( a0 := "Foo::static_func" ) endfunction endclass Foo::static_func(); static_func();', 169);
+        expect(hover).toEqual(escriptdoc('(user function) static_func( a0 := "::static_func" )'));
+    });
 
     it('Can hover parent method inside child class', () => {
         const hover = getHover('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 332);
-        expect(hover).toEqual(escriptdoc('(class method) Foo::parent_method_func( this )'))
+        expect(hover).toEqual(escriptdoc('(class method) Foo::parent_method_func( this )'));
     });
 
     it('Can hover own method inside child class', () => {
         const hover = getHover('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 236);
-        expect(hover).toEqual(escriptdoc('(class method) Bar::child_method_func( this )'))
+        expect(hover).toEqual(escriptdoc('(class method) Bar::child_method_func( this )'));
     });
 
     it('Can hover global functions without specifying query prefix', () => {
-        const hover = getHover('function StaticFunction(a0) endfunction class Foo() function Foo(this) StaticFunction(0); endfunction endclass StaticFunction("");', 74)
-        expect(hover).toEqual(escriptdoc('(user function) StaticFunction( a0 )'))
+        const hover = getHover('function StaticFunction(a0) endfunction class Foo() function Foo(this) StaticFunction(0); endfunction endclass StaticFunction("");', 74);
+        expect(hover).toEqual(escriptdoc('(user function) StaticFunction( a0 )'));
     });
 
     it('Can hover global functions with specifying query prefix', () => {
-        const hover = getHover('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::StaticFunction(0); endfunction endclass StaticFunction("");', 76)
-        expect(hover).toEqual(escriptdoc('(user function) StaticFunction( a0 )'))
+        const hover = getHover('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::StaticFunction(0); endfunction endclass StaticFunction("");', 76);
+        expect(hover).toEqual(escriptdoc('(user function) StaticFunction( a0 )'));
     });
 });
 
@@ -375,47 +375,47 @@ describe('Hover - Classes', () => {
 
     it('Can hover class name in class declaration', () => {
         const hover = getHover(1, 8);
-        expect(hover).toEqual(escriptdoc('(class) bar'))
+        expect(hover).toEqual(escriptdoc('(class) bar'));
     });
 
     it('Can hover class name in class parameter list', () => {
         const hover = getHover(9, 14);
-        expect(hover).toEqual(escriptdoc('(class) bar'))
+        expect(hover).toEqual(escriptdoc('(class) bar'));
     });
 
     it('Can hover module name in scoped function call', () => {
         const hover = getHover(15, 9);
-        expect(hover).toEqual(escriptdoc('(module) basicio'))
+        expect(hover).toEqual(escriptdoc('(module) basicio'));
     });
 
     it('Can hover variable name in class body', () => {
         const hover = getHover(2, 10);
-        expect(hover).toEqual(escriptdoc('(variable) bar::other'))
+        expect(hover).toEqual(escriptdoc('(variable) bar::other'));
     });
 
     it('Can hover class constructor', () => {
         const hover = getHover(3, 14);
-        expect(hover).toEqual(escriptdoc('(class constructor) bar::bar( other := 5 )'))
+        expect(hover).toEqual(escriptdoc('(class constructor) bar::bar( other := 5 )'));
     });
 
     it('Can hover function parameter in function expression', () => {
         const hover = getHover(4, 28);
-        expect(hover).toEqual(escriptdoc('(parameter) foo123'))
+        expect(hover).toEqual(escriptdoc('(parameter) foo123'));
     });
 
     it('Can hover super function', () => {
         const hover = getHover(11, 8);
-        expect(hover).toEqual(escriptdoc('(super) FOO::super( other := 5 )'))
+        expect(hover).toEqual(escriptdoc('(super) FOO::super( other := 5 )'));
     });
 
     it('Can hover method function', () => {
         const hover = getHover(14, 19);
-        expect(hover).toEqual(escriptdoc('(class method) FOO::method_func( this, what := "everything" )'))
+        expect(hover).toEqual(escriptdoc('(class method) FOO::method_func( this, what := "everything" )'));
     });
 
     it('Can hover method function', () => {
         const hover = getHover(18, 18);
-        expect(hover).toEqual(escriptdoc('(user function) FOO::static_func( what := "everything" )'))
+        expect(hover).toEqual(escriptdoc('(user function) FOO::static_func( what := "everything" )'));
     });
 });
 
@@ -447,17 +447,17 @@ describe('Hover - Module', () => {
 
     it('Can hover module function declaration', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 9);
-        expect(hover).toEqual(escriptdoc('(module function) ModuleFunction( a, b := 5 )'))
+        expect(hover).toEqual(escriptdoc('(module function) ModuleFunction( a, b := 5 )'));
     });
 
     it('Can hover module function parameter (no default)', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 19);
-        expect(hover).toEqual(escriptdoc('(parameter) b := 5'))
+        expect(hover).toEqual(escriptdoc('(parameter) b := 5'));
     });
 
     it('Can hover module function parameter (with default)', () => {
         const hover = getHover('ModuleFunction(a, b := 5);', 16);
-        expect(hover).toEqual(escriptdoc('(parameter) a'))
+        expect(hover).toEqual(escriptdoc('(parameter) a'));
     });
 });
 
@@ -479,7 +479,7 @@ describe('Hover Docs', () => {
                 if (extname(moduleEmFile).toLowerCase() !== '.em') {
                     return null;
                 }
-                const result = resolve(xmlDocDir, basename(moduleEmFile, '.em') + "em.xml");
+                const result = resolve(xmlDocDir, basename(moduleEmFile, '.em') + 'em.xml');
                 return result;
             }
         });
@@ -515,7 +515,7 @@ _Errors_:
 - Character has no backpack.
 - That item is not stackable.  Create one at a time.
 - That container is full
-- Failed to create that item type`
+- Failed to create that item type`;
         expect(hover?.trim()).toEqual(expected);
     });
 
@@ -588,10 +588,10 @@ describe('Tokens - SRC', () => {
     it('Handles new line with LF', () => {
         const textLF = '"foo\nbar";\n1;\n2;\n\n"foo\nbar\n\nbaz";';
         const textCRLF = textLF.replace(/\n/g, '\r\n');
-        const tokensLF = getTokens(textLF)
-        const tokensCRLF = getTokens(textCRLF)
+        const tokensLF = getTokens(textLF);
+        const tokensCRLF = getTokens(textCRLF);
         expect(tokensLF).toEqual(tokensCRLF);
-    })
+    });
 });
 
 describe('Definition - SRC', () => {
@@ -745,12 +745,12 @@ describe('Definition - SRC', () => {
     });
 
     it('Can define global functions without specifying query prefix', () => {
-        const definition = getDefinition('function StaticFunction(a0) endfunction class Foo() function Foo(this) StaticFunction(0); endfunction endclass StaticFunction("");', 74)
+        const definition = getDefinition('function StaticFunction(a0) endfunction class Foo() function Foo(this) StaticFunction(0); endfunction endclass StaticFunction("");', 74);
         expectColumnRange(definition, 0, 39);
     });
 
     it('Can define global functions with specifying query prefix', () => {
-        const definition = getDefinition('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::StaticFunction(0); endfunction endclass StaticFunction("");', 76)
+        const definition = getDefinition('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::StaticFunction(0); endfunction endclass StaticFunction("");', 76);
         expectColumnRange(definition, 0, 39);
     });
 });
@@ -945,12 +945,12 @@ describe('Completion', () => {
 
     it('Can complete super:: for class scope inside user function', () => {
         const completion = getCompletion('class Foo() function func() endfunction endclass class Bar( Foo ) function func() sup; endfunction endclass Foo::func(); Bar::func();', 84);
-        expect(completion).toEqual([{ label: 'super', kind: 7 }])
+        expect(completion).toEqual([{ label: 'super', kind: 7 }]);
     });
 
     it('Can complete super::method for class scope inside user function', () => {
         const completion = getCompletion('class Foo() function func() endfunction endclass class Bar( Foo ) function my_func() super::; endfunction endclass Foo::func(); Bar::my_func();', 92);
-        expect(completion).toEqual([{ label: 'func', kind: 3 }])
+        expect(completion).toEqual([{ label: 'func', kind: 3 }]);
     });
 
     it('Can complete constructors', () => {
@@ -959,18 +959,18 @@ describe('Completion', () => {
             { label: 'Static', kind: 3 },
             { label: 'Foo', kind: 4 },
             { label: 'Method', kind: 3 },
-        ])
+        ]);
     });
 
     it('Can complete methods and members inside parent class only', () => {
-        const completion = getCompletion('class Foo() function Foo( this ) this.foo := "foo"; endfunction function parent_method_func( this ) this.; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; endfunction function child_method_func( this ) this.; endfunction endclass Bar::Bar();', 106)
+        const completion = getCompletion('class Foo() function Foo( this ) this.foo := "foo"; endfunction function parent_method_func( this ) this.; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; endfunction function child_method_func( this ) this.; endfunction endclass Bar::Bar();', 106);
         expect(completion).toEqual([
             { label: 'parent_method_func', kind: 2 },
             { label: 'foo', kind: 5 }
         ]);
     });
     it('Can complete methods and members inside child class', () => {
-        const completion = getCompletion('class Foo() function Foo( this ) this.foo := "foo"; endfunction function parent_method_func( this ) this.; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; endfunction function child_method_func( this ) this.; endfunction endclass Bar:Bar();', 247)
+        const completion = getCompletion('class Foo() function Foo( this ) this.foo := "foo"; endfunction function parent_method_func( this ) this.; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; endfunction function child_method_func( this ) this.; endfunction endclass Bar:Bar();', 247);
         expect(completion).toEqual([
             { label: 'child_method_func', kind: 2 },
             { label: 'parent_method_func', kind: 2 },
@@ -980,14 +980,14 @@ describe('Completion', () => {
     });
 
     it('Can complete global functions without specifying query prefix', () => {
-        const completion = getCompletion('function StaticFunction(a0) endfunction class Foo() function Foo(this) Sta endfunction endclass StaticFunction("");', 74)
+        const completion = getCompletion('function StaticFunction(a0) endfunction class Foo() function Foo(this) Sta endfunction endclass StaticFunction("");', 74);
         expect(completion).toEqual([
             { label: 'StaticFunction', kind: 3 },
         ]);
     });
 
     it('Can complete global functions with specifying query prefix', () => {
-        const completion = getCompletion('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::Sta endfunction endclass StaticFunction("");', 76)
+        const completion = getCompletion('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::Sta endfunction endclass StaticFunction("");', 76);
         expect(completion).toEqual([
             { label: 'StaticFunction', kind: 3 },
         ]);
@@ -1098,12 +1098,12 @@ describe('Signature Help', () => {
         expect(signatureHelp).toEqual({
             'signatures': [
                 {
-                    "label": 'super( a0, a1 := "foo", a0, a1 := "bar" )',
-                    "parameters": [
-                        { "label": [7, 9] },
-                        { "label": [11, 13] },
-                        { "label": [24, 26] },
-                        { "label": [28, 30] }
+                    'label': 'super( a0, a1 := "foo", a0, a1 := "bar" )',
+                    'parameters': [
+                        { 'label': [7, 9] },
+                        { 'label': [11, 13] },
+                        { 'label': [24, 26] },
+                        { 'label': [28, 30] }
                     ]
                 }
             ],
@@ -1116,14 +1116,14 @@ describe('Signature Help', () => {
         const signatureHelp = getSignatureHelp('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this, a0, a1 ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this, a0 ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 354);
 
         expect(signatureHelp).toEqual({
-            "signatures": [{
-                "label": "parent_method_func( a0, a1 )",
-                "parameters": [
-                    { "label": [20, 22] },
-                    { "label": [24, 26] }]
+            'signatures': [{
+                'label': 'parent_method_func( a0, a1 )',
+                'parameters': [
+                    { 'label': [20, 22] },
+                    { 'label': [24, 26] }]
             }],
-            "activeSignature": 0,
-            "activeParameter": 0
+            'activeSignature': 0,
+            'activeParameter': 0
         });
     });
 
@@ -1131,13 +1131,13 @@ describe('Signature Help', () => {
         const signatureHelp = getSignatureHelp('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this, a0, a1 ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this, a0 ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar();', 256);
 
         expect(signatureHelp).toEqual({
-            "signatures": [{
-                "label": "child_method_func( a0 )",
-                "parameters": [
-                    { "label": [19, 21] }]
+            'signatures': [{
+                'label': 'child_method_func( a0 )',
+                'parameters': [
+                    { 'label': [19, 21] }]
             }],
-            "activeSignature": 0,
-            "activeParameter": 0
+            'activeSignature': 0,
+            'activeParameter': 0
         });
     });
 });
@@ -1154,7 +1154,7 @@ describeLongTest('Actively typing sources', () => {
             this.tokens = data.match(regex) ?? [];
 
             this.index = index;
-            this.text = this.tokens.slice(0, index).join(" ");
+            this.text = this.tokens.slice(0, index).join(' ');
 
             const dir = __dirname;
             const src = 'in-memory-file.src';
@@ -1162,7 +1162,7 @@ describeLongTest('Actively typing sources', () => {
             const getContents = (pathname: string) => {
                 if (pathname === src) {
                     if (this.index < this.tokens.length) {
-                        this.text += " " + this.tokens[this.index];
+                        this.text += ' ' + this.tokens[this.index];
                         this.index++;
                     }
                     return this.text;
@@ -1211,13 +1211,13 @@ describeLongTest('Actively typing sources', () => {
         } catch (error) {
             throw error;
         }
-    }
+    };
 
     for (const folder of ['escript', 'pol']) {
         const scriptsDir = resolve(__dirname, '..', 'polserver', 'testsuite', folder);
         const files = readDirectoryRecursive(scriptsDir);
         for (const basefile of files) {
-            if (extname(basefile) !== '.src') continue;
+            if (extname(basefile) !== '.src') {continue;}
             const file = resolve(scriptsDir, basefile);
             it(`Processing ${file}`, async () => {
                 const data = await readFile(file, 'utf-8');
@@ -1257,7 +1257,7 @@ describe('References - SRC', () => {
         document.analyze();
         if (document.diagnostics().length) {
             throw new Error(inspect(document.diagnostics()));
-        };
+        }
 
         return document.references({ line: 1, character });
     };
@@ -1267,15 +1267,15 @@ describe('References - SRC', () => {
         fsPath: string;
     }[] | undefined, filename: string, range: Range) => {
         if (references === undefined) {
-            throw new Error("No references found");
+            throw new Error('No references found');
         }
         for (const reference of references) {
-            if (reference.fsPath.endsWith(filename) && reference.range.start.line == range.start.line && reference.range.start.character == range.start.character && reference.range.end.line === range.end.line && reference.range.end.character === range.end.character) {
+            if (reference.fsPath.endsWith(filename) && reference.range.start.line === range.start.line && reference.range.start.character === range.start.character && reference.range.end.line === range.end.line && reference.range.end.character === range.end.character) {
                 return;
             }
         }
         throw new Error(`Reference for '${filename} at ${JSON.stringify(range)} not found. References: ${JSON.stringify(references, undefined, 2)}`);
-    }
+    };
 
     it('Can get constants inside source that are defined in source', async () => {
         const references = await getReferences('const FOO := 1234; Print(FOO);', 8);
@@ -1290,21 +1290,21 @@ describe('References - SRC', () => {
     it('Can get constants inside source that are defined in module files', async () => {
         const references = await getReferences('use uo; Print(MOVEOBJECT_FORCELOCATION);', 19);
 
-        toBeDefined(references, "No references found");
+        toBeDefined(references, 'No references found');
 
         // References should be >1 as it includes other sources in pol-core's testsuite
         expect(references.length).toBeGreaterThan(1);
 
         // Find the reference in the current source
         const foundSorceReference = references.find(foo => foo.fsPath.endsWith('in-memory-file.src'));
-        toBeDefined(foundSorceReference, "Did not find a reference including 'in-memory-file.src'.");
+        toBeDefined(foundSorceReference, 'Did not find a reference including \'in-memory-file.src\'.');
     });
 
     it('Can get module functions inside module', async () => {
         const pathname = resolve(dir, moduleDirectory, 'basicio.em');
         const references = await getReferences('Print( anything, console_color:="" );', 3, {}, pathname);
 
-        toBeDefined(references, "No references found");
+        toBeDefined(references, 'No references found');
 
         // References should be >1 as it includes other sources in pol-core's testsuite
         expect(references.length).toBeGreaterThan(1);
@@ -1327,8 +1327,8 @@ describe('References - SRC', () => {
 
     it('Can get global variable across includes', async () => {
         const references = await getReferences('include "testutil"; include "sysevent"; var globalInSource; globalInSource := 1; baz(); baz2();', 66, {
-            'testutil.inc': "function baz() foob; globalInSource; endfunction",
-            'sysevent.inc': "function baz2() foob; globalInSource; endfunction",
+            'testutil.inc': 'function baz() foob; globalInSource; endfunction',
+            'sysevent.inc': 'function baz2() foob; globalInSource; endfunction',
         });
 
         // Inside top-level statement
@@ -1390,7 +1390,7 @@ describe('References - SRC', () => {
 
     it('Can get user function inside source defined in include', async () => {
         const references = await getReferences('include "testutil"; baz();', 21, {
-            'testutil.inc': "function baz() return 1; endfunction; baz();"
+            'testutil.inc': 'function baz() return 1; endfunction; baz();'
         });
 
         // Inside top-level statement
@@ -1444,7 +1444,7 @@ describe('Workspace Cache', () => {
         let timeout = 0;
         setTimeout(() => timeout = Date.now(), 10);
         const result = await promise;
-        const end = Date.now()
+        const end = Date.now();
 
         expect(end).toBeGreaterThan(timeout);
         expect(timeout).toBeGreaterThan(start);
@@ -1520,16 +1520,16 @@ describe('Formatter', () => {
             return undefined;
         }
         return { start, end };
-    }
+    };
 
 
     const formatSrcsDir = join(__dirname, 'format-srcs');
     const files = readdirSync(formatSrcsDir)
-        .reduce((p, c) => c.endsWith(".src") ? p.add(c.substring(0, c.indexOf('.'))) : p, new Set<string>());
+        .reduce((p, c) => c.endsWith('.src') ? p.add(c.substring(0, c.indexOf('.'))) : p, new Set<string>());
 
     for (const file of files) {
-        const src = readFileSync(join(formatSrcsDir, file + ".src"), 'utf-8').replace(/\r/g, '');
-        const out = readFileSync(join(formatSrcsDir, file + ".out.src"), 'utf-8').replace(/\r/g, '');
+        const src = readFileSync(join(formatSrcsDir, file + '.src'), 'utf-8').replace(/\r/g, '');
+        const out = readFileSync(join(formatSrcsDir, file + '.out.src'), 'utf-8').replace(/\r/g, '');
         const rawLines = src.split(/\n/);
         const firstCommentIndex = rawLines[0].indexOf('// ');
         const testName = firstCommentIndex > -1 ? rawLines[0].substring(firstCommentIndex + 3) : rawLines[0];
@@ -1538,6 +1538,6 @@ describe('Formatter', () => {
             const formatRange = findRange(src);
             const formatted = getFormattedString(src.replace(/#/g, ''), formatRange).replace(/\r/g, '');
             expect(formatted).toEqual(out);
-        })
+        });
     }
 });
