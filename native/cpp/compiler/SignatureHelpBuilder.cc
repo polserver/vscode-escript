@@ -309,9 +309,10 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
                                               ? workspace.scope_tree.find_class_method( query )
                                               : workspace.scope_tree.find_user_function( query ) ) )
         {
-          bool skip_first_param = user_function->type == UserFunctionType::Constructor ||
-                                  user_function->type == UserFunctionType::Super ||
-                                  user_function->type == UserFunctionType::Method;
+          bool skip_first_param =
+              user_function->type == UserFunctionType::Constructor ||
+              user_function->type == UserFunctionType::Super ||
+              ( user_function->type == UserFunctionType::Method && is_object_access_query );
 
           return make_signature_help( _lsp_workspace, user_function->name,
                                       user_function->parameters(), current_param, nullptr,
