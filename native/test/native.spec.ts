@@ -1140,6 +1140,19 @@ describe('Signature Help', () => {
             'activeParameter': 0
         });
     });
+
+    it('Can signature help with \'this\' parameter shown in function calls', () => {
+        const signatureHelp = getSignatureHelp('class Foo() function Foo( this ) this.foo := "foo"; this.parent_method_func(); endfunction function parent_method_func( this, a0, a1 ) this.foo; endfunction endclass class Bar( Foo ) function Bar( this ) super(); this.bar := "bar"; this.child_method_func(); endfunction function child_method_func( this, a0 ) this.foo; this.bar; this.parent_method_func(); endfunction endclass Bar::Bar(); Bar::child_method_func();', 413);
+        expect(signatureHelp).toEqual({
+            'signatures': [{
+                'label': 'child_method_func( this, a0 )',
+                'parameters': [
+                    { 'label': [19, 23] },
+                    { 'label': [25, 27] }] }],
+            'activeSignature': 0,
+            'activeParameter': 0
+        });
+    });
 });
 
 describeLongTest('Actively typing sources', () => {
@@ -1217,7 +1230,7 @@ describeLongTest('Actively typing sources', () => {
         const scriptsDir = resolve(__dirname, '..', 'polserver', 'testsuite', folder);
         const files = readDirectoryRecursive(scriptsDir);
         for (const basefile of files) {
-            if (extname(basefile) !== '.src') {continue;}
+            if (extname(basefile) !== '.src') { continue; }
             const file = resolve(scriptsDir, basefile);
             it(`Processing ${file}`, async () => {
                 const data = await readFile(file, 'utf-8');
