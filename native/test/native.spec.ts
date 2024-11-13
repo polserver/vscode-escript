@@ -992,6 +992,12 @@ describe('Completion', () => {
             { label: 'StaticFunction', kind: 3 },
         ]);
     });
+
+    it('Can complete methods for non-this parameter', () => {
+        const completion = getCompletion('var foo; foo.', 14);
+        expect(completion).toEqual([]);
+    });
+
 });
 
 describe('Signature Help', () => {
