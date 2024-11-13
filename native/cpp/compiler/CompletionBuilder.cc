@@ -63,6 +63,7 @@ std::vector<CompletionItem> CompletionBuilder::context()
 
   ScopeTreeQuery query;
   bool is_object_access_query = false;
+  bool is_class_query = false;
 
   query.current_user_function = current_user_function;
   query.calling_scope = calling_scope;
@@ -85,9 +86,10 @@ std::vector<CompletionItem> CompletionBuilder::context()
     {
       if ( second_prev_token && second_prev_token->getType() == EscriptLexer::IDENTIFIER )
       {
+        is_object_access_query = true;
         if ( Pol::Clib::caseInsensitiveEqual( second_prev_token->getText(), "this" ) )
         {
-          is_object_access_query = true;
+          is_class_query = true;
         }
       }
       else
@@ -111,9 +113,10 @@ std::vector<CompletionItem> CompletionBuilder::context()
   {
     if ( prev_token && prev_token->getType() == EscriptLexer::IDENTIFIER )
     {
+      is_object_access_query = true;
       if ( Pol::Clib::caseInsensitiveEqual( prev_token->getText(), "this" ) )
       {
-        is_object_access_query = true;
+        is_class_query = true;
       }
     }
     else
@@ -130,13 +133,17 @@ std::vector<CompletionItem> CompletionBuilder::context()
 
   if ( is_object_access_query )
   {
-    for ( auto* user_function : workspace.scope_tree.list_class_methods( query ) )
+    if ( is_class_query )
     {
-      results.push_back( CompletionItem{ user_function->name, CompletionItemKind::Method } );
-    }
-    for ( auto* assignment_statement : workspace.scope_tree.list_class_members( query ) )
-    {
-      results.push_back( CompletionItem{ assignment_statement->name, CompletionItemKind::Field } );
+      for ( auto* user_function : workspace.scope_tree.list_class_methods( query ) )
+      {
+        results.push_back( CompletionItem{ user_function->name, CompletionItemKind::Method } );
+      }
+      for ( auto* assignment_statement : workspace.scope_tree.list_class_members( query ) )
+      {
+        results.push_back(
+            CompletionItem{ assignment_statement->name, CompletionItemKind::Field } );
+      }
     }
   }
   else
