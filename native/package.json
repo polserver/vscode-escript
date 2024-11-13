@@ -30,12 +30,12 @@
 		]
 	},
 	"scripts": {
-		"build": "cmake-js build && tsc",
-		"rebuild": "cmake-js rebuild && tsc",
+		"build": "cmake-js build --CDNO_PCH=ON && tsc",
+		"rebuild": "cmake-js rebuild --CDNO_PCH=ON && tsc",
 		"clean": "cmake-js clean",
-		"build-debug": "cmake-js build -B Debug && tsc",
-		"rebuild-debug": "cmake-js rebuild -B Debug && tsc",
-		"build-relwithdebinfo": "cmake-js build -B RelWithDebInfo && tsc",
-		"rebuild-relwithdebinfo": "cmake-js rebuild -B RelWithDebInfo && tsc"
+		"build-debug": "cmake-js build -B Debug --CDNO_PCH=ON && tsc",
+		"rebuild-debug": "cmake-js rebuild -B Debug --CDNO_PCH=ON && tsc",
+		"build-relwithdebinfo": "cmake-js build -B RelWithDebInfo --CDNO_PCH=ON && tsc",
+		"rebuild-relwithdebinfo": "cmake-js rebuild -B RelWithDebInfo --CDNO_PCH=ON && tsc"
 	}
 }
