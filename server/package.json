@@ -26,6 +26,6 @@
 	"scripts": {},
 	"devDependencies": {
 		"@types/async": "^3.2.24",
-		"@types/node": "^22.9.0"
+		"@types/node": "*"
 	}
 }
