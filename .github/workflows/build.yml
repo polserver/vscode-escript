@@ -86,7 +86,7 @@ jobs:
 
   mac:
     name: Build and Test [Mac]
-    runs-on: macos-13
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4

@@ -19,10 +19,8 @@
 		"url": "https://github.com/polserver/vscode-escript"
 	},
 	"devDependencies": {
-		"@types/node": "^22.9.0",
 		"cmake-js": "^7.3.0",
-		"node-addon-api": "^8.2.2",
-		"typescript": "^5.6.3"
+		"node-addon-api": "^8.3.0"
 	},
 	"binary": {
 		"napi_versions": [
@@ -32,7 +30,7 @@
 	"scripts": {
 		"build": "cmake-js build --CDNO_PCH=ON && tsc",
 		"rebuild": "cmake-js rebuild --CDNO_PCH=ON && tsc",
-		"clean": "cmake-js clean",
+		"clean": "cmake-js clean && rimraf out",
 		"build-debug": "cmake-js build -B Debug --CDNO_PCH=ON && tsc",
 		"rebuild-debug": "cmake-js rebuild -B Debug --CDNO_PCH=ON && tsc",
 		"build-relwithdebinfo": "cmake-js build -B RelWithDebInfo --CDNO_PCH=ON && tsc",
