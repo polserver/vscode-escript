@@ -753,6 +753,22 @@ describe('Definition - SRC', () => {
         const definition = getDefinition('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::StaticFunction(0); endfunction endclass StaticFunction("");', 76);
         expectColumnRange(definition, 0, 39);
     });
+
+    it('Can define variable in sequence binding', () => {
+        const definition = getDefinition('var {foo, bar} := struct{ bar := 3 }; foo;', 40);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 5 }, end: { line: 0, character: 8 } },
+            fsPath: 'in-memory-file.src'
+        });
+    });
+
+    it('Can define variable in index binding', () => {
+        const definition = getDefinition('var [foo, bar] := struct{ bar := 3 }; foo;', 40);
+        expect(definition).toEqual({
+            range: { start: { line: 0, character: 5 }, end: { line: 0, character: 8 } },
+            fsPath: 'in-memory-file.src'
+        });
+    });
 });
 
 
