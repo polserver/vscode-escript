@@ -119,7 +119,13 @@ class PolDebugConfigurationProvider implements vscode.DebugConfigurationProvider
                     vscode.window.showErrorMessage(`Could not get process list from debug server: ${e.message}`).then(_ => { });
                     return undefined;
                 } finally {
-                    client?.destroy();
+                    try {
+                        await client?.request('disconnect');
+                    } catch {
+                        // Ignore errors on disconnect
+                    } finally {
+                        client?.destroy();
+                    }
                 }
             }
         }
