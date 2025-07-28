@@ -60,6 +60,9 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   NAPI_VERSION=8
 )
 
+add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+
 if(MSVC)
   target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CONFIG:>:/MT> #---------|
