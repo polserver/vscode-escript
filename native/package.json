@@ -28,12 +28,12 @@
 		]
 	},
 	"scripts": {
-		"build": "cmake-js build --CDNO_PCH=ON && tsc",
-		"rebuild": "cmake-js rebuild --CDNO_PCH=ON && tsc",
+		"build": "cmake-js build --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
+		"rebuild": "cmake-js rebuild --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
 		"clean": "cmake-js clean && rimraf out",
-		"build-debug": "cmake-js build -B Debug --CDNO_PCH=ON && tsc",
-		"rebuild-debug": "cmake-js rebuild -B Debug --CDNO_PCH=ON && tsc",
-		"build-relwithdebinfo": "cmake-js build -B RelWithDebInfo --CDNO_PCH=ON && tsc",
-		"rebuild-relwithdebinfo": "cmake-js rebuild -B RelWithDebInfo --CDNO_PCH=ON && tsc"
+		"build-debug": "cmake-js build -B Debug --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
+		"rebuild-debug": "cmake-js rebuild -B Debug --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
+		"build-relwithdebinfo": "cmake-js build -B RelWithDebInfo --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
+		"rebuild-relwithdebinfo": "cmake-js rebuild -B RelWithDebInfo --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc"
 	}
 }
