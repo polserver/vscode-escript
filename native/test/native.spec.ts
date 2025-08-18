@@ -227,6 +227,11 @@ describe('Hover - SRC', () => {
         expect(hover).toEqual(escriptdoc('(constant) hello := 1'));
     });
 
+    it('Can hover enum class constants', () => {
+        const hover = getHover('enum class Races HUMANS := "Humans", ORCS := "ORCS" endenum Races::HUMANS;', 70);
+        expect(hover).toEqual(escriptdoc('(constant) Races::HUMANS := "Humans"'));
+    });
+
     it('Can hover variable', () => {
         const hover = getHover('var hello := 1;', 5);
         expect(hover).toEqual(escriptdoc('(variable) hello'));
@@ -937,6 +942,14 @@ describe('Completion', () => {
             { label: 'CRMULTI_IGNORE_WORLDZ', kind: 21 },
             { label: 'CRMULTI_KEEP_COMPONENTS', kind: 21 },
             { label: 'CRMULTI_RECREATE_COMPONENTS', kind: 21 },
+        ]);
+    });
+
+    it('Can complete enum class constants', () => {
+        const completion = getCompletion('enum class Races HUMANS := "Humans", ORCS := "ORCS" endenum Races;', 65);
+        expect(completion).toEqual([
+            { label: 'Races::HUMANS', kind: 21 },
+            { label: 'Races::ORCS', kind: 21 },
         ]);
     });
 
