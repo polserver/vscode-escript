@@ -150,7 +150,7 @@ std::vector<CompletionItem> CompletionBuilder::context()
   {
     for ( auto* constant : workspace.scope_tree.list_constants( query ) )
     {
-      results.push_back( CompletionItem{ constant->identifier, CompletionItemKind::Constant } );
+      results.push_back( CompletionItem{ constant->name.string(), CompletionItemKind::Constant } );
     }
 
     for ( auto variable : workspace.scope_tree.list_variables( query, position ) )

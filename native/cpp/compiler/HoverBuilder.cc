@@ -47,11 +47,11 @@ std::optional<HoverResult> HoverBuilder::get_constant(
     Pol::Bscript::Compiler::ConstDeclaration* const_decl )
 {
   std::string hover = "```escriptdoc\n(constant) ";
-  hover += const_decl->identifier;
+  hover += const_decl->name.string();
   hover += " := ";
   hover += replace_literal_tags( const_decl->expression().describe() );
   hover += "\n```";
-  HoverResult result{ HoverResult::SymbolType::CONSTANT, const_decl->identifier, hover };
+  HoverResult result{ HoverResult::SymbolType::CONSTANT, const_decl->name.string(), hover };
   return append_comment( const_decl, result );
 }
 
