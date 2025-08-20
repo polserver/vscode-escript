@@ -24,20 +24,57 @@ std::vector<CompletionItem> CompletionBuilder::context()
     return {};
   }
 
-  workspace.source->accept( *this );
-
-  if ( nodes.empty() )
-  {
-    return {};
-  }
-
   antlr4::Token* result = nullptr;
   antlr4::Token* prev_token = nullptr;
   antlr4::Token* second_prev_token = nullptr;
   auto tokens = workspace.source->get_all_tokens();
 
+  bool waiting_for_function = false;
+  bool waiting_for_class = false;
+
   for ( const auto& token : tokens )
   {
+    if ( token->getType() == EscriptLexer::CLASS )
+    {
+      waiting_for_class = true;
+    }
+    else if ( token->getType() == EscriptLexer::FUNCTION )
+    {
+      waiting_for_function = true;
+    }
+    else if ( token->getType() == EscriptLexer::ENDCLASS )
+    {
+      calling_scope = "";
+    }
+    else if ( token->getType() == EscriptLexer::ENDFUNCTION )
+    {
+      current_user_function = "";
+    }
+    else if ( waiting_for_class )
+    {
+      if ( token->getType() == EscriptLexer::IDENTIFIER )
+      {
+        waiting_for_class = false;
+        calling_scope = token->getText();
+      }
+      else if ( token->getType() != EscriptLexer::WS )
+      {
+        waiting_for_class = false;
+      }
+    }
+    else if ( waiting_for_function )
+    {
+      if ( token->getType() == EscriptLexer::IDENTIFIER )
+      {
+        waiting_for_function = false;
+        current_user_function = token->getText();
+      }
+      else if ( token->getType() != EscriptLexer::WS )
+      {
+        waiting_for_function = false;
+      }
+    }
+
     if ( token->getLine() == position.line_number &&
          token->getCharPositionInLine() + 1 <= position.character_column &&
          token->getCharPositionInLine() + 1 + token->getText().length() >=

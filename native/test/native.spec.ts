@@ -953,6 +953,14 @@ describe('Completion', () => {
         ]);
     });
 
+    it('Can complete enum class constants after ::', () => {
+        const completion = getCompletion('enum class Races HUMANS := "Humans", ORCS := "ORCS" endenum Races::;', 67);
+        expect(completion).toEqual([
+            { label: 'Races::HUMANS', kind: 21 },
+            { label: 'Races::ORCS', kind: 21 },
+        ]);
+    });
+
     it('Can complete variables', () => {
         const completion = getCompletion('var varGlobal; program foo() var varLocal; va; endprogram', 45);
         expect(completion).toEqual([{ label: 'varLocal', kind: 6 }, { label: 'varGlobal', kind: 6 }]);
