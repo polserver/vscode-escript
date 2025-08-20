@@ -9,7 +9,7 @@
 #include "bscript/compiler/ast/ModuleFunctionDeclaration.h"
 #include "bscript/compiler/ast/UserFunction.h"
 #include "clib/strutil.h"
-#include <boost/range/adaptor/sliced.hpp>
+#include <ranges>
 #include <stack>
 
 using namespace Pol::Bscript::Compiler;
@@ -43,9 +43,7 @@ SignatureHelp make_signature_help(
     if ( xmlDoc.has_value() )
       parsed = XmlDocParser::parse_function( xmlDoc.value(), function_name );
   }
-
-  for ( const auto& param_ref :
-        params | boost::adaptors::sliced( skip_first_param ? 1 : 0, params.size() ) )
+  for ( const auto& param_ref : params | std::views::drop( skip_first_param ? 1 : 0 ) )
   {
     auto& param = param_ref.get();
     if ( added )
