@@ -242,6 +242,26 @@ describe('Hover - SRC', () => {
         expect(hover).toEqual(escriptdoc('(constant) foo := 3'));
     });
 
+    it('Can hover unscoped enum class constant inside enum class', () => {
+        const hover = getHover('enum class MyEnum FOO := 1, BAR := MyEnum::FOO * 2, BAZ := BAR * 2 endenum', 60);
+        expect(hover).toEqual(escriptdoc('(constant) MyEnum::BAR := 2'));
+    });
+
+    it('Can hover unscoped enum class constant with same name as global constant inside enum class', () => {
+        const hover = getHover('const BAR := 123; enum class MyEnum FOO := 1, BAR := MyEnum::FOO * 2, BAZ := BAR * 2 endenum', 78);
+        expect(hover).toEqual(escriptdoc('(constant) MyEnum::BAR := 2'));
+    });
+
+    it('Can hover scoped enum class constant inside enum class', () => {
+        const hover = getHover('enum class MyEnum FOO := 1, BAR := MyEnum::FOO * 2, BAZ := BAR * 2 endenum', 45);
+        expect(hover).toEqual(escriptdoc('(constant) MyEnum::FOO := 1'));
+    });
+
+    it('Can hover empty-scoped constant inside enum class', () => {
+        const hover = getHover('const BLUB := 321; enum class MyEnum FOO := 1, BAR := MyEnum::FOO * 2, BAZ := BAR * 2, BOB := ::BLUB endenum', 98);
+        expect(hover).toEqual(escriptdoc('(constant) BLUB := 321'));
+    });
+
     it('Can hover variable', () => {
         const hover = getHover('var hello := 1;', 5);
         expect(hover).toEqual(escriptdoc('(variable) hello'));
