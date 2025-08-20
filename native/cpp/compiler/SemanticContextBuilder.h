@@ -687,9 +687,16 @@ std::optional<T> SemanticContextBuilder<T>::context()
     else if ( auto* ctx =
                   dynamic_cast<EscriptGrammar::EscriptParser::ScopedIdentifierContext*>( node ) )
     {
-      return try_constant_or_variable(
-          fmt::format( "{}::{}", ctx->scope ? ctx->scope->getText() : "",
-                       ctx->identifier ? ctx->identifier->getText() : "" ) );
+      std::string prefix = "";
+      if ( ctx->scope )
+      {
+        auto scope = ctx->scope->getText();
+        if ( !scope.empty() )
+        {
+          prefix = scope + "::";
+        }
+      }
+      return try_constant_or_variable( prefix + ctx->identifier->getText() );
     }
     else if ( auto* ctx =
                   dynamic_cast<EscriptGrammar::EscriptParser::ClassParameterListContext*>( node ) )

@@ -232,6 +232,16 @@ describe('Hover - SRC', () => {
         expect(hover).toEqual(escriptdoc('(constant) Races::HUMANS := "Humans"'));
     });
 
+    it('Can hover empty-scoped global variable', () => {
+        const hover = getHover('var foo := 3; print(::foo);', 24);
+        expect(hover).toEqual(escriptdoc('(variable) foo'));
+    });
+
+    it('Can hover empty-scoped constant', () => {
+        const hover = getHover('const foo := 3; print(::foo);', 25);
+        expect(hover).toEqual(escriptdoc('(constant) foo := 3'));
+    });
+
     it('Can hover variable', () => {
         const hover = getHover('var hello := 1;', 5);
         expect(hover).toEqual(escriptdoc('(variable) hello'));
