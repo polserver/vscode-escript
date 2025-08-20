@@ -1,5 +1,7 @@
 #include "CompletionBuilder.h"
 
+#include <set>
+
 #include "bscript/compiler/ast/ClassDeclaration.h"
 #include "bscript/compiler/ast/Identifier.h"
 #include "bscript/compiler/ast/MemberAssignment.h"
@@ -31,12 +33,21 @@ std::vector<CompletionItem> CompletionBuilder::context()
 
   bool waiting_for_function = false;
   bool waiting_for_class = false;
+  bool in_enum = false;
 
   for ( const auto& token : tokens )
   {
     if ( token->getType() == EscriptLexer::CLASS )
     {
       waiting_for_class = true;
+    }
+    else if ( token->getType() == EscriptLexer::ENUM )
+    {
+      in_enum = true;
+    }
+    else if ( token->getType() == EscriptLexer::ENDENUM )
+    {
+      in_enum = false;
     }
     else if ( token->getType() == EscriptLexer::FUNCTION )
     {
@@ -185,9 +196,42 @@ std::vector<CompletionItem> CompletionBuilder::context()
   }
   else
   {
-    for ( auto* constant : workspace.scope_tree.list_constants( query ) )
+    if ( in_enum && !calling_scope.empty() )
     {
-      results.push_back( CompletionItem{ constant->name.string(), CompletionItemKind::Constant } );
+      // Keeps track of constants added for this calling scope, since they are
+      // added with no prefix. If we end up adding a globally-scoped constant
+      // with the same name, we need to prefix it with `::`. Global constants
+      // are _after_ scoped constants in `ScopeTree::list_constants()`.
+      std::set<std::string> calling_scope_consts;
+
+      for ( auto* constant : workspace.scope_tree.list_constants( query ) )
+      {
+        if ( !constant->name.scope.global() )
+        {
+          results.push_back( CompletionItem{ constant->name.name, CompletionItemKind::Constant } );
+
+          calling_scope_consts.insert( constant->name.name );
+        }
+        else
+        {
+          // If we've added a constant with this name already, we need to prefix
+          // it with `::` to signal it is global scope.
+          std::string prefix =
+              calling_scope_consts.find( constant->name.name ) != calling_scope_consts.end() ? "::"
+                                                                                             : "";
+          results.push_back(
+              CompletionItem{ prefix + constant->name.name, CompletionItemKind::Constant } );
+        }
+      }
+    }
+    // Not in an enum, no need to worry about scoping, just add all the constants.
+    else
+    {
+      for ( auto* constant : workspace.scope_tree.list_constants( query ) )
+      {
+        results.push_back(
+            CompletionItem{ constant->name.string(), CompletionItemKind::Constant } );
+      }
     }
 
     for ( auto variable : workspace.scope_tree.list_variables( query, position ) )

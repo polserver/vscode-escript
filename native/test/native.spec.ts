@@ -996,6 +996,16 @@ describe('Completion', () => {
         expect(completion).toEqual([{ label: 'varLocal', kind: 6 }, { label: 'varGlobal', kind: 6 }]);
     });
 
+    it('Can complete enum class constants, prefixing global scope `::` only for duplicate constants', () => {
+        const completion = getCompletion('const ZAR := 4; const ZAT := 5; enum class MyEnum FOO := 1, ZAR := MyEnum::FOO * 2, ZAZ := ZA endenum', 93);
+        expect(completion).toEqual([
+            { label: 'ZAR', kind: 21 },  // in enum scope
+            { label: 'ZAZ', kind: 21 },  // in enum scope
+            { label: '::ZAR', kind: 21 }, // in global scope, since duplicated, needs :: prefix
+            { label: 'ZAT', kind: 21 } // in global scope, not duplicated, does not need :: prefix
+        ]);
+    });
+
     it('Will not complete class user function when not in scope', () => {
         const completion = getCompletion('class Foo() function Foo(this) Meth endfunction function Method(this) endfunction function Static() endfunction endclass Foo::Meth; Meth;', 136);
         expect(completion).toEqual([]);
