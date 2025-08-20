@@ -1,10 +1,14 @@
-#ifndef VSCODEESCRIPT_COMPLETIONBUILDER_H
-#define VSCODEESCRIPT_COMPLETIONBUILDER_H
+#pragma once
 
-#include "SemanticContextBuilder.h"
 #include <optional>
 #include <string>
 #include <vector>
+
+namespace Pol::Bscript::Compiler
+{
+class CompilerWorkspace;
+class Position;
+}  // namespace Pol::Bscript::Compiler
 
 namespace VSCodeEscript::CompilerExt
 {
@@ -47,7 +51,7 @@ struct CompletionItem
   std::optional<CompletionItemKind> kind;
 };
 
-class CompletionBuilder : public EscriptGrammar::EscriptParserBaseVisitor
+class CompletionBuilder
 {
 public:
   CompletionBuilder( Pol::Bscript::Compiler::CompilerWorkspace&,
@@ -55,21 +59,11 @@ public:
 
   std::vector<CompletionItem> context();
 
-  virtual antlrcpp::Any visitClassDeclaration(
-      EscriptGrammar::EscriptParser::ClassDeclarationContext* ctx ) override;
-  virtual antlrcpp::Any visitFunctionDeclaration(
-      EscriptGrammar::EscriptParser::FunctionDeclarationContext* ctx ) override;
-
-  virtual antlrcpp::Any visitChildren( antlr4::tree::ParseTree* node ) override;
-
 protected:
   Pol::Bscript::Compiler::CompilerWorkspace& workspace;
-  Pol::Bscript::Compiler::Position position;
-  std::vector<antlr4::ParserRuleContext*> nodes;
+  const Pol::Bscript::Compiler::Position& position;
   std::string calling_scope = "";
   std::string current_user_function = "";
 };
 
 }  // namespace VSCodeEscript::CompilerExt
-
-#endif  // VSCODEESCRIPT_COMPLETIONBUILDER_H

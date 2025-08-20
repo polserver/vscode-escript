@@ -3,9 +3,17 @@
 #include <set>
 
 #include "bscript/compiler/ast/ClassDeclaration.h"
+#include "bscript/compiler/ast/ConstDeclaration.h"
 #include "bscript/compiler/ast/Identifier.h"
 #include "bscript/compiler/ast/MemberAssignment.h"
+#include "bscript/compiler/ast/ModuleFunctionDeclaration.h"
+#include "bscript/compiler/ast/UserFunction.h"
+#include "bscript/compiler/file/SourceFile.h"
+#include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compiler/model/ScopeName.h"
+#include "bscript/compiler/model/ScopeTree.h"
+#include "bscript/compiler/model/Variable.h"
+#include <EscriptGrammar/EscriptLexer.h>
 
 #include "clib/strutil.h"
 
@@ -266,53 +274,4 @@ std::vector<CompletionItem> CompletionBuilder::context()
 
   return results;
 }
-
-antlrcpp::Any CompletionBuilder::visitClassDeclaration(
-    EscriptParser::ClassDeclarationContext* ctx )
-{
-  if ( ctx->IDENTIFIER() )
-  {
-    Pol::Bscript::Compiler::Range range( *ctx );
-    if ( range.contains( position ) )
-    {
-      calling_scope = ctx->IDENTIFIER()->getText();
-    }
-  }
-
-  return visitChildren( ctx );
-}
-
-antlrcpp::Any CompletionBuilder::visitFunctionDeclaration(
-    EscriptGrammar::EscriptParser::FunctionDeclarationContext* ctx )
-{
-  if ( ctx->IDENTIFIER() )
-  {
-    Pol::Bscript::Compiler::Range range( *ctx );
-    if ( range.contains( position ) )
-    {
-      current_user_function = ctx->IDENTIFIER()->getText();
-    }
-  }
-
-  return visitChildren( ctx );
-}
-
-antlrcpp::Any CompletionBuilder::visitChildren( antlr4::tree::ParseTree* node )
-{
-  for ( auto* child : node->children )
-  {
-    if ( auto* ctx = dynamic_cast<antlr4::ParserRuleContext*>( child ) )
-    {
-      Pol::Bscript::Compiler::Range range( *ctx );
-      if ( range.contains( position ) )
-      {
-        nodes.push_back( ctx );
-      }
-    }
-    child->accept( this );
-  }
-
-  return antlrcpp::Any();
-}
-
 }  // namespace VSCodeEscript::CompilerExt
