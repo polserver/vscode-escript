@@ -224,9 +224,7 @@ std::vector<CompletionItem> CompletionBuilder::context()
         {
           // If we've added a constant with this name already, we need to prefix
           // it with `::` to signal it is global scope.
-          std::string prefix =
-              calling_scope_consts.find( constant->name.name ) != calling_scope_consts.end() ? "::"
-                                                                                             : "";
+          std::string prefix = calling_scope_consts.contains( constant->name.name ) ? "::" : "";
           results.push_back(
               CompletionItem{ prefix + constant->name.name, CompletionItemKind::Constant } );
         }
