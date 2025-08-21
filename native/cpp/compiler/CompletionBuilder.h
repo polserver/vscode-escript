@@ -7,7 +7,7 @@
 namespace Pol::Bscript::Compiler
 {
 class CompilerWorkspace;
-class Position;
+struct Position;
 }  // namespace Pol::Bscript::Compiler
 
 namespace VSCodeEscript::CompilerExt
