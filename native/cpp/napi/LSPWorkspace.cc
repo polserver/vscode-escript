@@ -30,7 +30,8 @@ LSPWorkspace::LSPWorkspace( const Napi::CallbackInfo& info )
 
   if ( info.Length() < 1 || !info[0].IsObject() )
   {
-    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments: arguments[0] is not an object" ) )
+    Napi::TypeError::New(
+        env, Napi::String::New( env, "Invalid arguments: arguments[0] is not an object" ) )
         .ThrowAsJavaScriptException();
   }
 
@@ -78,7 +79,7 @@ void recurse_collect( const fs::path& basedir, std::set<std::string>* files_src,
   for ( auto dir_itr = fs::recursive_directory_iterator( basedir, ec );
         dir_itr != fs::recursive_directory_iterator(); ++dir_itr )
   {
-    if ( auto fn = dir_itr->path().filename().u8string(); !fn.empty() && *fn.begin() == '.' )
+    if ( auto fn = dir_itr->path().filename().string(); !fn.empty() && *fn.begin() == '.' )
     {
       if ( dir_itr->is_directory() )
         dir_itr.disable_recursion_pending();
@@ -88,10 +89,10 @@ void recurse_collect( const fs::path& basedir, std::set<std::string>* files_src,
       continue;
     const auto ext = dir_itr->path().extension();
     if ( !ext.compare( ".inc" ) )
-      files_inc->insert( fs::canonical( dir_itr->path() ).u8string() );
+      files_inc->insert( fs::canonical( dir_itr->path() ).string() );
     else if ( !ext.compare( ".src" ) || !ext.compare( ".hsr" ) ||
               ( compilercfg.CompileAspPages && !ext.compare( ".asp" ) ) )
-      files_src->insert( fs::canonical( dir_itr->path() ).u8string() );
+      files_src->insert( fs::canonical( dir_itr->path() ).string() );
   }
 }
 
@@ -210,8 +211,8 @@ Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
         .ThrowAsJavaScriptException();
   }
 
-  _workspaceRoot = std::filesystem::u8path( info[0].As<Napi::String>().Utf8Value() );
-  std::string cfg( ( _workspaceRoot / "scripts" / "ecompile.cfg" ).u8string() );
+  _workspaceRoot = std::filesystem::path( info[0].As<Napi::String>().Utf8Value() );
+  std::string cfg( ( _workspaceRoot / "scripts" / "ecompile.cfg" ).string() );
 
   try
   {
@@ -263,7 +264,7 @@ Napi::Value LSPWorkspace::Reopen( const Napi::CallbackInfo& info )
     return Napi::Value();
   }
 
-  std::string cfg( ( _workspaceRoot / "scripts" / "ecompile.cfg" ).u8string() );
+  std::string cfg( ( _workspaceRoot / "scripts" / "ecompile.cfg" ).string() );
 
   try
   {
@@ -345,7 +346,7 @@ void LSPWorkspace::make_absolute( std::string& path )
   std::filesystem::path filepath( path );
   if ( filepath.is_relative() )
   {
-    path = ( _workspaceRoot / filepath ).u8string();
+    path = ( _workspaceRoot / filepath ).string();
   }
 }
 
@@ -383,7 +384,7 @@ std::unique_ptr<Compiler::Compiler> LSPWorkspace::make_compiler()
 
 Napi::Value LSPWorkspace::GetWorkspaceRoot( const Napi::CallbackInfo& info )
 {
-  return Napi::String::New( info.Env(), _workspaceRoot.generic_u8string() );
+  return Napi::String::New( info.Env(), _workspaceRoot.generic_string() );
 }
 
 Napi::Value LSPWorkspace::GetConfigValue( const Napi::CallbackInfo& info )

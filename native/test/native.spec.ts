@@ -227,6 +227,41 @@ describe('Hover - SRC', () => {
         expect(hover).toEqual(escriptdoc('(constant) hello := 1'));
     });
 
+    it('Can hover enum class constants', () => {
+        const hover = getHover('enum class Races HUMANS := "Humans", ORCS := "ORCS" endenum Races::HUMANS;', 70);
+        expect(hover).toEqual(escriptdoc('(constant) Races::HUMANS := "Humans"'));
+    });
+
+    it('Can hover empty-scoped global variable', () => {
+        const hover = getHover('var foo := 3; print(::foo);', 24);
+        expect(hover).toEqual(escriptdoc('(variable) foo'));
+    });
+
+    it('Can hover empty-scoped constant', () => {
+        const hover = getHover('const foo := 3; print(::foo);', 25);
+        expect(hover).toEqual(escriptdoc('(constant) foo := 3'));
+    });
+
+    it('Can hover unscoped enum class constant inside enum class', () => {
+        const hover = getHover('enum class MyEnum FOO := 1, BAR := MyEnum::FOO * 2, BAZ := BAR * 2 endenum', 60);
+        expect(hover).toEqual(escriptdoc('(constant) MyEnum::BAR := 2'));
+    });
+
+    it('Can hover unscoped enum class constant with same name as global constant inside enum class', () => {
+        const hover = getHover('const BAR := 123; enum class MyEnum FOO := 1, BAR := MyEnum::FOO * 2, BAZ := BAR * 2 endenum', 78);
+        expect(hover).toEqual(escriptdoc('(constant) MyEnum::BAR := 2'));
+    });
+
+    it('Can hover scoped enum class constant inside enum class', () => {
+        const hover = getHover('enum class MyEnum FOO := 1, BAR := MyEnum::FOO * 2, BAZ := BAR * 2 endenum', 45);
+        expect(hover).toEqual(escriptdoc('(constant) MyEnum::FOO := 1'));
+    });
+
+    it('Can hover empty-scoped constant inside enum class', () => {
+        const hover = getHover('const BLUB := 321; enum class MyEnum FOO := 1, BAR := MyEnum::FOO * 2, BAZ := BAR * 2, BOB := ::BLUB endenum', 98);
+        expect(hover).toEqual(escriptdoc('(constant) BLUB := 321'));
+    });
+
     it('Can hover variable', () => {
         const hover = getHover('var hello := 1;', 5);
         expect(hover).toEqual(escriptdoc('(variable) hello'));
@@ -940,9 +975,35 @@ describe('Completion', () => {
         ]);
     });
 
+    it('Can complete enum class constants', () => {
+        const completion = getCompletion('enum class Races HUMANS := "Humans", ORCS := "ORCS" endenum Races;', 65);
+        expect(completion).toEqual([
+            { label: 'Races::HUMANS', kind: 21 },
+            { label: 'Races::ORCS', kind: 21 },
+        ]);
+    });
+
+    it('Can complete enum class constants after ::', () => {
+        const completion = getCompletion('enum class Races HUMANS := "Humans", ORCS := "ORCS" endenum Races::;', 67);
+        expect(completion).toEqual([
+            { label: 'Races::HUMANS', kind: 21 },
+            { label: 'Races::ORCS', kind: 21 },
+        ]);
+    });
+
     it('Can complete variables', () => {
         const completion = getCompletion('var varGlobal; program foo() var varLocal; va; endprogram', 45);
         expect(completion).toEqual([{ label: 'varLocal', kind: 6 }, { label: 'varGlobal', kind: 6 }]);
+    });
+
+    it('Can complete enum class constants, prefixing global scope `::` only for duplicate constants', () => {
+        const completion = getCompletion('const ZAR := 4; const ZAT := 5; enum class MyEnum FOO := 1, ZAR := MyEnum::FOO * 2, ZAZ := ZA endenum', 93);
+        expect(completion).toEqual([
+            { label: 'ZAR', kind: 21 },  // in enum scope
+            { label: 'ZAZ', kind: 21 },  // in enum scope
+            { label: '::ZAR', kind: 21 }, // in global scope, since duplicated, needs :: prefix
+            { label: 'ZAT', kind: 21 } // in global scope, not duplicated, does not need :: prefix
+        ]);
     });
 
     it('Will not complete class user function when not in scope', () => {

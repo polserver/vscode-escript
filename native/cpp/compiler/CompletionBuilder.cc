@@ -1,9 +1,19 @@
 #include "CompletionBuilder.h"
 
+#include <set>
+
 #include "bscript/compiler/ast/ClassDeclaration.h"
+#include "bscript/compiler/ast/ConstDeclaration.h"
 #include "bscript/compiler/ast/Identifier.h"
 #include "bscript/compiler/ast/MemberAssignment.h"
+#include "bscript/compiler/ast/ModuleFunctionDeclaration.h"
+#include "bscript/compiler/ast/UserFunction.h"
+#include "bscript/compiler/file/SourceFile.h"
+#include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compiler/model/ScopeName.h"
+#include "bscript/compiler/model/ScopeTree.h"
+#include "bscript/compiler/model/Variable.h"
+#include <EscriptGrammar/EscriptLexer.h>
 
 #include "clib/strutil.h"
 
@@ -24,20 +34,66 @@ std::vector<CompletionItem> CompletionBuilder::context()
     return {};
   }
 
-  workspace.source->accept( *this );
-
-  if ( nodes.empty() )
-  {
-    return {};
-  }
-
   antlr4::Token* result = nullptr;
   antlr4::Token* prev_token = nullptr;
   antlr4::Token* second_prev_token = nullptr;
   auto tokens = workspace.source->get_all_tokens();
 
+  bool waiting_for_function = false;
+  bool waiting_for_class = false;
+  bool in_enum = false;
+
   for ( const auto& token : tokens )
   {
+    if ( token->getType() == EscriptLexer::CLASS )
+    {
+      waiting_for_class = true;
+    }
+    else if ( token->getType() == EscriptLexer::ENUM )
+    {
+      in_enum = true;
+    }
+    else if ( token->getType() == EscriptLexer::ENDENUM )
+    {
+      in_enum = false;
+    }
+    else if ( token->getType() == EscriptLexer::FUNCTION )
+    {
+      waiting_for_function = true;
+    }
+    else if ( token->getType() == EscriptLexer::ENDCLASS )
+    {
+      calling_scope = "";
+    }
+    else if ( token->getType() == EscriptLexer::ENDFUNCTION )
+    {
+      current_user_function = "";
+    }
+    else if ( waiting_for_class )
+    {
+      if ( token->getType() == EscriptLexer::IDENTIFIER )
+      {
+        waiting_for_class = false;
+        calling_scope = token->getText();
+      }
+      else if ( token->getType() != EscriptLexer::WS )
+      {
+        waiting_for_class = false;
+      }
+    }
+    else if ( waiting_for_function )
+    {
+      if ( token->getType() == EscriptLexer::IDENTIFIER )
+      {
+        waiting_for_function = false;
+        current_user_function = token->getText();
+      }
+      else if ( token->getType() != EscriptLexer::WS )
+      {
+        waiting_for_function = false;
+      }
+    }
+
     if ( token->getLine() == position.line_number &&
          token->getCharPositionInLine() + 1 <= position.character_column &&
          token->getCharPositionInLine() + 1 + token->getText().length() >=
@@ -148,9 +204,40 @@ std::vector<CompletionItem> CompletionBuilder::context()
   }
   else
   {
-    for ( auto* constant : workspace.scope_tree.list_constants( query ) )
+    if ( in_enum && !calling_scope.empty() )
     {
-      results.push_back( CompletionItem{ constant->identifier, CompletionItemKind::Constant } );
+      // Keeps track of constants added for this calling scope, since they are
+      // added with no prefix. If we end up adding a globally-scoped constant
+      // with the same name, we need to prefix it with `::`. Global constants
+      // are _after_ scoped constants in `ScopeTree::list_constants()`.
+      std::set<std::string> calling_scope_consts;
+
+      for ( auto* constant : workspace.scope_tree.list_constants( query ) )
+      {
+        if ( !constant->name.scope.global() )
+        {
+          results.push_back( CompletionItem{ constant->name.name, CompletionItemKind::Constant } );
+
+          calling_scope_consts.insert( constant->name.name );
+        }
+        else
+        {
+          // If we've added a constant with this name already, we need to prefix
+          // it with `::` to signal it is global scope.
+          std::string prefix = calling_scope_consts.contains( constant->name.name ) ? "::" : "";
+          results.push_back(
+              CompletionItem{ prefix + constant->name.name, CompletionItemKind::Constant } );
+        }
+      }
+    }
+    // Not in an enum, no need to worry about scoping, just add all the constants.
+    else
+    {
+      for ( auto* constant : workspace.scope_tree.list_constants( query ) )
+      {
+        results.push_back(
+            CompletionItem{ constant->name.string(), CompletionItemKind::Constant } );
+      }
     }
 
     for ( auto variable : workspace.scope_tree.list_variables( query, position ) )
@@ -185,53 +272,4 @@ std::vector<CompletionItem> CompletionBuilder::context()
 
   return results;
 }
-
-antlrcpp::Any CompletionBuilder::visitClassDeclaration(
-    EscriptParser::ClassDeclarationContext* ctx )
-{
-  if ( ctx->IDENTIFIER() )
-  {
-    Pol::Bscript::Compiler::Range range( *ctx );
-    if ( range.contains( position ) )
-    {
-      calling_scope = ctx->IDENTIFIER()->getText();
-    }
-  }
-
-  return visitChildren( ctx );
-}
-
-antlrcpp::Any CompletionBuilder::visitFunctionDeclaration(
-    EscriptGrammar::EscriptParser::FunctionDeclarationContext* ctx )
-{
-  if ( ctx->IDENTIFIER() )
-  {
-    Pol::Bscript::Compiler::Range range( *ctx );
-    if ( range.contains( position ) )
-    {
-      current_user_function = ctx->IDENTIFIER()->getText();
-    }
-  }
-
-  return visitChildren( ctx );
-}
-
-antlrcpp::Any CompletionBuilder::visitChildren( antlr4::tree::ParseTree* node )
-{
-  for ( auto* child : node->children )
-  {
-    if ( auto* ctx = dynamic_cast<antlr4::ParserRuleContext*>( child ) )
-    {
-      Pol::Bscript::Compiler::Range range( *ctx );
-      if ( range.contains( position ) )
-      {
-        nodes.push_back( ctx );
-      }
-    }
-    child->accept( this );
-  }
-
-  return antlrcpp::Any();
-}
-
 }  // namespace VSCodeEscript::CompilerExt

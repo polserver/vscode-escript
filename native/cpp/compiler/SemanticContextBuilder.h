@@ -56,6 +56,8 @@ public:
 
   virtual antlrcpp::Any visitClassDeclaration(
       EscriptGrammar::EscriptParser::ClassDeclarationContext* ctx ) override;
+  virtual antlrcpp::Any visitEnumStatement(
+      EscriptGrammar::EscriptParser::EnumStatementContext* ctx ) override;
   virtual antlrcpp::Any visitFunctionDeclaration(
       EscriptGrammar::EscriptParser::FunctionDeclarationContext* ctx ) override;
   virtual antlrcpp::Any visitChildren( antlr4::tree::ParseTree* node ) override;
@@ -561,6 +563,17 @@ std::optional<T> SemanticContextBuilder<T>::context()
         if ( contains( id ) )
         {
           auto name = id->getText();
+
+          // Try scoped symbol first, as long as name is not already scoped.
+          if ( !calling_scope.empty() && name.find( "::" ) == std::string::npos )
+          {
+            if ( auto result =
+                     try_constant_or_variable( fmt::format( "{}::{}", calling_scope, name ) ) )
+            {
+              return result;
+            }
+          }
+
           return try_constant_or_variable( name );
         }
       }
@@ -687,8 +700,16 @@ std::optional<T> SemanticContextBuilder<T>::context()
     else if ( auto* ctx =
                   dynamic_cast<EscriptGrammar::EscriptParser::ScopedIdentifierContext*>( node ) )
     {
-      return try_variable( fmt::format( "{}::{}", ctx->scope ? ctx->scope->getText() : "",
-                                        ctx->identifier ? ctx->identifier->getText() : "" ) );
+      std::string prefix = "";
+      if ( ctx->scope )
+      {
+        auto scope = ctx->scope->getText();
+        if ( !scope.empty() )
+        {
+          prefix = scope + "::";
+        }
+      }
+      return try_constant_or_variable( prefix + ctx->identifier->getText() );
     }
     else if ( auto* ctx =
                   dynamic_cast<EscriptGrammar::EscriptParser::ClassParameterListContext*>( node ) )
@@ -762,6 +783,23 @@ inline std::any SemanticContextBuilder<T>::visitClassDeclaration(
     if ( range.contains( position ) )
     {
       calling_scope = ctx->IDENTIFIER()->getText();
+    }
+  }
+
+  return visitChildren( ctx );
+}
+template <typename T>
+inline std::any SemanticContextBuilder<T>::visitEnumStatement(
+    EscriptGrammar::EscriptParser::EnumStatementContext* ctx )
+{
+  if ( auto identifier = ctx->IDENTIFIER(); identifier && ctx->CLASS() )
+  {
+    Pol::Bscript::Compiler::Range range( *ctx );
+
+    // Set the calling scope if we are visiting a class declaration inside our range.
+    if ( range.contains( position ) )
+    {
+      calling_scope = identifier->getText();
     }
   }
 

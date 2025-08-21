@@ -11,7 +11,7 @@
 #include "clib/strutil.h"
 
 #include <algorithm>
-#include <boost/range/adaptor/sliced.hpp>
+#include <ranges>
 #include <regex>
 #include <string>
 #include <tinyxml/tinyxml.h>
@@ -47,11 +47,11 @@ std::optional<HoverResult> HoverBuilder::get_constant(
     Pol::Bscript::Compiler::ConstDeclaration* const_decl )
 {
   std::string hover = "```escriptdoc\n(constant) ";
-  hover += const_decl->identifier;
+  hover += const_decl->name.string();
   hover += " := ";
   hover += replace_literal_tags( const_decl->expression().describe() );
   hover += "\n```";
-  HoverResult result{ HoverResult::SymbolType::CONSTANT, const_decl->identifier, hover };
+  HoverResult result{ HoverResult::SymbolType::CONSTANT, const_decl->name.string(), hover };
   return append_comment( const_decl, result );
 }
 
@@ -70,8 +70,7 @@ std::string parameters_to_string(
 {
   bool added = false;
   std::string result;
-  for ( const auto& param_ref :
-        boost::adaptors::slice( params, exclude_first ? 1 : 0, params.size() ) )
+  for ( const auto& param_ref : params | std::views::drop( exclude_first ? 1 : 0 ) )
   {
     auto& param = param_ref.get();
     if ( added )

@@ -193,6 +193,7 @@ Napi::Value LSPDocument::Diagnostics( const Napi::CallbackInfo& info )
       continue;
     }
     const auto& start = diagnostic.location.range.start;
+    const auto& end = diagnostic.location.range.end;
     auto diag = Napi::Object::New( env );
     auto range = Napi::Object::New( env );
     auto rangeStart = Napi::Object::New( env );
@@ -201,8 +202,20 @@ Napi::Value LSPDocument::Diagnostics( const Napi::CallbackInfo& info )
     rangeStart["character"] = start.character_column - 1;
     auto rangeEnd = Napi::Object::New( env );
     range["end"] = rangeEnd;
-    rangeEnd["line"] = start.line_number - 1;
-    rangeEnd["character"] = start.character_column - 1;
+    // bscript will use size_t max to indicate an end-range for something that
+    // doesn't have a known end, eg. things reported via
+    // `notifyErrorListeners()`. In this case, send the same start position, and
+    // the editor will highlight the first token.
+    if ( end.line_number == std::numeric_limits<size_t>::max() )
+    {
+      rangeEnd["line"] = start.line_number - 1;
+      rangeEnd["character"] = start.character_column - 1;
+    }
+    else
+    {
+      rangeEnd["line"] = end.line_number - 1;
+      rangeEnd["character"] = end.character_column - 1;
+    }
     diag["range"] = range;
     diag["severity"] = Napi::Number::New(
         env, diagnostic.severity == Compiler::Diagnostic::Severity::Error ? 1 : 2 );
