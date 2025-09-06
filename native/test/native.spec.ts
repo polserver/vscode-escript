@@ -381,6 +381,16 @@ describe('Hover - SRC', () => {
         const hover = getHover('function StaticFunction(a0) endfunction class Foo() function Foo(this) ::StaticFunction(0); endfunction endclass StaticFunction("");', 76);
         expect(hover).toEqual(escriptdoc('(user function) StaticFunction( a0 )'));
     });
+
+    it('Can hover uninitialized function declaration', () => {
+        const hover = getHover('class Base() uninit function method( this, default param ); endclass class Child( Base ) function Child( this ) endfunction function method( this, param ) endfunction endclass Child();', 32);
+        expect(hover).toEqual(escriptdoc('(uninitialized function) method( this, param )'));
+    });
+
+    it('Can hover parameter in uninitialized function', () => {
+        const hover = getHover('class Base() uninit function method( this, default param ); endclass class Child( Base ) function Child( this ) endfunction function method( this, param ) endfunction endclass Child();', 54);
+        expect(hover).toEqual(escriptdoc('(parameter) param'));
+    });
 });
 
 describe('Hover - Classes', () => {

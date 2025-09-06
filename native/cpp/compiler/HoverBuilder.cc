@@ -114,6 +114,18 @@ std::optional<HoverResult> HoverBuilder::get_module_function(
   return append_comment( function_def, result );
 }
 
+std::optional<HoverResult> HoverBuilder::get_uninit_function(
+    UninitializedFunctionDeclaration* function_def )
+{
+  std::string hover = "```escriptdoc\n(uninitialized function) ";
+  hover += function_def->name;
+  hover += "(";
+  hover += parameters_to_string( function_def->parameters(), false );
+  hover += ")\n```";
+  HoverResult result{ HoverResult::SymbolType::USER_FUNCTION, function_def->name, hover };
+  return append_comment( function_def, result );
+}
+
 std::optional<HoverResult> HoverBuilder::get_user_function(
     Pol::Bscript::Compiler::UserFunction* function_def )
 {
@@ -205,6 +217,16 @@ std::optional<HoverResult> HoverBuilder::get_module_function_parameter(
   return append_comment( param, result );
 }
 
+std::optional<HoverResult> HoverBuilder::get_uninit_function_parameter(
+    Pol::Bscript::Compiler::UninitializedFunctionDeclaration* function_def,
+    Pol::Bscript::Compiler::FunctionParameterDeclaration* param )
+{
+  std::string hover = "```escriptdoc\n(parameter) ";
+  hover += param->name.name;
+  hover += "\n```";
+  HoverResult result{ HoverResult::SymbolType::USER_FUNCTION_PARAMETER, param->name.name, hover };
+  return append_comment( param, result );
+}
 
 std::optional<HoverResult> HoverBuilder::get_user_function_parameter(
     Pol::Bscript::Compiler::UserFunction* function_def,

@@ -59,10 +59,15 @@ public:
   virtual std::optional<HoverResult> get_module_function_parameter(
       Pol::Bscript::Compiler::ModuleFunctionDeclaration* function_def,
       Pol::Bscript::Compiler::FunctionParameterDeclaration* param ) override;
+  virtual std::optional<HoverResult> get_uninit_function(
+      Pol::Bscript::Compiler::UninitializedFunctionDeclaration* ) override;
   virtual std::optional<HoverResult> get_user_function(
       Pol::Bscript::Compiler::UserFunction* ) override;
   virtual std::optional<HoverResult> get_user_function_parameter(
       Pol::Bscript::Compiler::UserFunction* function_def,
+      Pol::Bscript::Compiler::FunctionParameterDeclaration* param ) override;
+  virtual std::optional<HoverResult> get_uninit_function_parameter(
+      Pol::Bscript::Compiler::UninitializedFunctionDeclaration* function_def,
       Pol::Bscript::Compiler::FunctionParameterDeclaration* param ) override;
   virtual std::optional<HoverResult> get_program(
       const std::string& name, Pol::Bscript::Compiler::Program* program ) override;

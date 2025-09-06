@@ -1,6 +1,7 @@
 #ifndef VSCODEESCRIPT_SEMANTICCONTEXTBUILDER_H
 #define VSCODEESCRIPT_SEMANTICCONTEXTBUILDER_H
 
+#include "bscript/compiler/ast/ClassDeclaration.h"
 #include "bscript/compiler/ast/ConstDeclaration.h"
 #include "bscript/compiler/ast/Expression.h"
 #include "bscript/compiler/ast/FunctionParameterDeclaration.h"
@@ -9,6 +10,7 @@
 #include "bscript/compiler/ast/Program.h"
 #include "bscript/compiler/ast/ProgramParameterDeclaration.h"
 #include "bscript/compiler/ast/ProgramParameterList.h"
+#include "bscript/compiler/ast/UninitializedFunctionDeclaration.h"
 #include "bscript/compiler/ast/UserFunction.h"
 #include "bscript/compiler/file/SourceFile.h"
 #include "bscript/compiler/file/SourceFileIdentifier.h"
@@ -40,9 +42,14 @@ public:
   virtual std::optional<T> get_module_function_parameter(
       Pol::Bscript::Compiler::ModuleFunctionDeclaration* function_def,
       Pol::Bscript::Compiler::FunctionParameterDeclaration* param );
+  virtual std::optional<T> get_uninit_function(
+      Pol::Bscript::Compiler::UninitializedFunctionDeclaration* );
   virtual std::optional<T> get_user_function( Pol::Bscript::Compiler::UserFunction* );
   virtual std::optional<T> get_user_function_parameter(
       Pol::Bscript::Compiler::UserFunction* function_def,
+      Pol::Bscript::Compiler::FunctionParameterDeclaration* param );
+  virtual std::optional<T> get_uninit_function_parameter(
+      Pol::Bscript::Compiler::UninitializedFunctionDeclaration* function_def,
       Pol::Bscript::Compiler::FunctionParameterDeclaration* param );
   virtual std::optional<T> get_program( const std::string& name,
                                         Pol::Bscript::Compiler::Program* program );
@@ -120,6 +127,13 @@ std::optional<T> SemanticContextBuilder<T>::get_module_function_parameter(
 }
 
 template <typename T>
+std::optional<T> SemanticContextBuilder<T>::get_uninit_function(
+    Pol::Bscript::Compiler::UninitializedFunctionDeclaration* )
+{
+  return std::nullopt;
+}
+
+template <typename T>
 std::optional<T> SemanticContextBuilder<T>::get_user_function(
     Pol::Bscript::Compiler::UserFunction* )
 {
@@ -129,6 +143,14 @@ std::optional<T> SemanticContextBuilder<T>::get_user_function(
 template <typename T>
 std::optional<T> SemanticContextBuilder<T>::get_user_function_parameter(
     Pol::Bscript::Compiler::UserFunction* function_def,
+    Pol::Bscript::Compiler::FunctionParameterDeclaration* param )
+{
+  return std::nullopt;
+}
+
+template <typename T>
+std::optional<T> SemanticContextBuilder<T>::get_uninit_function_parameter(
+    Pol::Bscript::Compiler::UninitializedFunctionDeclaration* function_def,
     Pol::Bscript::Compiler::FunctionParameterDeclaration* param )
 {
   return std::nullopt;
@@ -539,6 +561,58 @@ std::optional<T> SemanticContextBuilder<T>::context()
                   { calling_scope, current_user_function, Pol::Bscript::Compiler::ScopeName::None,
                     function_name },
                   param_name );
+            }
+          }
+          else if ( auto* parent_ctx = dynamic_cast<
+                        EscriptGrammar::EscriptParser::UninitFunctionDeclarationContext*>(
+                        get_ancestor( ctx, 3 ) ) )
+          {
+            if ( auto* parent_id = parent_ctx->IDENTIFIER() )
+            {
+              auto function_name = parent_id->getText();
+
+              if ( auto class_decl = workspace.scope_tree.find_class( calling_scope ) )
+              {
+                for ( const auto& uninit_func_ref : class_decl->uninit_functions() )
+                {
+                  auto& uninit_func = uninit_func_ref.get();
+                  if ( uninit_func.name == function_name )
+                  {
+                    for ( const auto& param_ref : uninit_func.parameters() )
+                    {
+                      auto& param = param_ref.get();
+                      if ( param.name.name == param_name )
+                      {
+                        return get_uninit_function_parameter( &uninit_func, &param );
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    else if ( auto* ctx =
+                  dynamic_cast<EscriptGrammar::EscriptParser::UninitFunctionDeclarationContext*>(
+                      node ) )
+    {
+      if ( auto* id = ctx->IDENTIFIER() )
+      {
+        if ( contains( id ) )
+        {
+          auto function_name = id->getText();
+
+          if ( auto class_decl = workspace.scope_tree.find_class( calling_scope ) )
+          {
+            for ( const auto& uninit_func_ref : class_decl->uninit_functions() )
+            {
+              auto& uninit_func = uninit_func_ref.get();
+              if ( uninit_func.name == function_name )
+              {
+                return get_uninit_function( &uninit_func );
+              }
             }
           }
         }
