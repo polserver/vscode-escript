@@ -506,6 +506,486 @@ describe('Hover - Module', () => {
     });
 });
 
+describe('Document Symbols - Source', () => {
+    let document: LSPDocument;
+    let text: string;
+    beforeAll(() => {
+        const src = 'in-memory-file.src';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return text;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.open(dir);
+
+        document = workspace.getDocument(src);
+    });
+
+    const getDocumentSymbols = (source: string) => {
+        text = source;
+        document.analyze();
+        return document.symbols();
+    };
+
+    it('Can get symbols for constant', () => {
+        const symbols = getDocumentSymbols('const MY_CONSTANT := 123;');
+        expect(symbols).toEqual([
+            {
+                name: 'MY_CONSTANT',
+                kind: 14,
+                range: {
+                    start: { line: 0, character: 6 },
+                    end: { line: 0, character: 24 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 6 },
+                    end: { line: 0, character: 17 }
+                }
+            }
+        ]);
+    });
+
+    it('Can get symbols for enum declaration', () => {
+        const symbols = getDocumentSymbols('enum FOO ENUM_CONSTANT_1 := 1, ENUM_CONSTANT_2 := 2 endenum');
+        expect(symbols).toEqual([
+            {
+                name: 'FOO',
+                kind: 10,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 59 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 5 },
+                    end: { line: 0, character: 8 }
+                },
+                children: [
+                    {
+                        name: 'ENUM_CONSTANT_1',
+                        kind: 22,
+                        range: {
+                            start: { line: 0, character: 9 },
+                            end: { line: 0, character: 29 }
+                        },
+                        selectionRange: {
+                            start: { line: 0, character: 9 },
+                            end: { line: 0, character: 24 }
+                        }
+                    },
+                    {
+                        name: 'ENUM_CONSTANT_2',
+                        kind: 22,
+                        range: {
+                            start: { line: 0, character: 31 },
+                            end: { line: 0, character: 51 }
+                        },
+                        selectionRange: {
+                            start: { line: 0, character: 31 },
+                            end: { line: 0, character: 46 }
+                        }
+                    }
+                ]
+            }
+        ]);
+    });
+
+    it('Can get symbols for index binding', () => {
+        const symbols = getDocumentSymbols('var {index_binding} := 1;');
+        expect(symbols).toEqual([
+            {
+                name: 'index_binding',
+                kind: 13,
+                range: {
+                    start: { line: 0, character: 5 },
+                    end: { line: 0, character: 18 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 5 },
+                    end: { line: 0, character: 18 }
+                }
+            }
+        ]);
+    });
+
+    it('Can get symbols for nested index binding', () => {
+        const symbols = getDocumentSymbols('var {index: {index_binding_2}} := 3;');
+        expect(symbols).toEqual([
+            {
+                name: 'index_binding_2',
+                kind: 13,
+                range: {
+                    start: { line: 0, character: 13 },
+                    end: { line: 0, character: 28 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 13 },
+                    end: { line: 0, character: 28 }
+                }
+            }
+        ]);
+    });
+
+    it('Can get symbols for sequence binding', () => {
+        const symbols = getDocumentSymbols('var [sequence_binding] := 2;');
+        expect(symbols).toEqual([
+            {
+                name: 'sequence_binding',
+                kind: 13,
+                range: {
+                    start: { line: 0, character: 5 },
+                    end: { line: 0, character: 21 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 5 },
+                    end: { line: 0, character: 21 }
+                }
+            }
+        ]);
+    });
+
+    it('Can get symbols for top-level functions', () => {
+        const symbols = getDocumentSymbols('function func_decl() endfunction');
+        expect(symbols).toEqual([
+            {
+                name: 'func_decl',
+                kind: 12,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 32 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 9 },
+                    end: { line: 0, character: 18 }
+                }
+            }
+        ]);
+    });
+
+    it('Can get variables inside top-level functions', () => {
+        const symbols = getDocumentSymbols('function func_decl() var func_var; endfunction');
+        expect(symbols).toEqual([
+            {
+                name: 'func_decl',
+                kind: 12,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 46 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 9 },
+                    end: { line: 0, character: 18 }
+                },
+                children: [
+                    {
+                        name: 'func_var',
+                        kind: 13,
+                        range: {
+                            start: { line: 0, character: 25 },
+                            end: { line: 0, character: 33 }
+                        },
+                        selectionRange: {
+                            start: { line: 0, character: 25 },
+                            end: { line: 0, character: 33 }
+                        }
+                    }
+                ]
+            }
+        ]);
+    });
+
+    it('Can get symbols for global variables', () => {
+        const symbols = getDocumentSymbols('var global_var;');
+        expect(symbols).toEqual([
+            {
+                name: 'global_var',
+                kind: 13,
+                range: {
+                    start: { line: 0, character: 4 },
+                    end: { line: 0, character: 14 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 4 },
+                    end: { line: 0, character: 14 }
+                }
+            }
+        ]);
+    });
+
+    it('Can get symbols for class and uninit functions', () => {
+        const symbols = getDocumentSymbols('class Shape() uninit function area( this ); endclass');
+        expect(symbols).toEqual([
+            {
+                name: 'Shape',
+                kind: 5,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 52 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 6 },
+                    end: { line: 0, character: 11 }
+                },
+                children: [
+                    {
+                        name: 'area',
+                        kind: 12,
+                        range: {
+                            start: { line: 0, character: 14 },
+                            end: { line: 0, character: 43 }
+                        },
+                        selectionRange: {
+                            start: { line: 0, character: 30 },
+                            end: { line: 0, character: 34 }
+                        }
+                    }
+                ]
+            }
+        ]);
+    });
+
+    it('Can get symbols for class and class-scoped variables', () => {
+        const symbols = getDocumentSymbols('class Circle() var classVar := 3; endclass');
+        expect(symbols).toEqual([
+            {
+                name: 'Circle',
+                kind: 5,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 42 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 6 },
+                    end: { line: 0, character: 12 }
+                },
+                children: [
+                    {
+                        name: 'classVar',
+                        kind: 13,
+                        range: {
+                            start: { line: 0, character: 19 },
+                            end: { line: 0, character: 32 }
+                        },
+                        selectionRange: {
+                            start: { line: 0, character: 19 },
+                            end: { line: 0, character: 27 }
+                        }
+                    }
+                ]
+            }
+        ]);
+    });
+
+    it('Can get symbols for class and class constructor', () => {
+        const symbols = getDocumentSymbols('class Circle() function Circle( this, radius ) this.radius := radius; endfunction endclass');
+        expect(symbols).toEqual([
+            {
+                name: 'Circle',
+                kind: 5,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 90 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 6 },
+                    end: { line: 0, character: 12 }
+                },
+                children: [
+                    {
+                        name: 'Circle',
+                        kind: 9,
+                        range: {
+                            start: { line: 0, character: 15 },
+                            end: { line: 0, character: 81 }
+                        },
+                        selectionRange: {
+                            start: { line: 0, character: 24 },
+                            end: { line: 0, character: 30 }
+                        }
+                    }
+                ]
+            }
+        ]);
+    });
+
+    it('Can get symbols for class and class method', () => {
+        const symbols = getDocumentSymbols('class Circle() function area( this ) return 3.14159 * this.radius * this.radius; endfunction endclass');
+        expect(symbols).toEqual([
+            {
+                name: 'Circle',
+                kind: 5,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 101 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 6 },
+                    end: { line: 0, character: 12 }
+                },
+                children: [
+                    {
+                        name: 'area',
+                        kind: 6,
+                        range: {
+                            start: { line: 0, character: 15 },
+                            end: { line: 0, character: 92 }
+                        },
+                        selectionRange: {
+                            start: { line: 0, character: 24 },
+                            end: { line: 0, character: 28 }
+                        }
+                    }
+                ]
+            }
+        ]);
+    });
+
+    it('Can get symbols for class and class static function', () => {
+        const symbols = getDocumentSymbols('class Circle() function typename() return "Circle"; endfunction endclass');
+        expect(symbols).toEqual([
+            {
+                name: 'Circle',
+                kind: 5,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 72 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 6 },
+                    end: { line: 0, character: 12 }
+                },
+                children: [
+                    {
+                        name: 'typename',
+                        kind: 12,
+                        range: {
+                            start: { line: 0, character: 15 },
+                            end: { line: 0, character: 63 }
+                        },
+                        selectionRange: {
+                            start: { line: 0, character: 24 },
+                            end: { line: 0, character: 32 }
+                        }
+                    }
+                ]
+            }
+        ]);
+    });
+
+    it('Can get symbols for function expression and variables inside it', () => {
+        const symbols = getDocumentSymbols('var funcexpr_var := @() { var inner_func_var := Circle( 5 ); };');
+        expect(symbols).toEqual([
+            {
+                name: 'funcexpr_var',
+                kind: 13,
+                range: {
+                    start: { line: 0, character: 4 },
+                    end: { line: 0, character: 62 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 4 },
+                    end: { line: 0, character: 16 }
+                },
+                children: [
+                    {
+                        name: '<function expression>',
+                        kind: 12,
+                        range: {
+                            start: { line: 0, character: 20 },
+                            end: { line: 0, character: 62 }
+                        },
+                        selectionRange: {
+                            start: { line: 0, character: 20 },
+                            end: { line: 0, character: 21 }
+                        },
+                        children: [
+                            {
+                                name: 'inner_func_var',
+                                kind: 13,
+                                range: {
+                                    start: { line: 0, character: 30 },
+                                    end: { line: 0, character: 59 }
+                                },
+                                selectionRange: {
+                                    start: { line: 0, character: 30 },
+                                    end: { line: 0, character: 44 }
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]);
+    });
+});
+
+describe('Document Symbols - Module', () => {
+    let document: LSPDocument;
+    let text: string;
+    beforeAll(() => {
+        const src = 'in-memory-file.em';
+        const getContents = (pathname: string) => {
+            if (pathname === src) {
+                return text;
+            }
+            return readFileSync(pathname, 'utf-8');
+        };
+
+        const workspace = new LSPWorkspace({
+            getContents
+        });
+        workspace.open(dir);
+
+        document = workspace.getDocument(src);
+    });
+
+    const getDocumentSymbols = (source: string) => {
+        text = source;
+        document.analyze();
+        return document.symbols();
+    };
+
+    it('Can get symbols for constant', () => {
+        const symbols = getDocumentSymbols('const MY_CONSTANT := 123;');
+        expect(symbols).toEqual([
+            {
+                name: 'MY_CONSTANT',
+                kind: 14,
+                range: {
+                    start: { line: 0, character: 6 },
+                    end: { line: 0, character: 24 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 6 },
+                    end: { line: 0, character: 17 }
+                }
+            }
+        ]);
+    });
+
+    it('Can get symbols for module declarations', () => {
+        const symbols = getDocumentSymbols('SelectMenuItem2( character, menuname );');
+        expect(symbols).toEqual([
+            {
+                name: 'SelectMenuItem2',
+                kind: 12,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 39 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 15 }
+                }
+            }
+        ]);
+    });
+});
+
 describe('Hover Docs', () => {
     let document: LSPDocument;
     let text: string;
