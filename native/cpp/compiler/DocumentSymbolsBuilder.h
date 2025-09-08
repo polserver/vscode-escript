@@ -87,7 +87,14 @@ private:
 
   Napi::Env env;
   Pol::Bscript::Compiler::CompilerWorkspace& workspace;
-  std::vector<Napi::Array> symbol_list;
+
+  // .back() holds the current Array for the parent's children. `append_symbol`
+  // adds the new symbol to .back(), and pushes the newly added symbol's
+  // children array onto the stack. Once finished visited the children, the array is
+  // popped off the stack.
+  //
+  // Initially holds the root array of symbols.
+  std::vector<Napi::Array> symbol_stack;
   std::string current_scope;
 };
 }  // namespace VSCodeEscript::CompilerExt

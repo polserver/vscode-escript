@@ -35,10 +35,10 @@ Napi::Value DocumentSymbolsBuilder::symbols()
 {
   Napi::EscapableHandleScope scope( env );
 
-  symbol_list.push_back( Napi::Array::New( env ) );
+  symbol_stack.push_back( Napi::Array::New( env ) );
   workspace.source->accept( *this );
 
-  return scope.Escape( symbol_list.back() );
+  return scope.Escape( symbol_stack.back() );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::append_symbol( SymbolKind kind,
@@ -68,16 +68,16 @@ antlrcpp::Any DocumentSymbolsBuilder::append_symbol( const std::string& name, Sy
     symbol.Set( "selectionRange", range_to_object( Compiler::Range( *selectionTerminal ), env ) );
 
     auto children = Napi::Array::New( env );
-    symbol_list.push_back( children );
+    symbol_stack.push_back( children );
     visitChildren( ctx );
-    symbol_list.pop_back();
+    symbol_stack.pop_back();
 
     if ( children.Length() > 0 )
     {
       symbol.Set( "children", children );
     }
 
-    symbol_list.back().Set( symbol_list.back().Length(), symbol );
+    symbol_stack.back().Set( symbol_stack.back().Length(), symbol );
   }
   else
   {
