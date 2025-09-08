@@ -28,12 +28,14 @@
 		]
 	},
 	"scripts": {
-		"build": "cmake-js build --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
-		"rebuild": "cmake-js rebuild --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
+		"build": "cmake-js build -G Ninja --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
+		"rebuild": "cmake-js rebuild -G Ninja --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
+		"configure": "cmake-js configure -G Ninja --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON",
 		"clean": "cmake-js clean && rimraf out",
-		"build-debug": "cmake-js build -B Debug --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
-		"rebuild-debug": "cmake-js rebuild -B Debug --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
-		"build-relwithdebinfo": "cmake-js build -B RelWithDebInfo --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
-		"rebuild-relwithdebinfo": "cmake-js rebuild -B RelWithDebInfo --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc"
+		"build-debug": "cmake-js build -G Ninja -B Debug --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
+		"configure-debug": "cmake-js configure -G Ninja -B Debug --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+		"rebuild-debug": "cmake-js rebuild -G Ninja -B Debug --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
+		"build-relwithdebinfo": "cmake-js build -G Ninja -B RelWithDebInfo --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc",
+		"rebuild-relwithdebinfo": "cmake-js rebuild -G Ninja -B RelWithDebInfo --CDNO_PCH=ON --CDCMAKE_EXPORT_COMPILE_COMMANDS=ON && tsc"
 	}
 }
