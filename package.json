@@ -1,7 +1,7 @@
 {
 	"name": "escript-lsp",
 	"displayName": "Escript Language Server",
-	"version": "0.18.0",
+	"version": "0.18.1",
 	"description": "EScript for Visual Studio Code. Provides code completion, navigation, and more.",
 	"contributors": [
 		{
@@ -239,7 +239,7 @@
 		"postinstall": "cd client && npm install && cd ../native && npm install && cd ../server && npm install",
 		"watch": "npm run grammar && tsc -b -w",
 		"build": "npm run grammar && tsc -b && cd native && npm run build",
-		"clean": "rimraf client/out server/out grammars/escript.json && cd native && npm run clean",
+		"clean": "rimraf client/out server/out grammars/escript.json",
 		"e2e": "cd client && npm test",
 		"test": "jest --coverage --detectOpenHandles --runInBand",
 		"test-all": "cross-env JEST_RUN_LONG_TESTS=1 jest --coverage --detectOpenHandles --runInBand",
