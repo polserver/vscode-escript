@@ -79,8 +79,11 @@ public:
       EscriptGrammar::EscriptParser::UninitFunctionDeclarationContext* ctx ) override;
 
 private:
-  void append_symbol( const std::string& name, SymbolKind kind, antlr4::ParserRuleContext* ctx,
-                      Pol::Bscript::Compiler::Range selectionRange );
+  antlrcpp::Any append_symbol( const std::string& name, SymbolKind kind,
+                               antlr4::ParserRuleContext* ctx,
+                               antlr4::tree::TerminalNode* selectionTerminal );
+  antlrcpp::Any append_symbol( SymbolKind kind, antlr4::ParserRuleContext* ctx,
+                               antlr4::tree::TerminalNode* selectionTerminal );
 
   Napi::Env env;
   Pol::Bscript::Compiler::CompilerWorkspace& workspace;

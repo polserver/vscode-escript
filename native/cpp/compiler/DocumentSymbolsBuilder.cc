@@ -41,28 +41,52 @@ Napi::Value DocumentSymbolsBuilder::symbols()
   return scope.Escape( symbol_list.back() );
 }
 
-void DocumentSymbolsBuilder::append_symbol( const std::string& name, SymbolKind kind,
-                                            antlr4::ParserRuleContext* ctx,
-                                            Compiler::Range selectionRange )
+antlrcpp::Any DocumentSymbolsBuilder::append_symbol( SymbolKind kind,
+                                                     antlr4::ParserRuleContext* ctx,
+                                                     antlr4::tree::TerminalNode* selectionTerminal )
 {
-  Napi::Object symbol = Napi::Object::New( env );
-  symbol.Set( "name", name );
-  symbol.Set( "kind", static_cast<int>( kind ) );
-  symbol.Set( "range", range_to_object( Compiler::Range( *ctx ), env ) );
-  symbol.Set( "selectionRange", range_to_object( selectionRange, env ) );
-
-  auto children = Napi::Array::New( env );
-  symbol_list.push_back( children );
-  visitChildren( ctx );
-  symbol_list.pop_back();
-
-  if ( children.Length() > 0 )
+  if ( selectionTerminal != nullptr &&
+       selectionTerminal->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
   {
-    symbol.Set( "children", children );
+    return append_symbol( selectionTerminal->getText(), kind, ctx, selectionTerminal );
   }
 
-  symbol_list.back().Set( symbol_list.back().Length(), symbol );
+  return visitChildren( ctx );
 }
+
+antlrcpp::Any DocumentSymbolsBuilder::append_symbol( const std::string& name, SymbolKind kind,
+                                                     antlr4::ParserRuleContext* ctx,
+                                                     antlr4::tree::TerminalNode* selectionTerminal )
+{
+  if ( selectionTerminal != nullptr &&
+       selectionTerminal->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
+  {
+    Napi::Object symbol = Napi::Object::New( env );
+    symbol.Set( "name", name );
+    symbol.Set( "kind", static_cast<int>( kind ) );
+    symbol.Set( "range", range_to_object( Compiler::Range( *ctx ), env ) );
+    symbol.Set( "selectionRange", range_to_object( Compiler::Range( *selectionTerminal ), env ) );
+
+    auto children = Napi::Array::New( env );
+    symbol_list.push_back( children );
+    visitChildren( ctx );
+    symbol_list.pop_back();
+
+    if ( children.Length() > 0 )
+    {
+      symbol.Set( "children", children );
+    }
+
+    symbol_list.back().Set( symbol_list.back().Length(), symbol );
+  }
+  else
+  {
+    visitChildren( ctx );
+  }
+
+  return {};
+}
+
 
 antlrcpp::Any DocumentSymbolsBuilder::visitClassDeclaration(
     EscriptGrammar::EscriptParser::ClassDeclarationContext* ctx )
@@ -71,7 +95,7 @@ antlrcpp::Any DocumentSymbolsBuilder::visitClassDeclaration(
        identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
   {
     current_scope = identifier->getText();
-    append_symbol( current_scope, SymbolKind::Class, ctx, Compiler::Range( *identifier ) );
+    append_symbol( current_scope, SymbolKind::Class, ctx, identifier );
     current_scope.clear();
   }
   else
@@ -85,171 +109,64 @@ antlrcpp::Any DocumentSymbolsBuilder::visitClassDeclaration(
 antlrcpp::Any DocumentSymbolsBuilder::visitConstantDeclaration(
     EscriptGrammar::EscriptParser::ConstantDeclarationContext* ctx )
 {
-  if ( auto identifier = ctx->IDENTIFIER();
-       identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    append_symbol( identifier->getText(), SymbolKind::Constant, ctx,
-                   Compiler::Range( *identifier ) );
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
-
-  return {};
+  return append_symbol( SymbolKind::Constant, ctx, ctx->IDENTIFIER() );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitFunctionExpression(
     EscriptGrammar::EscriptParser::FunctionExpressionContext* ctx )
 {
-  if ( auto at = ctx->AT();
-       at != nullptr && at->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    append_symbol( "<function expression>", SymbolKind::Function, ctx, Compiler::Range( *at ) );
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
-
-  return {};
+  return append_symbol( "<function expression>", SymbolKind::Function, ctx, ctx->AT() );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitVariableDeclaration(
     EscriptGrammar::EscriptParser::VariableDeclarationContext* ctx )
 {
-  if ( auto identifier = ctx->IDENTIFIER();
-       identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    append_symbol( identifier->getText(), SymbolKind::Variable, ctx,
-                   Compiler::Range( *identifier ) );
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
-
-  return {};
+  return append_symbol( SymbolKind::Variable, ctx, ctx->IDENTIFIER() );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitSequenceBinding(
     EscriptGrammar::EscriptParser::SequenceBindingContext* ctx )
 {
-  if ( auto identifier = ctx->IDENTIFIER();
-       identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    append_symbol( identifier->getText(), SymbolKind::Variable, ctx,
-                   Compiler::Range( *identifier ) );
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
-
-  return {};
+  return append_symbol( SymbolKind::Variable, ctx, ctx->IDENTIFIER() );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitIndexBinding(
     EscriptGrammar::EscriptParser::IndexBindingContext* ctx )
 {
-  if ( auto identifier = ctx->IDENTIFIER();
-       ctx->binding() == nullptr && identifier != nullptr &&
-       identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    append_symbol( identifier->getText(), SymbolKind::Variable, ctx,
-                   Compiler::Range( *identifier ) );
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
+  if ( ctx->binding() == nullptr )
+    return append_symbol( SymbolKind::Variable, ctx, ctx->IDENTIFIER() );
 
-  return {};
+  return visitChildren( ctx );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitBinding(
     EscriptGrammar::EscriptParser::BindingContext* ctx )
 {
-  if ( auto identifier = ctx->IDENTIFIER();
-       identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    append_symbol( identifier->getText(), SymbolKind::Variable, ctx,
-                   Compiler::Range( *identifier ) );
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
-
-  return {};
+  return append_symbol( SymbolKind::Variable, ctx, ctx->IDENTIFIER() );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitEnumStatement(
     EscriptGrammar::EscriptParser::EnumStatementContext* ctx )
 {
-  if ( auto identifier = ctx->IDENTIFIER();
-       identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    append_symbol( identifier->getText(), SymbolKind::Enum, ctx, Compiler::Range( *identifier ) );
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
-
-  return {};
+  return append_symbol( SymbolKind::Enum, ctx, ctx->IDENTIFIER() );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitEnumListEntry(
     EscriptGrammar::EscriptParser::EnumListEntryContext* ctx )
 {
-  if ( auto identifier = ctx->IDENTIFIER();
-       identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    append_symbol( identifier->getText(), SymbolKind::EnumMember, ctx,
-                   Compiler::Range( *identifier ) );
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
-
-  return {};
+  return append_symbol( SymbolKind::EnumMember, ctx, ctx->IDENTIFIER() );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitModuleFunctionDeclaration(
     EscriptGrammar::EscriptParser::ModuleFunctionDeclarationContext* ctx )
 {
-  if ( auto identifier = ctx->IDENTIFIER();
-       identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    append_symbol( identifier->getText(), SymbolKind::Function, ctx,
-                   Compiler::Range( *identifier ) );
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
-
-  return {};
+  return append_symbol( SymbolKind::Function, ctx, ctx->IDENTIFIER() );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitProgramDeclaration(
     EscriptGrammar::EscriptParser::ProgramDeclarationContext* ctx )
 {
-  if ( auto identifier = ctx->IDENTIFIER();
-       identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    current_scope = identifier->getText();
-    append_symbol( current_scope, SymbolKind::Function, ctx, Compiler::Range( *identifier ) );
-    current_scope.clear();
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
-
-  return {};
+  return append_symbol( SymbolKind::Function, ctx, ctx->IDENTIFIER() );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitFunctionDeclaration(
@@ -286,29 +203,14 @@ antlrcpp::Any DocumentSymbolsBuilder::visitFunctionDeclaration(
       }
     }
 
-    append_symbol( function_name, kind, ctx, Compiler::Range( *identifier ) );
-  }
-  else
-  {
-    visitChildren( ctx );
+    return append_symbol( function_name, kind, ctx, identifier );
   }
 
-  return {};
+  return visitChildren( ctx );
 }
 
 antlrcpp::Any DocumentSymbolsBuilder::visitUninitFunctionDeclaration(
     EscriptGrammar::EscriptParser::UninitFunctionDeclarationContext* ctx )
 {
-  if ( auto identifier = ctx->IDENTIFIER();
-       identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
-  {
-    append_symbol( identifier->getText(), SymbolKind::Function, ctx,
-                   Compiler::Range( *identifier ) );
-  }
-  else
-  {
-    visitChildren( ctx );
-  }
-
-  return {};
+  return append_symbol( SymbolKind::Function, ctx, ctx->IDENTIFIER() );
 }
