@@ -234,6 +234,24 @@ antlrcpp::Any DocumentSymbolsBuilder::visitModuleFunctionDeclaration(
   return {};
 }
 
+antlrcpp::Any DocumentSymbolsBuilder::visitProgramDeclaration(
+    EscriptGrammar::EscriptParser::ProgramDeclarationContext* ctx )
+{
+  if ( auto identifier = ctx->IDENTIFIER();
+       identifier != nullptr && identifier->getTreeType() != antlr4::tree::ParseTreeType::ERROR )
+  {
+    current_scope = identifier->getText();
+    append_symbol( current_scope, SymbolKind::Function, ctx, Compiler::Range( *identifier ) );
+    current_scope.clear();
+  }
+  else
+  {
+    visitChildren( ctx );
+  }
+
+  return {};
+}
+
 antlrcpp::Any DocumentSymbolsBuilder::visitFunctionDeclaration(
     EscriptGrammar::EscriptParser::FunctionDeclarationContext* ctx )
 {

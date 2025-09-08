@@ -949,6 +949,24 @@ describe('Document Symbols - Module', () => {
         return document.symbols();
     };
 
+    it('Can get symbols for program', () => {
+        const symbols = getDocumentSymbols('program foo(a, b, c) endprogram)');
+        expect(symbols).toEqual([
+            {
+                name: 'foo',
+                kind: 12,
+                range: {
+                    start: { line: 0, character: 8 },
+                    end: { line: 0, character: 32 }
+                },
+                selectionRange: {
+                    start: { line: 0, character: 8 },
+                    end: { line: 0, character: 11 }
+                }
+            }
+        ]);
+    });
+
     it('Can get symbols for constant', () => {
         const symbols = getDocumentSymbols('const MY_CONSTANT := 123;');
         expect(symbols).toEqual([

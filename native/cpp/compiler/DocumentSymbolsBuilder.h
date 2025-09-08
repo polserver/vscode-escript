@@ -69,6 +69,8 @@ public:
       EscriptGrammar::EscriptParser::IndexBindingContext* ctx ) override;
   virtual antlrcpp::Any visitModuleFunctionDeclaration(
       EscriptGrammar::EscriptParser::ModuleFunctionDeclarationContext* ctx ) override;
+  virtual antlrcpp::Any visitProgramDeclaration(
+      EscriptGrammar::EscriptParser::ProgramDeclarationContext* ctx ) override;
   virtual antlrcpp::Any visitSequenceBinding(
       EscriptGrammar::EscriptParser::SequenceBindingContext* ctx ) override;
   virtual antlrcpp::Any visitVariableDeclaration(
