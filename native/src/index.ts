@@ -1,6 +1,6 @@
 import { resolve } from 'path';
 import { existsSync } from 'fs';
-import type { Diagnostic, Position, Range, CompletionItem, Location, FormattingOptions } from 'vscode-languageserver-types';
+import type { Diagnostic, Position, Range, CompletionItem, Location, FormattingOptions, DocumentSymbol } from 'vscode-languageserver-types';
 
 // The native module uses this specific format for a SignatureHelp
 export type ParameterInformation = {
@@ -53,6 +53,7 @@ export interface LSPDocument {
     toStringTree(): string | undefined;
     buildReferences(): undefined;
     references(position: Position): Location[] | undefined;
+    symbols(): DocumentSymbol[] | undefined;
 }
 
 export interface ExtensionConfiguration {

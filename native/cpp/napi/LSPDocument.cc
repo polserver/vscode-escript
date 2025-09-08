@@ -1,9 +1,10 @@
 #include "LSPDocument.h"
 #include "../compiler/CompletionBuilder.h"
 #include "../compiler/DefinitionBuilder.h"
+#include "../compiler/DocumentSymbolsBuilder.h"
 #include "../compiler/HoverBuilder.h"
-#include "../compiler/ReferencesFinder.h"
 #include "../compiler/ReferencesBuilder.h"
+#include "../compiler/ReferencesFinder.h"
 #include "../compiler/SignatureHelpBuilder.h"
 #include "ExtensionConfig.h"
 #include "LSPWorkspace.h"
@@ -129,6 +130,7 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "toStringTree", &LSPDocument::ToStringTree ),
                         LSPDocument::InstanceMethod( "buildReferences", &LSPDocument::BuildReferences ),
                         LSPDocument::InstanceMethod( "toFormattedString", &LSPDocument::ToFormattedString ),
+                        LSPDocument::InstanceMethod( "symbols", &LSPDocument::Symbols ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
@@ -723,8 +725,22 @@ Napi::Value LSPDocument::ToFormattedString( const Napi::CallbackInfo& info )
   {
     compilercfg.FormatterTabWidth = oldFormatterTabWidth;
     compilercfg.FormatterUseTabs = oldFormatterUseTabs;
-    return throwError(ex.what());
+    return throwError(ex.what() );
   }
+}
+
+Napi::Value LSPDocument::Symbols( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+
+  if ( !compiler_workspace )
+  {
+    return env.Undefined();
+  }
+
+  CompilerExt::DocumentSymbolsBuilder builder( env, *compiler_workspace );
+
+  return builder.symbols();
 }
 
 }  // namespace VSCodeEscript

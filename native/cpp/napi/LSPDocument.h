@@ -43,6 +43,7 @@ public:
   Napi::Value ToStringTree( const Napi::CallbackInfo& );
   Napi::Value BuildReferences( const Napi::CallbackInfo& );
   Napi::Value ToFormattedString( const Napi::CallbackInfo& );
+  Napi::Value Symbols( const Napi::CallbackInfo& );
 
   std::unique_ptr<Pol::Bscript::Compiler::DiagnosticReporter> reporter;
 

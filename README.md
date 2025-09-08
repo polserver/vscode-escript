@@ -10,6 +10,7 @@ POL shards by providing:
  - hover information
  - references
  - document and selection-based formatting
+ - document symbols
  - debugger
 
 ## Setup
@@ -87,6 +88,15 @@ docs](https://docs.polserver.com/pol100/configfiles.php#ecompile.cfg) for
 configuration options.
 
 ![format-selection](doc-assets/format-selection.gif)
+
+### Document Symbols
+
+The extension provides information regarding the symbols for a script or module.
+This is generally used, for example, when the IDE creates "breadcrumbs" for a
+document. This provides a hierarchical view of classes, functions, variables,
+etc.
+
+![document-symbols](doc-assets/document-symbols.png)
 
 ### Debugger
 

@@ -1,4 +1,4 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportKind, DocumentUri, FullDocumentDiagnosticReport, DocumentFormattingParams, TextEdit, DocumentRangeFormattingParams, FormattingOptions, Range, DidChangeWatchedFilesParams, FileChangeType } from 'vscode-languageserver/node';
+import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, DocumentSymbolParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportKind, DocumentUri, FullDocumentDiagnosticReport, DocumentFormattingParams, TextEdit, DocumentRangeFormattingParams, FormattingOptions, Range, DidChangeWatchedFilesParams, FileChangeType, DocumentSymbol } from 'vscode-languageserver/node';
 import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { readFileSync } from 'fs';
@@ -59,6 +59,7 @@ export class LSPServer {
         this.connection.onReferences(this.onReferences);
         this.connection.languages.diagnostics.on(this.onDocumentDiagnostics);
         this.connection.onDidChangeWatchedFiles(this.onDidChangeWatchedFiles);
+        this.connection.onDocumentSymbol(this.onDocumentSymbol);
 
         this.documents.listen(this.connection);
         this.downloader = new DocsDownloader(LSPServer.options.storageFsPath);
@@ -152,7 +153,8 @@ export class LSPServer {
                     },
                     range: false,
                     full: true
-                }
+                },
+                documentSymbolProvider: true
             }
         };
 
@@ -224,6 +226,13 @@ export class LSPServer {
                 this.updateCache();
             }
         }
+    };
+
+    private onDocumentSymbol = (params: DocumentSymbolParams): DocumentSymbol[] | null => {
+        const { fsPath } = URI.parse(params.textDocument.uri);
+        const document = this.sources.get(fsPath);
+
+        return document?.symbols() ?? null;
     };
 
     private onSemanticTokens = async (params: SemanticTokensParams): Promise<SemanticTokens> => {
