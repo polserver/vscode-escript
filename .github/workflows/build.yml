@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -50,7 +50,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -89,7 +89,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -134,7 +134,7 @@ jobs:
     needs: [windows, mac, linux]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -158,19 +158,19 @@ jobs:
       - run: npm install
 
       - name: Download Temporary Artifact darwin-universal
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: vscode-escript-native.darwin-universal
           path: native/build/Release
 
       - name: Download Temporary Artifact win32-x64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: vscode-escript-native.win32-x64
           path: native/build/Release
 
       - name: Download Temporary Artifact linux-x64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: vscode-escript-native.linux-x64
           path: native/build/Release
