@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -40,7 +40,7 @@ jobs:
       - run: npm test
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: vscode-escript-native.linux-x64
           path: native/build/Release/vscode-escript-native.linux-x64.node
@@ -50,7 +50,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -79,7 +79,7 @@ jobs:
       - run: npm test
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: vscode-escript-native.win32-x64
           path: native/build/Release/vscode-escript-native.win32-x64.node
@@ -89,7 +89,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -123,7 +123,7 @@ jobs:
       - run: npm test
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: vscode-escript-native.darwin-universal
           path: native/build/Release/vscode-escript-native.darwin-universal.node
@@ -134,7 +134,7 @@ jobs:
     needs: [windows, mac, linux]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -158,19 +158,19 @@ jobs:
       - run: npm install
 
       - name: Download Temporary Artifact darwin-universal
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: vscode-escript-native.darwin-universal
           path: native/build/Release
 
       - name: Download Temporary Artifact win32-x64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: vscode-escript-native.win32-x64
           path: native/build/Release
 
       - name: Download Temporary Artifact linux-x64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: vscode-escript-native.linux-x64
           path: native/build/Release
@@ -178,7 +178,7 @@ jobs:
       - run: npx vsce package
 
       - name: Upload Extension Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: escript-lsp-universal
           path: escript-lsp-*.vsix
