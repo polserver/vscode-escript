@@ -1135,6 +1135,11 @@ describe('Tokens - SRC', () => {
         const tokensCRLF = getTokens(textCRLF);
         expect(tokensLF).toEqual(tokensCRLF);
     });
+
+    it('Can get regexp tokens', () => {
+        const tokens = getTokens('/[a-z]+/i');
+        expect(tokens).toEqual([[0, 0, 9, 20 /* regexp */, 0]]);
+    });
 });
 
 describe('Definition - SRC', () => {
