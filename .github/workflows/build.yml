@@ -35,7 +35,9 @@ jobs:
           path: native/polserver
           key: linux-polserver-src-full-${{ steps.get-ref.outputs.ref }}
 
-      - run: npm install && npm run build
+      - run: npm ci --workspaces --include-workspace-root
+
+      - run: npm run build
 
       - run: npm test
 
@@ -72,7 +74,9 @@ jobs:
           path: native/polserver
           key: windows-polserver-src-full-${{ steps.get-ref.outputs.ref }}
 
-      - run: npm install && npm run build
+      - run: npm ci --workspaces --include-workspace-root
+
+      - run: npm run build
 
       - run: npm run eslint
 
@@ -118,7 +122,9 @@ jobs:
         run: |
           echo "MACOSX_DEPLOYMENT_TARGET=13.3" >> $GITHUB_ENV
 
-      - run: npm install && npm run build
+      - run: npm ci --workspaces --include-workspace-root
+
+      - run: npm run build
 
       - run: npm test
 
@@ -155,7 +161,7 @@ jobs:
           path: native/polserver
           key: linux-polserver-src-full-${{ steps.get-ref.outputs.ref }}
 
-      - run: npm install
+      - run: npm ci --workspaces --include-workspace-root
 
       - name: Download Temporary Artifact darwin-universal
         uses: actions/download-artifact@v4
