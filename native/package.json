@@ -19,8 +19,8 @@
 		"url": "https://github.com/polserver/vscode-escript"
 	},
 	"devDependencies": {
-		"cmake-js": "^7.3.0",
-		"node-addon-api": "^8.3.1"
+		"cmake-js": "^7.4.0",
+		"node-addon-api": "^8.5.0"
 	},
 	"binary": {
 		"napi_versions": [
