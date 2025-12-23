@@ -250,18 +250,18 @@
 		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
-		"@types/jest": "^29.5.14",
+		"@types/jest": "^30.0.0",
 		"@types/mock-fs": "^4.13.4",
 		"@types/node": "^22.14.1",
-		"@typescript-eslint/parser": "^8.29.1",
-		"cross-env": "^7.0.3",
-		"eslint": "^9.24.0",
-		"jest": "^29.7.0",
-		"js-yaml": "^4.1.0",
+		"@typescript-eslint/parser": "^8.50.1",
+		"cross-env": "^10.1.0",
+		"eslint": "^9.39.2",
+		"jest": "^30.2.0",
+		"js-yaml": "^4.1.1",
 		"mock-fs": "^5.5.0",
-		"rimraf": "^6.0.1",
-		"ts-jest": "^29.3.2",
-		"ts-loader": "^9.5.2",
-		"typescript": "^5.8.3"
+		"rimraf": "^6.1.2",
+		"ts-jest": "^29.4.6",
+		"ts-loader": "^9.5.4",
+		"typescript": "^5.9.3"
 	}
 }
