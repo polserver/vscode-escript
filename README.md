@@ -210,3 +210,34 @@ https://github.com/polserver/vscode-escript/issues.
 - In the new Visual Studio Code [Extension Development Host], open a POL distro
   folder that contains `pol.cfg` and `scripts/ecompile.cfg`.
 - Check the "ECompile Language Server" channel in the Output pane.
+
+## NVIM LSP integration
+Run `npm install && npm build` in this folder. This installs all necessary
+  node modules in both the client and server folder (only the server is needed)
+
+nvim example configuration:
+```
+vim.lsp.config.escriptlsp = {
+  root_markers = {
+    "pol.cfg"
+  },
+  filetypes = { 'escript' },
+  cmd = {
+    "node",
+    "/PATH_TO_VSESCRIPT/server/out/index.js",
+    "--stdio",
+    "--storageUri=/SOME_PATH/escriptlsp"
+  },
+  init_options = {
+    configuration = {
+      polCommitId = "COMMIT HASH",
+      showModuleFunctionComments = true,
+      continueAnalysisOnError = true,
+      disableWorkspaceReferences = true,
+      referenceAllFunctions = true,
+    }
+  },
+}
+
+vim.lsp.enable('escriptlsp')
+```
