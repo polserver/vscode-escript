@@ -16,7 +16,9 @@
 #include "bscript/compiler/model/CompilerWorkspace.h"
 #include "bscript/compilercfg.h"
 #include "clib/strutil.h"
+#include <algorithm>
 #include <filesystem>
+#include <vector>
 
 using namespace Pol::Bscript;
 
@@ -131,9 +133,27 @@ Napi::Function LSPDocument::GetClass( Napi::Env env )
                         LSPDocument::InstanceMethod( "buildReferences", &LSPDocument::BuildReferences ),
                         LSPDocument::InstanceMethod( "toFormattedString", &LSPDocument::ToFormattedString ),
                         LSPDocument::InstanceMethod( "symbols", &LSPDocument::Symbols ),
+                        LSPDocument::InstanceMethod( "release", &LSPDocument::Release ),
                         LSPDocument::InstanceMethod( "dependents", &LSPDocument::Dependents ) } );
 }
 
+
+// Frees the syntax tree and diagnostics while keeping `referenced_by`, which
+// the workspace-wide reference index still needs.
+//
+// LSPWorkspace's document cache holds a strong reference to every LSPDocument
+// it ever creates and only clears on reopen, so without this the syntax tree of
+// every file the user has opened stays resident for the life of the server.
+// Reopening the document simply analyzes it again.
+Napi::Value LSPDocument::Release( const Napi::CallbackInfo& info )
+{
+  compiler_workspace.reset();
+  if ( reporter )
+  {
+    reporter->diagnostics.clear();
+  }
+  return info.Env().Undefined();
+}
 
 Napi::Value LSPDocument::Analyze( const Napi::CallbackInfo& info )
 {
@@ -148,6 +168,14 @@ Napi::Value LSPDocument::Analyze( const Napi::CallbackInfo& info )
     compiler_workspace.reset();
 
     auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
+
+    // Analyzing an .em/.inc means that file's own contents may have just
+    // changed, and get_contents() serves unsaved editor text. Its cached parse
+    // tree would otherwise be reused and the edit silently ignored. Analyzing a
+    // .src -- the common case -- leaves the cache intact, which is the point.
+    if ( type != LSPDocumentType::SRC )
+      lsp_workspace->clear_parse_tree_caches();
+
     auto compiler = lsp_workspace->make_compiler();
     if ( type == LSPDocumentType::INC || gExtensionConfiguration.referenceAllFunctions )
     {
@@ -170,6 +198,10 @@ Napi::Value LSPDocument::Analyze( const Napi::CallbackInfo& info )
     {
       build_references( *compiler_workspace );
     }
+
+    // load() inserts into the parse-tree caches without bound; this trims them
+    // back to the size configured from ecompile.cfg.
+    lsp_workspace->prune_parse_tree_caches();
 
     return env.Undefined();
   }
@@ -235,32 +267,56 @@ Napi::Value LSPDocument::Diagnostics( const Napi::CallbackInfo& info )
   return results;
 }
 
+// Returns tokens as a flat Uint32Array of 5 values each (line, character,
+// length, type, modifiers), already ordered by position.
+//
+// The previous shape was one JS array per token built with `push` calls, which
+// on a few-thousand-token file meant tens of thousands of N-API calls plus a JS
+// sort of that many arrays -- on every edit. Writing straight into the typed
+// array's backing store avoids per-element crossings entirely.
 Napi::Value LSPDocument::Tokens( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
 
-  auto results = Napi::Array::New( env );
-  auto push = results.Get( "push" ).As<Napi::Function>();
-
-  if ( compiler_workspace )
+  if ( !compiler_workspace )
   {
-    for ( const auto& token : compiler_workspace->tokens )
+    return Napi::Uint32Array::New( env, 0 );
+  }
+
+  const auto& tokens = compiler_workspace->tokens;
+
+  std::vector<const Compiler::SemanticToken*> ordered;
+  ordered.reserve( tokens.size() );
+  for ( const auto& token : tokens )
+  {
+    ordered.push_back( &token );
+  }
+
+  std::sort( ordered.begin(), ordered.end(),
+             []( const Compiler::SemanticToken* a, const Compiler::SemanticToken* b )
+             {
+               if ( a->line_number != b->line_number )
+                 return a->line_number < b->line_number;
+               return a->character_column < b->character_column;
+             } );
+
+  auto results = Napi::Uint32Array::New( env, ordered.size() * 5 );
+  uint32_t* data = results.Data();
+
+  size_t index = 0;
+  for ( const auto* token : ordered )
+  {
+    data[index++] = static_cast<uint32_t>( token->line_number - 1 );
+    data[index++] = static_cast<uint32_t>( token->character_column - 1 );
+    data[index++] = static_cast<uint32_t>( token->length );
+    data[index++] = static_cast<uint32_t>( token->type );
+
+    uint32_t modifiers = 0;
+    for ( auto const& modifier : token->modifiers )
     {
-      auto semTok = Napi::Array::New( env );
-      push.Call( semTok, { Napi::Number::New( env, token.line_number - 1 ) } );
-      push.Call( semTok, { Napi::Number::New( env, token.character_column - 1 ) } );
-      push.Call( semTok, { Napi::Number::New( env, token.length ) } );
-      push.Call( semTok, { Napi::Number::New( env, static_cast<unsigned int>( token.type ) ) } );
-
-      int modifiers = 0;
-      for ( auto const& modifier : token.modifiers )
-      {
-        modifiers += ( 1 << static_cast<unsigned int>( modifier ) );
-      }
-      push.Call( semTok, { Napi::Number::New( env, modifiers ) } );
-
-      push.Call( results, { semTok } );
+      modifiers |= ( 1u << static_cast<unsigned int>( modifier ) );
     }
+    data[index++] = modifiers;
   }
 
   return results;

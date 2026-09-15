@@ -24,9 +24,34 @@ export type LSPWorkspaceConfig = {
     getXmlDocPath?: (moduleEmFile: string) => string | null;
 }
 
+/**
+ * Counters collected by the compiler. `cacheHits`/`cacheMisses` and the
+ * `parse*Count` fields show whether include files are being reused across
+ * analyses or reparsed every time.
+ */
+export type CompilerProfile = {
+    cacheHits: number;
+    cacheMisses: number;
+    parseEmCount: number;
+    parseIncCount: number;
+    parseSrcCount: number;
+    buildWorkspaceMicros: number;
+    analyzeMicros: number;
+    parseEmMicros: number;
+    parseIncMicros: number;
+    parseSrcMicros: number;
+}
+
 export interface LSPWorkspace {
     new(config: LSPWorkspaceConfig): LSPWorkspace;
     workspaceRoot: string;
+    /** Snapshot of the compiler's counters. Read-only. */
+    readonly profile: CompilerProfile;
+    /**
+     * Discards cached `.em`/`.inc` parse trees. Must be called whenever such a
+     * file changes, since contents may come from an unsaved editor buffer.
+     */
+    clearParseTreeCache(): void;
     open(workspaceRoot: string): void;
     reopen(): boolean; // `true` if folder changes occurred in scripts/ecompile.cfg
     getConfigValue(key: 'PackageRoot'): Array<string>;
@@ -41,6 +66,12 @@ export interface LSPWorkspace {
 export interface LSPDocument {
     new(workspace: LSPWorkspace, pathname: string): LSPDocument;
     analyze(continueOnError?: boolean): void;
+    /**
+     * Frees this document's syntax tree and diagnostics, keeping the reference
+     * index. Call when the editor closes the document; a later `analyze()`
+     * restores it.
+     */
+    release(): void;
     dependents(): string[];
     diagnostics(): Diagnostic[];
     hover(position: Position): string | undefined;
@@ -49,7 +80,11 @@ export interface LSPDocument {
     references(position: Position): { range: Range, fsPath: string }[] | undefined;
     signatureHelp(position: Position): SignatureHelp | undefined;
 	toFormattedString(options?: Partial<Pick<FormattingOptions, 'tabSize'|'insertSpaces'>>, formatRange?: Range): string; // throws
-    tokens(): [line: number, startChar: number, length: number, tokenType: number, tokenModifiers: number][];
+    /**
+     * Semantic tokens as a flat array of 5 values each -- line, startChar,
+     * length, tokenType, tokenModifiers -- ordered by position.
+     */
+    tokens(): Uint32Array;
     toStringTree(): string | undefined;
     buildReferences(): undefined;
     references(position: Position): Location[] | undefined;

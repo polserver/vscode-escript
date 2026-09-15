@@ -35,6 +35,8 @@ public:
   Napi::Value AutoCompiledScripts( const Napi::CallbackInfo& );
   Napi::Value CacheCompiledScripts( const Napi::CallbackInfo& );
   Napi::Value GetDocument( const Napi::CallbackInfo& );
+  Napi::Value ClearParseTreeCache( const Napi::CallbackInfo& );
+  Napi::Value GetProfile( const Napi::CallbackInfo& );
 
   std::string get_contents( const std::string& pathname ) const override;
 
@@ -43,6 +45,19 @@ public:
   std::unique_ptr<Pol::Bscript::Compiler::Compiler> make_compiler();
 
   LSPDocument* create_or_get_from_cache( const std::string& pathname );
+
+  // Sizes the .em/.inc parse-tree caches from ecompile.cfg. Until this is
+  // called they keep zero entries, which makes SourceFileCache::load() bypass
+  // the cache entirely and reparse every included file on every analyze().
+  void configure_parse_tree_caches();
+
+  // Trims both caches back to their configured size. load() inserts without
+  // bound, so this is what actually enforces the limit.
+  void prune_parse_tree_caches();
+
+  // Drops every cached parse tree. Required whenever an .inc/.em file changes,
+  // because contents may come from an unsaved editor buffer.
+  void clear_parse_tree_caches();
 
 private:
   void make_absolute( std::string& path );

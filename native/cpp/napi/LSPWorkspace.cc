@@ -10,6 +10,7 @@
 #include "plib/pkg.h"
 #include "plib/systemstate.h"
 
+#include <cstdio>
 #include <filesystem>
 #include <set>
 #include <thread>
@@ -65,34 +66,85 @@ Napi::Function LSPWorkspace::GetClass( Napi::Env env )
         LSPWorkspace::InstanceAccessor( "scripts", &LSPWorkspace::AutoCompiledScripts, nullptr ),
         LSPWorkspace::InstanceMethod( "cacheScripts", &LSPWorkspace::CacheCompiledScripts ),
         LSPWorkspace::InstanceMethod( "getDocument", &LSPWorkspace::GetDocument ),
+        LSPWorkspace::InstanceMethod( "clearParseTreeCache", &LSPWorkspace::ClearParseTreeCache ),
+        LSPWorkspace::InstanceAccessor( "profile", &LSPWorkspace::GetProfile, nullptr ),
         LSPWorkspace::InstanceAccessor( "autoCompiledScripts", &LSPWorkspace::AutoCompiledScripts,
                                         nullptr ) } );
 }
 
 
+// Collects script and include files beneath `basedir`.
+//
+// Every filesystem call below deliberately uses the non-throwing std::error_code
+// overload. This walk runs during startup indexing across an entire POL tree,
+// where a permission-denied directory, a directory junction, a dangling symlink,
+// a file removed mid-walk, or a path exceeding MAX_PATH are all routine. The
+// throwing overloads would raise std::filesystem_error out of an N-API method,
+// which terminates the language server process. Unreadable entries are reported
+// on stderr (piped to the "EScript Language Server" output channel) and skipped.
 void recurse_collect( const fs::path& basedir, std::set<std::string>* files_src,
                       std::set<std::string>* files_inc )
 {
-  if ( !fs::is_directory( basedir ) )
-    return;
   std::error_code ec;
-  for ( auto dir_itr = fs::recursive_directory_iterator( basedir, ec );
-        dir_itr != fs::recursive_directory_iterator(); ++dir_itr )
+
+  if ( !fs::is_directory( basedir, ec ) || ec )
+    return;
+
+  auto dir_itr = fs::recursive_directory_iterator(
+      basedir, fs::directory_options::skip_permission_denied, ec );
+  if ( ec )
   {
-    if ( auto fn = dir_itr->path().filename().string(); !fn.empty() && *fn.begin() == '.' )
+    fprintf( stderr, "[escript-lsp] Skipping unreadable directory '%s': %s\n",
+             basedir.string().c_str(), ec.message().c_str() );
+    return;
+  }
+
+  const auto end = fs::recursive_directory_iterator();
+  while ( dir_itr != end )
+  {
+    const auto& path = dir_itr->path();
+
+    if ( auto fn = path.filename().string(); !fn.empty() && *fn.begin() == '.' )
     {
-      if ( dir_itr->is_directory() )
+      if ( dir_itr->is_directory( ec ) && !ec )
         dir_itr.disable_recursion_pending();
-      continue;
+      ec.clear();
     }
-    else if ( !dir_itr->is_regular_file() )
-      continue;
-    const auto ext = dir_itr->path().extension();
-    if ( !ext.compare( ".inc" ) )
-      files_inc->insert( fs::canonical( dir_itr->path() ).string() );
-    else if ( !ext.compare( ".src" ) || !ext.compare( ".hsr" ) ||
-              ( compilercfg.CompileAspPages && !ext.compare( ".asp" ) ) )
-      files_src->insert( fs::canonical( dir_itr->path() ).string() );
+    else if ( dir_itr->is_regular_file( ec ) && !ec )
+    {
+      const auto ext = path.extension();
+      const bool is_inc = !ext.compare( ".inc" );
+      const bool is_src = !ext.compare( ".src" ) || !ext.compare( ".hsr" ) ||
+                          ( compilercfg.CompileAspPages && !ext.compare( ".asp" ) );
+
+      if ( is_inc || is_src )
+      {
+        auto canonical = fs::canonical( path, ec );
+        if ( ec )
+        {
+          fprintf( stderr, "[escript-lsp] Skipping unresolvable file '%s': %s\n",
+                   path.string().c_str(), ec.message().c_str() );
+          ec.clear();
+        }
+        else
+        {
+          ( is_inc ? files_inc : files_src )->insert( canonical.string() );
+        }
+      }
+    }
+    else
+    {
+      ec.clear();
+    }
+
+    dir_itr.increment( ec );
+    if ( ec )
+    {
+      // Do not retry: a failing increment may not advance, which would spin.
+      fprintf( stderr, "[escript-lsp] Stopping directory walk under '%s': %s\n",
+               basedir.string().c_str(), ec.message().c_str() );
+      break;
+    }
   }
 }
 
@@ -149,27 +201,45 @@ Napi::Value LSPWorkspace::CacheCompiledScripts( const Napi::CallbackInfo& info )
     return Napi::Value();
   }
 
-  std::set<std::string> files;
-
-  recurse_collect( fs::path( compilercfg.PolScriptRoot ), &files, &files );
-  for ( const auto& pkg : Pol::Plib::systemstate.packages )
-    recurse_collect( fs::path( pkg->dir() ), &files, &files );
-
-  auto LSPWorkspace_ctor = env.GetInstanceData<Napi::Reference<Napi::Object>>()
-                               ->Value()
-                               .Get( "LSPDocument" )
-                               .As<Napi::Function>();
-
-  for ( const auto& path : files )
+  try
   {
-    if ( _cache.find( path ) == _cache.end() )
-    {
-      auto document = LSPWorkspace_ctor.New( { Value(), Napi::String::New( env, path ) } );
-      _cache[path] = Persistent( document );
-      document.Get( "analyze" ).As<Napi::Function>().Call( document, {} );
-    }
-  }
+    std::set<std::string> files;
 
+    recurse_collect( fs::path( compilercfg.PolScriptRoot ), &files, &files );
+    for ( const auto& pkg : Pol::Plib::systemstate.packages )
+      recurse_collect( fs::path( pkg->dir() ), &files, &files );
+
+    auto LSPWorkspace_ctor = env.GetInstanceData<Napi::Reference<Napi::Object>>()
+                                 ->Value()
+                                 .Get( "LSPDocument" )
+                                 .As<Napi::Function>();
+
+    for ( const auto& path : files )
+    {
+      if ( _cache.find( path ) == _cache.end() )
+      {
+        auto document = LSPWorkspace_ctor.New( { Value(), Napi::String::New( env, path ) } );
+        _cache[path] = Persistent( document );
+        document.Get( "analyze" ).As<Napi::Function>().Call( document, {} );
+      }
+    }
+
+    return env.Undefined();
+  }
+  catch ( const Napi::Error& )
+  {
+    throw;
+  }
+  catch ( const std::exception& ex )
+  {
+    Napi::Error::New( env, std::string( "Error caching compiled scripts: " ) + ex.what() )
+        .ThrowAsJavaScriptException();
+  }
+  catch ( ... )
+  {
+    Napi::Error::New( env, "Unknown error caching compiled scripts" )
+        .ThrowAsJavaScriptException();
+  }
   return env.Undefined();
 }
 
@@ -181,24 +251,45 @@ Napi::Value LSPWorkspace::AutoCompiledScripts( const Napi::CallbackInfo& info )
     return CompiledScripts.Value();
   }
 
-  std::set<std::string> files;
-
-  recurse_collect( fs::path( compilercfg.PolScriptRoot ), &files, &files );
-  for ( const auto& pkg : Pol::Plib::systemstate.packages )
-    recurse_collect( fs::path( pkg->dir() ), &files, &files );
-
   auto env = info.Env();
-  auto results = Napi::Array::New( env );
-  auto push = results.Get( "push" ).As<Napi::Function>();
 
-  for ( const auto& path : files )
+  // This runs during startup indexing over the whole POL tree. An unhandled
+  // exception here previously terminated the language server with no output.
+  try
   {
-    push.Call( results, { Napi::String::New( env, path ) } );
-  }
+    std::set<std::string> files;
 
-  results.Freeze();
-  CompiledScripts.Reset( results );
-  return results;
+    recurse_collect( fs::path( compilercfg.PolScriptRoot ), &files, &files );
+    for ( const auto& pkg : Pol::Plib::systemstate.packages )
+      recurse_collect( fs::path( pkg->dir() ), &files, &files );
+
+    auto results = Napi::Array::New( env, files.size() );
+
+    uint32_t index = 0;
+    for ( const auto& path : files )
+    {
+      results.Set( index++, Napi::String::New( env, path ) );
+    }
+
+    results.Freeze();
+    CompiledScripts.Reset( results );
+    return results;
+  }
+  catch ( const Napi::Error& )
+  {
+    throw;
+  }
+  catch ( const std::exception& ex )
+  {
+    Napi::Error::New( env, std::string( "Error collecting workspace scripts: " ) + ex.what() )
+        .ThrowAsJavaScriptException();
+  }
+  catch ( ... )
+  {
+    Napi::Error::New( env, "Unknown error collecting workspace scripts" )
+        .ThrowAsJavaScriptException();
+  }
+  return Napi::Value();
 }
 
 Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
@@ -226,6 +317,9 @@ Napi::Value LSPWorkspace::Open( const Napi::CallbackInfo& info )
     {
       make_absolute( packageRoot );
     }
+
+    configure_parse_tree_caches();
+    clear_parse_tree_caches();
 
     CompiledScripts.Reset();
     _cache.clear();
@@ -310,8 +404,11 @@ Napi::Value LSPWorkspace::Reopen( const Napi::CallbackInfo& info )
       has_changes = true;
     }
 
+    configure_parse_tree_caches();
+
     if ( has_changes )
     {
+      clear_parse_tree_caches();
       CompiledScripts.Reset();
       _cache.clear();
       Pol::Plib::systemstate.packages.clear();
@@ -380,6 +477,65 @@ std::unique_ptr<Compiler::Compiler> LSPWorkspace::make_compiler()
 {
   return std::make_unique<Compiler::Compiler>( *this, em_parse_tree_cache, inc_parse_tree_cache,
                                                profile );
+}
+
+void LSPWorkspace::configure_parse_tree_caches()
+{
+  // ecompile.cfg holds these as ints; a negative value would wrap to a huge
+  // unsigned limit and make the cache unbounded.
+  auto clamp = []( int size ) { return size > 0 ? static_cast<unsigned>( size ) : 0u; };
+
+  em_parse_tree_cache.configure( clamp( compilercfg.EmParseTreeCacheSize ) );
+  inc_parse_tree_cache.configure( clamp( compilercfg.IncParseTreeCacheSize ) );
+}
+
+void LSPWorkspace::prune_parse_tree_caches()
+{
+  em_parse_tree_cache.keep_some();
+  inc_parse_tree_cache.keep_some();
+}
+
+void LSPWorkspace::clear_parse_tree_caches()
+{
+  em_parse_tree_cache.clear();
+  inc_parse_tree_cache.clear();
+}
+
+Napi::Value LSPWorkspace::ClearParseTreeCache( const Napi::CallbackInfo& info )
+{
+  clear_parse_tree_caches();
+  return info.Env().Undefined();
+}
+
+// Exposes the compiler's existing counters, which were previously collected but
+// never readable from JS. Used to verify that include files are actually being
+// cached rather than reparsed on every keystroke.
+Napi::Value LSPWorkspace::GetProfile( const Napi::CallbackInfo& info )
+{
+  auto env = info.Env();
+  auto result = Napi::Object::New( env );
+
+  result["cacheHits"] = Napi::Number::New( env, static_cast<double>( profile.cache_hits.load() ) );
+  result["cacheMisses"] =
+      Napi::Number::New( env, static_cast<double>( profile.cache_misses.load() ) );
+  result["parseEmCount"] =
+      Napi::Number::New( env, static_cast<double>( profile.parse_em_count.load() ) );
+  result["parseIncCount"] =
+      Napi::Number::New( env, static_cast<double>( profile.parse_inc_count.load() ) );
+  result["parseSrcCount"] =
+      Napi::Number::New( env, static_cast<double>( profile.parse_src_count.load() ) );
+  result["buildWorkspaceMicros"] =
+      Napi::Number::New( env, static_cast<double>( profile.build_workspace_micros.load() ) );
+  result["analyzeMicros"] =
+      Napi::Number::New( env, static_cast<double>( profile.analyze_micros.load() ) );
+  result["parseEmMicros"] =
+      Napi::Number::New( env, static_cast<double>( profile.parse_em_micros.load() ) );
+  result["parseIncMicros"] =
+      Napi::Number::New( env, static_cast<double>( profile.parse_inc_micros.load() ) );
+  result["parseSrcMicros"] =
+      Napi::Number::New( env, static_cast<double>( profile.parse_src_micros.load() ) );
+
+  return result;
 }
 
 Napi::Value LSPWorkspace::GetWorkspaceRoot( const Napi::CallbackInfo& info )
