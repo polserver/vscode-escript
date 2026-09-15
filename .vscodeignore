@@ -25,6 +25,6 @@ native/CMakeLists.txt
 native/cpp/**
 native/prebuilds/**
 native/build/**
-!native/build/Release/**
+!native/build/Release/*.node
 native/polserver/**
 native/node_modules/**

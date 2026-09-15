@@ -66,6 +66,12 @@ export function activate(context: ExtensionContext) {
     activatePolDebug(context);
 
     workspace.onDidChangeConfiguration(e => {
+        // Without this check every settings change in the window -- including
+        // unrelated extensions' -- pushes a config notification, which can
+        // restart the workspace cache build.
+        if (!e.affectsConfiguration('escript')) {
+            return;
+        }
         client.sendNotification('didChangeConfiguration', {
             configuration: workspace.getConfiguration('escript')
         });

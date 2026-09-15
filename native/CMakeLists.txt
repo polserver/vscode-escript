@@ -53,6 +53,10 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE
   NAPI_VERSION=8
+  # Without this, node-addon-api's callback wrapper catches only Napi::Error.
+  # Any other std::exception escaping an N-API method reaches std::terminate()
+  # and aborts the language server with no message, stack, or log entry.
+  NODE_ADDON_API_CPP_EXCEPTIONS_ALL
 )
 
 if(MSVC)
@@ -60,6 +64,18 @@ if(MSVC)
     $<$<CONFIG:>:/MT> #---------|
     $<$<CONFIG:Debug>:/MTd> #---|-- Statically link the runtime libraries
     $<$<CONFIG:Release>:/MT> #--|
+
+    # Emit debug symbols for optimized builds as well. Without a PDB, a crash
+    # dump from a released extension cannot be resolved to a function or line,
+    # which is why native aborts have been unattributable.
+    $<$<CONFIG:Release>:/Zi>
+  )
+  target_link_options(${PROJECT_NAME} PRIVATE
+    # /DEBUG produces the PDB but disables these two by default; re-enabling
+    # them keeps the shipped binary equivalent to a plain Release build.
+    $<$<CONFIG:Release>:/DEBUG>
+    $<$<CONFIG:Release>:/OPT:REF>
+    $<$<CONFIG:Release>:/OPT:ICF>
   )
 endif()
 

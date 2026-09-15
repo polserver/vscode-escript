@@ -91,6 +91,16 @@
 					"type": "boolean",
 					"default": false,
 					"markdownDescription": "By default, the compiler will only include functions that have been called when analyzing sources. If `true`, all functions will be analyzed, regardless if they are used."
+				},
+				"escript.trace.server": {
+					"type": "string",
+					"enum": [
+						"off",
+						"messages",
+						"verbose"
+					],
+					"default": "off",
+					"description": "Traces the communication between VS Code and the EScript language server. Set to 'verbose' to record which request the server was handling when a problem occurred."
 				}
 			}
 		},
