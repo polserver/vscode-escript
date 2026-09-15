@@ -154,8 +154,14 @@ Napi::Value LSPDocument::Analyze( const Napi::CallbackInfo& info )
       compiler->set_include_compile_mode();
     }
 
-    bool continue_on_error =
-        info.Length() > 0 && info[0].IsBoolean() ? info[0].As<Napi::Boolean>().Value() : true;
+    // Falls back to the configured setting rather than hardcoding `true`.
+    // buildReferences() is called with no argument for every script in the
+    // workspace cache build, so a hardcoded default silently overrode a user
+    // who had set escript.continueAnalysisOnError to false precisely to avoid
+    // the compiler crashes that option is documented to cause.
+    bool continue_on_error = info.Length() > 0 && info[0].IsBoolean()
+                                 ? info[0].As<Napi::Boolean>().Value()
+                                 : gExtensionConfiguration.continueAnalysisOnError;
 
     compiler_workspace =
         compiler->analyze( pathname_, *report, type == LSPDocumentType::EM, continue_on_error );
@@ -606,8 +612,14 @@ Napi::Value LSPDocument::BuildReferences( const Napi::CallbackInfo& info )
       compiler->set_include_compile_mode();
     }
 
-    bool continue_on_error =
-        info.Length() > 0 && info[0].IsBoolean() ? info[0].As<Napi::Boolean>().Value() : true;
+    // Falls back to the configured setting rather than hardcoding `true`.
+    // buildReferences() is called with no argument for every script in the
+    // workspace cache build, so a hardcoded default silently overrode a user
+    // who had set escript.continueAnalysisOnError to false precisely to avoid
+    // the compiler crashes that option is documented to cause.
+    bool continue_on_error = info.Length() > 0 && info[0].IsBoolean()
+                                 ? info[0].As<Napi::Boolean>().Value()
+                                 : gExtensionConfiguration.continueAnalysisOnError;
 
     if ( auto local_compiler_workspace = compiler->analyze(
              pathname_, *local_report, type == LSPDocumentType::EM, continue_on_error ) )
