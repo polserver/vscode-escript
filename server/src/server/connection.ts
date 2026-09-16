@@ -1,7 +1,6 @@
-import { createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, DocumentSymbolParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportKind, DocumentUri, FullDocumentDiagnosticReport, DocumentFormattingParams, TextEdit, DocumentRangeFormattingParams, FormattingOptions, Range, DidChangeWatchedFilesParams, FileChangeType, DocumentSymbol } from 'vscode-languageserver/node';
+import { CancellationToken, ResponseError, LSPErrorCodes, createConnection, TextDocuments, TextDocumentChangeEvent, ProposedFeatures, InitializeParams, DocumentSymbolParams, TextDocumentSyncKind, InitializeResult, SemanticTokensParams, SemanticTokensBuilder, SemanticTokens, Hover, HoverParams, MarkupContent, DefinitionParams, Location, CompletionParams, CompletionItem, SignatureHelpParams, SignatureHelp, ReferenceParams, DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportKind, DocumentUri, FullDocumentDiagnosticReport, DocumentFormattingParams, TextEdit, DocumentRangeFormattingParams, FormattingOptions, Range, DidChangeWatchedFilesParams, FileChangeType, DocumentSymbol } from 'vscode-languageserver/node';
 import { Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
-import { readFileSync } from 'fs';
 import { access, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { F_OK } from 'constants';
@@ -10,7 +9,7 @@ import DocsDownloader from '../workspace/DocsDownloader';
 // vsce does not support symlinks
 // import { escript } from 'vscode-escript-native';
 const { native } = require('../../../native/out/index') as typeof import('vscode-escript-native');
-import type { ExtensionConfiguration } from 'vscode-escript-native';
+import type { CompilerProfile, ExtensionConfiguration } from 'vscode-escript-native';
 import { deepEquals } from '../misc/Utils';
 import { beginOperation, endOperation, formatError, type BreadcrumbPosition } from '../misc/Diagnostics';
 const { LSPWorkspace, LSPDocument, ExtensionConfiguration } = native;
@@ -86,6 +85,10 @@ export class LSPServer {
         this.connection.onCompletion(this.onCompletion);
         this.connection.onSignatureHelp(this.onSignatureHelp);
         this.connection.onNotification('didChangeConfiguration', this.onDidChangeConfiguration);
+        // No client UI drives this: it exists so a scripted LSP client -- which
+        // is how this server's performance work gets measured -- can read the
+        // counters at an arbitrary point in a session.
+        this.connection.onNotification('escript/logProfile', () => this.logProfile('on demand'));
         this.connection.onReferences(this.onReferences);
         this.connection.languages.diagnostics.on(this.onDocumentDiagnostics);
         this.connection.onDidChangeWatchedFiles(this.onDidChangeWatchedFiles);
@@ -94,14 +97,12 @@ export class LSPServer {
         this.documents.listen(this.connection);
         this.downloader = new DocsDownloader(LSPServer.options.storageFsPath);
         this.workspace = new LSPWorkspace({
-            getContents: (pathname) => {
-                const uri = URI.file(pathname).toString();
-                const text = this.documents.get(uri)?.getText();
-                if (typeof text !== 'undefined') {
-                    return text;
-                }
-                return readFileSync(pathname, 'utf-8');
-            },
+            // Answers only for documents open in an editor, where the buffer
+            // may hold unsaved edits the file does not. Everything else --
+            // every include pulled in by an analysis, every file of the
+            // workspace index build -- is read by the addon directly, which
+            // saves an N-API round trip and two string copies per file.
+            getContents: (pathname) => this.documents.get(URI.file(pathname).toString())?.getText(),
             getXmlDocPath: this.downloader.getXmlDocPath.bind(this.downloader)
         });
     }
@@ -141,6 +142,48 @@ export class LSPServer {
     }
 
     /**
+     * Renders the compiler's counters for the output channel.
+     *
+     * `*Micros` fields are reported as milliseconds, and zero-valued entries are
+     * dropped so the line stays readable. The counters are cumulative and are
+     * never reset, so anything measuring a single operation has to pass the
+     * snapshot it took beforehand as `since`.
+     *
+     * Two of them lie if read naively: `astSrcMicros` and `astIncMicros` are
+     * decremented by nested include time, so they are self-time and can come out
+     * negative. `ambiguities` counts SLL parse failures, each of which cost a
+     * full re-parse in LL mode.
+     */
+    private formatProfile(profile: CompilerProfile, since?: CompilerProfile): string {
+        const parts = Object.entries(profile)
+            .map(([key, value]) => {
+                const delta = since ? value - (since[key as keyof CompilerProfile] ?? 0) : value;
+                return [key, delta] as const;
+            })
+            .filter(([, delta]) => delta !== 0)
+            .map(([key, delta]) => key.endsWith('Micros')
+                ? `${key.slice(0, -'Micros'.length)}=${(delta / 1000).toFixed(1)}ms`
+                : `${key}=${delta}`);
+
+        return parts.length ? parts.join(' ') : '(no change)';
+    }
+
+    /**
+     * Snapshot of the compiler's counters, or `undefined` if the workspace was
+     * never opened.
+     */
+    private profileSnapshot(): CompilerProfile | undefined {
+        return this.guard<CompilerProfile | undefined>('workspace/profile', () => this.workspace.profile, undefined);
+    }
+
+    private logProfile(label: string, since?: CompilerProfile): void {
+        const profile = this.profileSnapshot();
+        if (profile) {
+            this.log(`Compiler profile [${label}]: ${this.formatProfile(profile, since)}`);
+        }
+    }
+
+    /**
      * Runs a native call with a crash breadcrumb set, and degrades a failure to
      * `fallback` rather than letting it escape the handler.
      *
@@ -158,6 +201,26 @@ export class LSPServer {
             return fallback;
         } finally {
             endOperation();
+        }
+    }
+
+    /**
+     * Aborts a request the client has already given up on.
+     *
+     * VSCode cancels superseded requests as the user keeps typing: the hover
+     * from two keystrokes ago, a completion list the editor has since
+     * dismissed. Every one of them still cost a full compile, because
+     * `ensureAnalyzed()` sits behind almost every handler below.
+     *
+     * This answers with the protocol's `RequestCancelled` rather than an empty
+     * result on purpose. Several of these requests drive persistent editor
+     * state -- semantic tokens are the file's highlighting, diagnostics are the
+     * Problems panel -- and an empty success would blank it. An error response
+     * leaves the client holding what it already had.
+     */
+    private throwIfCancelled(token?: CancellationToken): void {
+        if (token?.isCancellationRequested) {
+            throw new ResponseError(LSPErrorCodes.RequestCancelled, 'Request cancelled');
         }
     }
 
@@ -323,7 +386,9 @@ export class LSPServer {
         this.markDirty(fsPath);
     };
 
-    private onDocumentDiagnostics = async (e: DocumentDiagnosticParams): Promise<DocumentDiagnosticReport> => {
+    private onDocumentDiagnostics = async (e: DocumentDiagnosticParams, token?: CancellationToken): Promise<DocumentDiagnosticReport> => {
+        this.throwIfCancelled(token);
+
         const { uri } = e.textDocument;
         const { fsPath } = URI.parse(uri);
 
@@ -383,13 +448,26 @@ export class LSPServer {
 
         if (shouldReopen) {
             const hasChanges = this.guard('workspace/didChangeWatchedFiles', () => this.workspace.reopen(), false, ecompileCfg);
-            if (hasChanges && this.configuration?.disableWorkspaceReferences === false) {
-                this.updateCache();
+            if (hasChanges) {
+                // reopen() drops the native document cache, but the reference
+                // index build is memoized in JS and a finished one answers
+                // instantly -- which is exactly what keeps repeat
+                // textDocument/references cheap. Unless it is dropped here the
+                // index is never rebuilt for the new configuration. Done
+                // regardless of the setting, so that re-enabling workspace
+                // references later does not resurrect a stale index.
+                this.guard('workspace/invalidateReferenceCache', () => this.workspace.invalidateReferenceCache(), undefined);
+
+                if (this.configuration?.disableWorkspaceReferences === false) {
+                    this.updateCache();
+                }
             }
         }
     };
 
-    private onDocumentSymbol = (params: DocumentSymbolParams): DocumentSymbol[] | null => {
+    private onDocumentSymbol = (params: DocumentSymbolParams, token?: CancellationToken): DocumentSymbol[] | null => {
+        this.throwIfCancelled(token);
+
         const { fsPath } = URI.parse(params.textDocument.uri);
         const document = this.sources.get(fsPath);
 
@@ -402,7 +480,9 @@ export class LSPServer {
         }, null, fsPath);
     };
 
-    private onSemanticTokens = async (params: SemanticTokensParams): Promise<SemanticTokens> => {
+    private onSemanticTokens = async (params: SemanticTokensParams, token?: CancellationToken): Promise<SemanticTokens> => {
+        this.throwIfCancelled(token);
+
         const builder = new SemanticTokensBuilder();
         const { fsPath } = URI.parse(params.textDocument.uri);
         const document = this.sources.get(fsPath);
@@ -424,7 +504,9 @@ export class LSPServer {
         return builder.build();
     };
 
-    private onHover = (params: HoverParams): Hover | null => {
+    private onHover = (params: HoverParams, token?: CancellationToken): Hover | null => {
+        this.throwIfCancelled(token);
+
         const { fsPath } = URI.parse(params.textDocument.uri);
         const { position: { line, character } } = params;
         const position: Position = { line: line + 1, character: character + 1 };
@@ -458,7 +540,9 @@ export class LSPServer {
         return this.getFormattedTextEdit(uri, options);
     };
 
-    private onDefinition = async (params: DefinitionParams): Promise<Location | null> => {
+    private onDefinition = async (params: DefinitionParams, token?: CancellationToken): Promise<Location | null> => {
+        this.throwIfCancelled(token);
+
         const { fsPath } = URI.parse(params.textDocument.uri);
         const { position: { line, character } } = params;
         const position: Position = { line: line + 1, character: character + 1 };
@@ -478,7 +562,9 @@ export class LSPServer {
         }, null, fsPath, position);
     };
 
-    private onCompletion = async (params: CompletionParams): Promise<CompletionItem[] | null> => {
+    private onCompletion = async (params: CompletionParams, token?: CancellationToken): Promise<CompletionItem[] | null> => {
+        this.throwIfCancelled(token);
+
         const { fsPath } = URI.parse(params.textDocument.uri);
         const { position: { line, character } } = params;
         const position: Position = { line: line + 1, character: character + 1 };
@@ -495,7 +581,9 @@ export class LSPServer {
         }, null, fsPath, position);
     };
 
-    private onSignatureHelp = async (params: SignatureHelpParams): Promise<SignatureHelp | null> => {
+    private onSignatureHelp = async (params: SignatureHelpParams, token?: CancellationToken): Promise<SignatureHelp | null> => {
+        this.throwIfCancelled(token);
+
         const { fsPath } = URI.parse(params.textDocument.uri);
         const { position: { line, character } } = params;
         const position: Position = { line: line + 1, character: character + 1 };
@@ -602,11 +690,14 @@ export class LSPServer {
             try {
                 const serverInitiatedReporter = await this.connection.window.createWorkDoneProgress();
                 serverInitiatedReporter.begin('Workspace Cache');
+                const before = this.profileSnapshot();
+                const startedAt = Date.now();
                 try {
                     await this.workspace.updateCache(({ count, total }) => {
                         serverInitiatedReporter.report(100 * count / total, `Reading files ${count}/${total}`);
                     }, updateCacheAbortController.signal);
-                    this.log('Cache loaded.');
+                    this.log(`Cache loaded in ${Date.now() - startedAt}ms.`);
+                    this.logProfile('workspace cache build', before);
                 } finally {
                     serverInitiatedReporter.done();
                 }
