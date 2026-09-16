@@ -1,5 +1,7 @@
 #include "CompletionBuilder.h"
 
+#include "TokenLength.h"
+
 #include <set>
 
 #include "bscript/compiler/ast/ClassDeclaration.h"
@@ -94,9 +96,18 @@ std::vector<CompletionItem> CompletionBuilder::context()
       }
     }
 
+    // Past the line we want: tokens are in source order, so nothing further can
+    // match. The scan has to start from the top -- it accumulates the enclosing
+    // class/function/enum state above -- but it never needed to run to the end
+    // of the file.
+    if ( token->getLine() > position.line_number )
+    {
+      break;
+    }
+
     if ( token->getLine() == position.line_number &&
          token->getCharPositionInLine() + 1 <= position.character_column &&
-         token->getCharPositionInLine() + 1 + token->getText().length() >=
+         token->getCharPositionInLine() + 1 + token_length( token ) >=
              position.character_column )
     {
       result = token;
