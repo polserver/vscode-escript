@@ -33,7 +33,6 @@ public:
   Napi::Value GetConfigValue( const Napi::CallbackInfo& );
   Napi::Value GetWorkspaceRoot( const Napi::CallbackInfo& );
   Napi::Value AutoCompiledScripts( const Napi::CallbackInfo& );
-  Napi::Value CacheCompiledScripts( const Napi::CallbackInfo& );
   Napi::Value GetDocument( const Napi::CallbackInfo& );
   Napi::Value ClearParseTreeCache( const Napi::CallbackInfo& );
   Napi::Value GetProfile( const Napi::CallbackInfo& );

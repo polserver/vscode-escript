@@ -64,7 +64,6 @@ Napi::Function LSPWorkspace::GetClass( Napi::Env env )
         LSPWorkspace::InstanceMethod( "getConfigValue", &LSPWorkspace::GetConfigValue ),
         LSPWorkspace::InstanceAccessor( "workspaceRoot", &LSPWorkspace::GetWorkspaceRoot, nullptr ),
         LSPWorkspace::InstanceAccessor( "scripts", &LSPWorkspace::AutoCompiledScripts, nullptr ),
-        LSPWorkspace::InstanceMethod( "cacheScripts", &LSPWorkspace::CacheCompiledScripts ),
         LSPWorkspace::InstanceMethod( "getDocument", &LSPWorkspace::GetDocument ),
         LSPWorkspace::InstanceMethod( "clearParseTreeCache", &LSPWorkspace::ClearParseTreeCache ),
         LSPWorkspace::InstanceAccessor( "profile", &LSPWorkspace::GetProfile, nullptr ),
@@ -189,58 +188,6 @@ LSPDocument* LSPWorkspace::create_or_get_from_cache( const std::string& path )
   auto document = LSPDocument_ctor.New( { Value(), Napi::String::New( env, path ) } );
   _cache[path] = Persistent( document );
   return LSPDocument::Unwrap( document );
-}
-
-Napi::Value LSPWorkspace::CacheCompiledScripts( const Napi::CallbackInfo& info )
-{
-  auto env = info.Env();
-  if ( info.Length() < 1 || !info[0].IsFunction() )
-  {
-    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
-        .ThrowAsJavaScriptException();
-    return Napi::Value();
-  }
-
-  try
-  {
-    std::set<std::string> files;
-
-    recurse_collect( fs::path( compilercfg.PolScriptRoot ), &files, &files );
-    for ( const auto& pkg : Pol::Plib::systemstate.packages )
-      recurse_collect( fs::path( pkg->dir() ), &files, &files );
-
-    auto LSPWorkspace_ctor = env.GetInstanceData<Napi::Reference<Napi::Object>>()
-                                 ->Value()
-                                 .Get( "LSPDocument" )
-                                 .As<Napi::Function>();
-
-    for ( const auto& path : files )
-    {
-      if ( _cache.find( path ) == _cache.end() )
-      {
-        auto document = LSPWorkspace_ctor.New( { Value(), Napi::String::New( env, path ) } );
-        _cache[path] = Persistent( document );
-        document.Get( "analyze" ).As<Napi::Function>().Call( document, {} );
-      }
-    }
-
-    return env.Undefined();
-  }
-  catch ( const Napi::Error& )
-  {
-    throw;
-  }
-  catch ( const std::exception& ex )
-  {
-    Napi::Error::New( env, std::string( "Error caching compiled scripts: " ) + ex.what() )
-        .ThrowAsJavaScriptException();
-  }
-  catch ( ... )
-  {
-    Napi::Error::New( env, "Unknown error caching compiled scripts" )
-        .ThrowAsJavaScriptException();
-  }
-  return env.Undefined();
 }
 
 
@@ -450,11 +397,22 @@ void LSPWorkspace::make_absolute( std::string& path )
 std::string LSPWorkspace::get_contents( const std::string& pathname ) const
 {
   auto value = GetContents.Call( Value(), { Napi::String::New( Env(), pathname ) } );
-  if ( !value.IsString() )
+
+  // A string means the file is open in an editor and this is its buffer, unsaved
+  // edits included -- which is the whole reason contents are fetched through JS.
+  if ( value.IsString() )
   {
-    throw std::runtime_error( "Could not get contents of file" );
+    return value.As<Napi::String>().Utf8Value();
   }
-  return value.As<Napi::String>().Utf8Value();
+
+  // Anything else means "not open in an editor". Reading it here instead of
+  // having JS answer with readFileSync drops an N-API round trip and two string
+  // copies per file -- on the path walked by every include of every analysis and
+  // by every file of the workspace index build, almost none of which are open.
+  //
+  // Delegating to the base implementation rather than opening the file here
+  // keeps the LSP reading files exactly the way ecompile does.
+  return SourceFileLoader::get_contents( pathname );
 }
 
 std::optional<std::string> LSPWorkspace::get_xml_doc_path( const std::string& moduleEmFile ) const
@@ -508,32 +466,59 @@ Napi::Value LSPWorkspace::ClearParseTreeCache( const Napi::CallbackInfo& info )
 }
 
 // Exposes the compiler's existing counters, which were previously collected but
-// never readable from JS. Used to verify that include files are actually being
-// cached rather than reparsed on every keystroke.
+// never readable from JS.
+//
+// All of Profile's fields are surfaced, not just the parse/cache subset. Now that
+// parsing is cached, the interesting costs are the phases that still re-run on
+// every analyze -- `optimize`, `analyze`, `tokenize` -- and the AST rebuild that
+// happens even on a parse-tree cache hit (`ast*Micros`).
+//
+// Nothing resets these: they are cumulative for the life of the workspace, so a
+// caller has to diff two snapshots rather than read absolutes.
+//
+// Caveat inherited from the compiler: `astSrcMicros` and `astIncMicros` are
+// decremented by nested include time, so they read as self-time and can be
+// transiently negative.
 Napi::Value LSPWorkspace::GetProfile( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
   auto result = Napi::Object::New( env );
 
-  result["cacheHits"] = Napi::Number::New( env, static_cast<double>( profile.cache_hits.load() ) );
-  result["cacheMisses"] =
-      Napi::Number::New( env, static_cast<double>( profile.cache_misses.load() ) );
-  result["parseEmCount"] =
-      Napi::Number::New( env, static_cast<double>( profile.parse_em_count.load() ) );
-  result["parseIncCount"] =
-      Napi::Number::New( env, static_cast<double>( profile.parse_inc_count.load() ) );
-  result["parseSrcCount"] =
-      Napi::Number::New( env, static_cast<double>( profile.parse_src_count.load() ) );
-  result["buildWorkspaceMicros"] =
-      Napi::Number::New( env, static_cast<double>( profile.build_workspace_micros.load() ) );
-  result["analyzeMicros"] =
-      Napi::Number::New( env, static_cast<double>( profile.analyze_micros.load() ) );
-  result["parseEmMicros"] =
-      Napi::Number::New( env, static_cast<double>( profile.parse_em_micros.load() ) );
-  result["parseIncMicros"] =
-      Napi::Number::New( env, static_cast<double>( profile.parse_inc_micros.load() ) );
-  result["parseSrcMicros"] =
-      Napi::Number::New( env, static_cast<double>( profile.parse_src_micros.load() ) );
+  auto set = [&]( const char* name, auto value )
+  { result[name] = Napi::Number::New( env, static_cast<double>( value ) ); };
+
+  set( "buildWorkspaceMicros", profile.build_workspace_micros.load() );
+  set( "registerConstDeclarationsMicros", profile.register_const_declarations_micros.load() );
+  set( "optimizeMicros", profile.optimize_micros.load() );
+  set( "disambiguateMicros", profile.disambiguate_micros.load() );
+  set( "analyzeMicros", profile.analyze_micros.load() );
+  set( "tokenizeMicros", profile.tokenize_micros.load() );
+  set( "codegenMicros", profile.codegen_micros.load() );
+  set( "pruneCacheSelectMicros", profile.prune_cache_select_micros.load() );
+  set( "pruneCacheDeleteMicros", profile.prune_cache_delete_micros.load() );
+
+  // An ANTLR ambiguity report means the SLL parse bailed and the file was
+  // re-parsed in full LL mode -- roughly twice the parse cost for that file.
+  set( "ambiguities", profile.ambiguities.load() );
+
+  set( "parseEmCount", profile.parse_em_count.load() );
+  set( "parseIncCount", profile.parse_inc_count.load() );
+  set( "parseSrcCount", profile.parse_src_count.load() );
+
+  set( "loadEmMicros", profile.load_em_micros.load() );
+  set( "parseEmMicros", profile.parse_em_micros.load() );
+  set( "astEmMicros", profile.ast_em_micros.load() );
+
+  set( "parseIncMicros", profile.parse_inc_micros.load() );
+  set( "astIncMicros", profile.ast_inc_micros.load() );
+
+  set( "parseSrcMicros", profile.parse_src_micros.load() );
+  set( "astSrcMicros", profile.ast_src_micros.load() );
+
+  set( "astResolveFunctionsMicros", profile.ast_resolve_functions_micros.load() );
+
+  set( "cacheHits", profile.cache_hits.load() );
+  set( "cacheMisses", profile.cache_misses.load() );
 
   return result;
 }
