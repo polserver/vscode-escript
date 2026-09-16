@@ -88,3 +88,35 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   plib
   libtinyxml
 )
+
+# Link-time optimization.
+#
+# bscript, plib, libtinyxml and the addon itself all link statically into a
+# single .node, so the whole compiler is visible to the optimizer at once --
+# exactly the shape LTO is good at, and the remaining codegen lever now that
+# Release already builds at /O2 /Ob2 /DNDEBUG.
+#
+# IPO is set on the polserver targets from here rather than inside the submodule
+# so the vendored tree stays untouched. antlr is an ExternalProject with its own
+# build and is not covered by this.
+#
+# /GL coexists with the /Zi + /DEBUG + /OPT:REF + /OPT:ICF above: the PDB is
+# still emitted, so a released crash dump stays symbolisable. Verify that after
+# changing anything here -- an unsymbolisable Release build is the exact problem
+# that setup was added to fix.
+option(ESCRIPT_LTO "Enable link-time optimization for Release builds" ON)
+
+if(ESCRIPT_LTO)
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT ESCRIPT_IPO_SUPPORTED OUTPUT ESCRIPT_IPO_ERROR)
+  if(ESCRIPT_IPO_SUPPORTED)
+    foreach(LTO_TARGET ${PROJECT_NAME} bscript plib libtinyxml)
+      if(TARGET ${LTO_TARGET})
+        set_property(TARGET ${LTO_TARGET} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+      endif()
+    endforeach()
+    message("** Link-time optimization enabled for Release")
+  else()
+    message(WARNING "** Link-time optimization unavailable: ${ESCRIPT_IPO_ERROR}")
+  endif()
+endif()
