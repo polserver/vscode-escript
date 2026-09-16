@@ -1,30 +1,47 @@
+# Sources, build inputs and test material.
 .vscode/**
+.github/**
+.gitignore
 doc-assets/**/*
+docs/**
 **/*.ts
 **/*.map
-**/coverage
 **/*.d.ts
-.gitignore
+**/coverage
 **/tsconfig.json
 **/tsconfig.base.json
-.github/**
+**/package-lock.json
+**/*.tsbuildinfo
+.gitmodules
+native/jest.config.js
 client/test/**
-client/node_modules/**
-!client/node_modules/vscode-jsonrpc/**
-!client/node_modules/vscode-languageclient/**
-!client/node_modules/vscode-languageserver-protocol/**
-!client/node_modules/vscode-languageserver-types/**
-!client/node_modules/{minimatch,brace-expansion,concat-map,balanced-match}/**
-!client/node_modules/{semver,lru-cache,yallist}/**
 server/test/**
 native/test/**
 client/jest.e2e.config.js
 server/jest.config.js
+jest.config.js
+eslint.config.js
+esbuild.mjs
+grammars/*.yml
+
+# The client and server ship as the two bundles in dist/. Everything the old
+# unbundled layout needed -- tsc output next to three near-duplicate copies of
+# the vscode-languageserver trees -- is dead weight now, so no negation rules
+# are needed to carve exceptions out of node_modules.
+client/out/**
+server/out/**
+native/out/**
+node_modules/**
+client/node_modules/**
+server/node_modules/**
+native/node_modules/**
+
+# Native addon: ship the built binary, not the sources, the CMake tree or the
+# ~40 MB PDB that Release builds now emit.
 native/.clang-format
 native/CMakeLists.txt
 native/cpp/**
 native/prebuilds/**
+native/polserver/**
 native/build/**
 !native/build/Release/*.node
-native/polserver/**
-native/node_modules/**
