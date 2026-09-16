@@ -220,8 +220,11 @@ Napi::Value LSPDocument::Diagnostics( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
 
+  // Indexed Set() rather than push(): this runs for the document *and* every
+  // open document that includes it, on every diagnostics pull, and a push() per
+  // item costs a property lookup plus a JS call each.
   auto results = Napi::Array::New( env );
-  auto push = results.Get( "push" ).As<Napi::Function>();
+  uint32_t index = 0;
 
   for ( const auto& diagnostic : reporter->diagnostics )
   {
@@ -261,7 +264,7 @@ Napi::Value LSPDocument::Diagnostics( const Napi::CallbackInfo& info )
         env, diagnostic.severity == Compiler::Diagnostic::Severity::Error ? 1 : 2 );
     diag["message"] = Napi::String::New( env, diagnostic.message );
 
-    push.Call( results, { diag } );
+    results.Set( index++, diag );
   }
 
   return results;
@@ -326,15 +329,18 @@ Napi::Value LSPDocument::Dependents( const Napi::CallbackInfo& info )
 {
   auto env = info.Env();
 
-  auto results = Napi::Array::New( env );
-  auto push = results.Get( "push" ).As<Napi::Function>();
-
-  if ( compiler_workspace )
+  if ( !compiler_workspace )
   {
-    for ( const auto& sourceId : compiler_workspace->referenced_source_file_identifiers )
-    {
-      push.Call( results, { Napi::String::New( env, sourceId->pathname ) } );
-    }
+    return Napi::Array::New( env, 0 );
+  }
+
+  const auto& identifiers = compiler_workspace->referenced_source_file_identifiers;
+  auto results = Napi::Array::New( env, identifiers.size() );
+
+  uint32_t index = 0;
+  for ( const auto& sourceId : identifiers )
+  {
+    results.Set( index++, Napi::String::New( env, sourceId->pathname ) );
   }
 
   return results;
@@ -494,10 +500,11 @@ Napi::Value LSPDocument::References( const Napi::CallbackInfo& info )
     auto references = finder.context();
     if ( references.has_value() )
     {
-      auto results = Napi::Array::New( env );
-      auto push = results.Get( "push" ).As<Napi::Function>();
+      const auto& locations = references.value();
+      auto results = Napi::Array::New( env, locations.size() );
 
-      for ( const auto& location : references.value() )
+      uint32_t index = 0;
+      for ( const auto& location : locations )
       {
         const auto& locationRange = location.range;
         auto result = Napi::Object::New( env );
@@ -514,7 +521,7 @@ Napi::Value LSPDocument::References( const Napi::CallbackInfo& info )
 
         result["range"] = range;
         result["fsPath"] = location.pathname;
-        push.Call( results, { result } );
+        results.Set( index++, result );
       }
 
       return results;
@@ -533,36 +540,37 @@ Napi::Value LSPDocument::Completion( const Napi::CallbackInfo& info )
         .ThrowAsJavaScriptException();
   }
 
-  auto results = Napi::Array::New( env );
-  auto push = results.Get( "push" ).As<Napi::Function>();
-
-  if ( compiler_workspace )
+  if ( !compiler_workspace )
   {
-    auto position = info[0].As<Napi::Object>();
-    auto line = position.Get( "line" );
-    auto character = position.Get( "character" );
-    if ( !line.IsNumber() || !character.IsNumber() )
-    {
-      Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
-          .ThrowAsJavaScriptException();
-    }
-    Compiler::Position pos{
-        static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
-        static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
+    return Napi::Array::New( env, 0 );
+  }
 
-    CompilerExt::CompletionBuilder finder( *compiler_workspace, pos );
-    auto definition = finder.context();
-    for ( const auto& completionItem : definition )
+  auto position = info[0].As<Napi::Object>();
+  auto line = position.Get( "line" );
+  auto character = position.Get( "character" );
+  if ( !line.IsNumber() || !character.IsNumber() )
+  {
+    Napi::TypeError::New( env, Napi::String::New( env, "Invalid arguments" ) )
+        .ThrowAsJavaScriptException();
+  }
+  Compiler::Position pos{ static_cast<unsigned short>( line.As<Napi::Number>().Int32Value() ),
+                          static_cast<unsigned short>( character.As<Napi::Number>().Int32Value() ) };
+
+  CompilerExt::CompletionBuilder finder( *compiler_workspace, pos );
+  auto completionItems = finder.context();
+
+  auto results = Napi::Array::New( env, completionItems.size() );
+  uint32_t index = 0;
+  for ( const auto& completionItem : completionItems )
+  {
+    auto result = Napi::Object::New( env );
+    result["label"] = completionItem.label;
+    if ( completionItem.kind.has_value() )
     {
-      auto result = Napi::Object::New( env );
-      result["label"] = completionItem.label;
-      if ( completionItem.kind.has_value() )
-      {
-        result["kind"] =
-            Napi::Number::New( env, static_cast<int32_t>( completionItem.kind.value() ) );
-      }
-      push.Call( results, { result } );
+      result["kind"] =
+          Napi::Number::New( env, static_cast<int32_t>( completionItem.kind.value() ) );
     }
+    results.Set( index++, result );
   }
   return results;
 }
@@ -658,8 +666,14 @@ Napi::Value LSPDocument::BuildReferences( const Napi::CallbackInfo& info )
   }
   else
   {
+    // Report into the local reporter, not the member. `local_reporter` was
+    // created and then ignored, so the workspace cache build -- which runs this
+    // for every script in the distribution -- appended every diagnostic of every
+    // file into that document's persistent reporter, which nothing ever clears.
+    // Unbounded memory, and diagnostics() would answer with stale results for a
+    // document the user had never opened.
     auto local_reporter = std::make_unique<Compiler::DiagnosticReporter>();
-    auto local_report = std::make_unique<Compiler::Report>( *reporter );
+    auto local_report = std::make_unique<Compiler::Report>( *local_reporter );
 
     auto* lsp_workspace = LSPWorkspace::Unwrap( workspace.Value() );
     auto compiler = lsp_workspace->make_compiler();
@@ -682,6 +696,13 @@ Napi::Value LSPDocument::BuildReferences( const Napi::CallbackInfo& info )
     {
       build_references( *local_compiler_workspace );
     }
+
+    // Analyze() prunes; this path did not. load() inserts into the em/inc caches
+    // without bound and keep_some() is the only thing that enforces the size
+    // configured from ecompile.cfg, so the one path that touches every file in
+    // the workspace grew both caches to the whole include set and never trimmed.
+    // ecompile calls keep_some() after every file for the same reason.
+    lsp_workspace->prune_parse_tree_caches();
   }
 
   return env.Undefined();
