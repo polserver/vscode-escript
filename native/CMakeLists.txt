@@ -16,16 +16,7 @@ else()
   set(PLATFORM linux)
 endif()
 
-if(APPLE AND NOT DEFINED ENV{BUILD_OSX_SLIM_BINARY})
-  message("** Building universal macOS binary")
-  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
-  set(BUILD_OSX_UNIVERSAL_BINARY TRUE)
-  set(PIPED_OSX_ARCHITECTURES "arm64|x86_64") # For ExternalProject
-endif()
-
-if(BUILD_OSX_UNIVERSAL_BINARY)
-  set(ARCH universal)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm.*|ARM.*|aarch64)")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm.*|ARM.*|aarch64)")
   set(ARCH arm64)
 else()
   set(ARCH x64)
