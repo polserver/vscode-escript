@@ -1620,7 +1620,7 @@ describe('Signature Help', () => {
         const signatureHelp = getSignatureHelp('use uo; SendSysMessage();', 24);
         expect(signatureHelp).toEqual({
             'signatures': [{
-                'label': 'SendSysMessage( character, text, font := 3, color := 1000 )',
+                'label': 'SendSysMessage( character, text, font := 3, color := 946 )',
                 'parameters': [
                     { 'label': [16, 25] },
                     { 'label': [27, 31] },
