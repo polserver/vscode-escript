@@ -6,8 +6,37 @@ import { readdir, mkdir, access } from 'fs/promises';
 import { createWriteStream, unlink } from 'fs';
 import * as http from 'http';
 import * as https from 'https';
-import { eachLimit } from 'async';
 import { F_OK } from 'constants';
+
+/**
+ * Runs `worker` over `items`, at most `limit` of them in flight, and rejects
+ * with the first failure without starting anything further.
+ *
+ * Replaces `async`'s `eachLimit`, whose package is ~225 KB of JavaScript parsed
+ * during server boot for this single call site -- one that only runs when a POL
+ * workspace was found and the documentation for that revision is not already on
+ * disk.
+ */
+async function eachLimit<T>(items: readonly T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+    let next = 0;
+    let failure: unknown;
+
+    const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+        while (next < items.length && failure === undefined) {
+            try {
+                await worker(items[next++]);
+            } catch (e) {
+                failure ??= e;
+            }
+        }
+    });
+
+    await Promise.all(runners);
+
+    if (failure !== undefined) {
+        throw failure;
+    }
+}
 
 export default class DocsDownloader {
     private static readonly POL_REV_REGEX = /\(Rev. ([0-9a-fA-F]{9})\)/;
@@ -39,11 +68,7 @@ export default class DocsDownloader {
         if (commitId) {
             const _commitId = commitId;
             const modules = await this.availableModules(moduleDirectory);
-            await eachLimit(modules, 5, (moduleName, cb) => {
-                this.downloadDoc(_commitId, moduleName)
-                    .then(_ => cb())
-                    .catch(e => cb(e));
-            });
+            await eachLimit(modules, 5, moduleName => this.downloadDoc(_commitId, moduleName));
         }
     }
 

@@ -53,6 +53,10 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE
   NAPI_VERSION=8
+  # Without this, node-addon-api's callback wrapper catches only Napi::Error.
+  # Any other std::exception escaping an N-API method reaches std::terminate()
+  # and aborts the language server with no message, stack, or log entry.
+  NODE_ADDON_API_CPP_EXCEPTIONS_ALL
 )
 
 if(MSVC)
@@ -60,6 +64,18 @@ if(MSVC)
     $<$<CONFIG:>:/MT> #---------|
     $<$<CONFIG:Debug>:/MTd> #---|-- Statically link the runtime libraries
     $<$<CONFIG:Release>:/MT> #--|
+
+    # Emit debug symbols for optimized builds as well. Without a PDB, a crash
+    # dump from a released extension cannot be resolved to a function or line,
+    # which is why native aborts have been unattributable.
+    $<$<CONFIG:Release>:/Zi>
+  )
+  target_link_options(${PROJECT_NAME} PRIVATE
+    # /DEBUG produces the PDB but disables these two by default; re-enabling
+    # them keeps the shipped binary equivalent to a plain Release build.
+    $<$<CONFIG:Release>:/DEBUG>
+    $<$<CONFIG:Release>:/OPT:REF>
+    $<$<CONFIG:Release>:/OPT:ICF>
   )
 endif()
 
@@ -72,3 +88,35 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   plib
   libtinyxml
 )
+
+# Link-time optimization.
+#
+# bscript, plib, libtinyxml and the addon itself all link statically into a
+# single .node, so the whole compiler is visible to the optimizer at once --
+# exactly the shape LTO is good at, and the remaining codegen lever now that
+# Release already builds at /O2 /Ob2 /DNDEBUG.
+#
+# IPO is set on the polserver targets from here rather than inside the submodule
+# so the vendored tree stays untouched. antlr is an ExternalProject with its own
+# build and is not covered by this.
+#
+# /GL coexists with the /Zi + /DEBUG + /OPT:REF + /OPT:ICF above: the PDB is
+# still emitted, so a released crash dump stays symbolisable. Verify that after
+# changing anything here -- an unsymbolisable Release build is the exact problem
+# that setup was added to fix.
+option(ESCRIPT_LTO "Enable link-time optimization for Release builds" ON)
+
+if(ESCRIPT_LTO)
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT ESCRIPT_IPO_SUPPORTED OUTPUT ESCRIPT_IPO_ERROR)
+  if(ESCRIPT_IPO_SUPPORTED)
+    foreach(LTO_TARGET ${PROJECT_NAME} bscript plib libtinyxml)
+      if(TARGET ${LTO_TARGET})
+        set_property(TARGET ${LTO_TARGET} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+      endif()
+    endforeach()
+    message("** Link-time optimization enabled for Release")
+  else()
+    message(WARNING "** Link-time optimization unavailable: ${ESCRIPT_IPO_ERROR}")
+  endif()
+endif()

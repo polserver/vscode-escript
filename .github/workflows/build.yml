@@ -84,6 +84,15 @@ jobs:
           name: vscode-escript-native.win32-x64
           path: native/build/Release/vscode-escript-native.win32-x64.node
 
+      # Kept out of the .vsix (see .vscodeignore) but retained here so a crash
+      # dump from a released build can be resolved to a function and line.
+      - name: Upload Debug Symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-escript-native.win32-x64.symbols
+          path: native/build/Release/vscode-escript-native.win32-x64.pdb
+          if-no-files-found: warn
+
   mac:
     name: Build and Test [Mac]
     runs-on: macos-latest
