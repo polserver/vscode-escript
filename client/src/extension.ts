@@ -111,6 +111,11 @@ export async function activate(context: ExtensionContext) {
         if (client || !await isPolWorkspace()) {
             return;
         }
+        // Checked again: the activation-time call and a folder event can both
+        // pass the first check before either probe resolves.
+        if (client) {
+            return;
+        }
         client = startClient(context);
     };
 
