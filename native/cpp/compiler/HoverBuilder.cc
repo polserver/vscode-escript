@@ -301,7 +301,6 @@ HoverResult& HoverBuilder::append_comment( const SourceLocation& source_location
        gExtensionConfiguration.showModuleFunctionComments )
   {
     auto itr = workspace.builder_workspace.source_files.find( pathname );
-    auto tokens = workspace.source->get_all_tokens();
     if ( itr != workspace.builder_workspace.source_files.end() )
     {
       auto sf = itr->second;

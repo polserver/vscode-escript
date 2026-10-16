@@ -27,6 +27,8 @@ module.exports = [
             'native/node_modules/**',
             'native/polserver/**',
             'native/out/**',
+            // Generated bundles, not sources.
+            'dist/**',
             'coverage',
         ]
     }

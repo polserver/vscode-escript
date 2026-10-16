@@ -116,7 +116,9 @@ class PolDebugConfigurationProvider implements vscode.DebugConfigurationProvider
                         config.pid = selectionPid;
                     }
                 } catch (e) {
-                    vscode.window.showErrorMessage(`Could not get process list from debug server: ${e.message}`).then(_ => { });
+                    const detail = e instanceof Error ? (e.stack ?? e.message) : String(e);
+                    console.error(`Could not get process list from debug server: ${detail}`);
+                    vscode.window.showErrorMessage(`Could not get process list from debug server: ${e instanceof Error ? e.message : String(e)}`).then(_ => { });
                     return undefined;
                 } finally {
                     try {

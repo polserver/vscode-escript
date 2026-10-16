@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'fs';
 import { LSPDocument, LSPWorkspace, native } from '../src/index';
 import { inspect } from 'util';
 import { F_OK } from 'constants';
-import { writeFile, access, mkdir, readFile } from 'fs/promises';
+import { writeFile, access, mkdir, readFile, rm } from 'fs/promises';
 import { dirname, join } from 'path';
 import type { Range, Position } from 'vscode-languageclient/node';
 
@@ -1138,7 +1138,7 @@ describe('Tokens - SRC', () => {
 
     it('Can get regexp tokens', () => {
         const tokens = getTokens('/[a-z]+/i');
-        expect(tokens).toEqual([[0, 0, 9, 20 /* regexp */, 0]]);
+        expect(Array.from(tokens)).toEqual([0, 0, 9, 20 /* regexp */, 0]);
     });
 });
 
@@ -2149,4 +2149,141 @@ describe('Formatter', () => {
             expect(formatted).toEqual(out);
         });
     }
+});
+
+describe('XML doc robustness', () => {
+    // Regression: XmlDocParser tested `paramValue` twice and never `paramName`,
+    // so a <parameter> element without a name attribute constructed a
+    // std::string from nullptr. That is undefined behaviour, and it was
+    // reachable from an ordinary hover over a module function.
+    const brokenDocDir = resolve(__dirname, 'xmldoc-malformed');
+    const brokenDoc = join(brokenDocDir, 'basicioem.xml');
+
+    let document: LSPDocument;
+    let text: string;
+
+    beforeAll(async () => {
+        await mkdir(brokenDocDir, { recursive: true });
+        await writeFile(brokenDoc, `<?xml version='1.0' encoding="iso-8859-1"?>
+<ESCRIPT>
+  <function name="Print">
+    <prototype>Print(anything, console_color:="")</prototype>
+    <parameter value="this element is missing its name attribute" />
+    <parameter name="console_color" value="this one is well formed" />
+    <explain>Prints anything to the console.</explain>
+  </function>
+</ESCRIPT>
+`, 'utf-8');
+
+        const src = 'in-memory-file.src';
+        const workspace = new LSPWorkspace({
+            getContents: (pathname: string) => pathname === src ? text : readFileSync(pathname, 'utf-8'),
+            getXmlDocPath(moduleEmFile: string) {
+                return extname(moduleEmFile).toLowerCase() === '.em' ? brokenDoc : null;
+            }
+        });
+        workspace.open(dir);
+
+        document = new LSPDocument(workspace, src);
+    });
+
+    afterAll(async () => {
+        await rm(brokenDocDir, { recursive: true, force: true });
+    });
+
+    it('Survives a parameter element with no name attribute', () => {
+        text = 'use basicio; Print( 1 );';
+        document.analyze();
+
+        const hover = document.hover({ line: 1, character: 15 });
+
+        toBeDefined(hover);
+        expect(hover).toContain('Print');
+        // Parsing continued past the malformed element rather than aborting.
+        expect(hover).toContain('Prints anything to the console.');
+    });
+});
+
+describe('Parse tree cache', () => {
+    // The .em/.inc caches were constructed but never configure()d, so
+    // SourceFileCache::load() bypassed them and every analyze() reparsed the
+    // whole include and module chain.
+    it('Reuses parsed includes across analyses of a .src', () => {
+        let text = 'use basicio; include "testutil"; Print( 1 );';
+
+        const src = resolve(dir, 'cache-probe.src');
+        const workspace = new LSPWorkspace({
+            getContents: (pathname: string) => pathname === src ? text : readFileSync(pathname, 'utf-8')
+        });
+        workspace.open(dir);
+
+        const document = workspace.getDocument(src);
+
+        document.analyze();
+        const before = { ...workspace.profile };
+
+        for (let i = 0; i < 5; i++) {
+            text = `use basicio; include "testutil"; Print( ${i} );`;
+            document.analyze();
+        }
+
+        const after = { ...workspace.profile };
+
+        expect(after.cacheHits - before.cacheHits).toBeGreaterThan(0);
+        expect(after.cacheMisses - before.cacheMisses).toEqual(0);
+    });
+
+    it('Re-reads an .em whose contents changed', () => {
+        // Analyzing an .em/.inc must drop the cached tree, since contents can
+        // come from an unsaved editor buffer.
+        let text: string;
+        let calls = 0;
+
+        const workspace = new LSPWorkspace({
+            getContents: () => {
+                calls++;
+                return text;
+            }
+        });
+        workspace.open(dir);
+
+        const document = workspace.getDocument('basicio.em');
+
+        text = 'Print(anything);';
+        document.analyze();
+        expect(document.diagnostics()).toHaveLength(0);
+
+        text = 'if (1) endif';
+        document.analyze();
+        expect(document.diagnostics()).toHaveLength(1);
+
+        expect(calls).toEqual(2);
+    });
+});
+
+describe('Document release', () => {
+    // LSPWorkspace caches every document it creates and only clears on reopen,
+    // so a closed editor tab used to leave its syntax tree resident forever.
+    it('Drops the syntax tree and can rebuild it', () => {
+        let text = 'program foo() var x := 1; Print( x ); endprogram';
+
+        const src = resolve(dir, 'release-probe.src');
+        const workspace = new LSPWorkspace({
+            getContents: (pathname: string) => pathname === src ? text : readFileSync(pathname, 'utf-8')
+        });
+        workspace.open(dir);
+
+        const document = workspace.getDocument(src);
+
+        document.analyze();
+        expect(document.symbols()?.length).toBeGreaterThan(0);
+
+        document.release();
+        expect(document.symbols() ?? []).toHaveLength(0);
+        expect(document.diagnostics()).toHaveLength(0);
+
+        // Reopening the document analyzes it again.
+        document.analyze();
+        expect(document.symbols()?.length).toBeGreaterThan(0);
+    });
 });

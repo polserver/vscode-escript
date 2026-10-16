@@ -17,10 +17,28 @@
 			"type": "npm",
 			"script": "watch",
 			"isBackground": true,
-			"group": {
-				"kind": "build",
-				"isDefault": true
+			"presentation": {
+				"panel": "dedicated",
+				"reveal": "never"
 			},
+			"problemMatcher": {
+				"owner": "esbuild",
+				"fileLocation": "relative",
+				"pattern": {
+					"regexp": "^✘ \\[ERROR\\] (.*)$",
+					"message": 1
+				},
+				"background": {
+					"activeBegins": true,
+					"beginsPattern": "\\[watch\\] build started",
+					"endsPattern": "\\[watch\\] build finished"
+				}
+			}
+		},
+		{
+			"type": "npm",
+			"script": "watch:tsc",
+			"isBackground": true,
 			"presentation": {
 				"panel": "dedicated",
 				"reveal": "never"
@@ -28,6 +46,18 @@
 			"problemMatcher": [
 				"$tsc-watch"
 			]
+		},
+		{
+			"label": "watch-all",
+			"dependsOn": [
+				"npm: watch",
+				"npm: watch:tsc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": []
 		}
 	]
 }

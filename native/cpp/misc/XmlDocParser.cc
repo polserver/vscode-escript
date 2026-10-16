@@ -70,7 +70,7 @@ std::unique_ptr<XmlDocParser> XmlDocParser::parse_function( const std::string& f
         {
           auto* paramName = child->Attribute( "name" );
           auto* paramValue = child->Attribute( "value" );
-          if ( paramValue != nullptr && paramValue != nullptr )
+          if ( paramName != nullptr && paramValue != nullptr )
           {
             parsed->parameters.push_back( XmlDocFunctionParameter{ paramName, paramValue } );
           }

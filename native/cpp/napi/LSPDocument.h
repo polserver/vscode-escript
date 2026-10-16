@@ -44,6 +44,7 @@ public:
   Napi::Value BuildReferences( const Napi::CallbackInfo& );
   Napi::Value ToFormattedString( const Napi::CallbackInfo& );
   Napi::Value Symbols( const Napi::CallbackInfo& );
+  Napi::Value Release( const Napi::CallbackInfo& );
 
   std::unique_ptr<Pol::Bscript::Compiler::DiagnosticReporter> reporter;
 

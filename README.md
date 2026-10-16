@@ -209,7 +209,7 @@ https://github.com/polserver/vscode-escript/issues.
 - Run the launch config.
 - In the new Visual Studio Code [Extension Development Host], open a POL distro
   folder that contains `pol.cfg` and `scripts/ecompile.cfg`.
-- Check the "ECompile Language Server" channel in the Output pane.
+- Check the "EScript Language Server" channel in the Output pane.
 
 ## NVIM LSP integration
 Run `npm install && npm build` in this folder. This installs all necessary

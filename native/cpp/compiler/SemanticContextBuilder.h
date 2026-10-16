@@ -1,6 +1,7 @@
 #ifndef VSCODEESCRIPT_SEMANTICCONTEXTBUILDER_H
 #define VSCODEESCRIPT_SEMANTICCONTEXTBUILDER_H
 
+#include "TokenLength.h"
 #include "bscript/compiler/ast/ClassDeclaration.h"
 #include "bscript/compiler/ast/ConstDeclaration.h"
 #include "bscript/compiler/ast/Expression.h"
@@ -824,7 +825,7 @@ bool SemanticContextBuilder<T>::contains( antlr4::Token* sym )
 {
   if ( sym )
   {
-    auto length = sym->getText().length();
+    auto length = token_length( sym );
     auto line_number = sym->getLine();
     auto character_column = sym->getCharPositionInLine() + 1;
     if ( line_number == position.line_number && character_column <= position.character_column &&
@@ -906,9 +907,24 @@ antlrcpp::Any SemanticContextBuilder<T>::visitChildren( antlr4::tree::ParseTree*
   {
     if ( auto* ctx = dynamic_cast<antlr4::ParserRuleContext*>( child ) )
     {
-      Pol::Bscript::Compiler::Range range( *ctx );
-      if ( range.contains( position ) )
+      // A rule context spans all of its children, so if the position is outside
+      // this one it is outside everything below it. Descending anyway meant
+      // every hover, definition, completion, signature help and references
+      // request walked the file's entire parse tree -- with a dynamic_cast per
+      // node -- to collect what is only ever a single root-to-leaf chain.
+      //
+      // The guard is on the stop token, not just on contains(): an incomplete
+      // rule has no stop token, calculate_end_position() gives it end {0,0}, and
+      // contains() is then false for every position. That is routine while the
+      // user is mid-keystroke, so such a subtree has to be descended into or
+      // completion would break on exactly the half-typed code it serves.
+      if ( ctx->getStart() && ctx->getStop() )
       {
+        Pol::Bscript::Compiler::Range range( *ctx );
+        if ( !range.contains( position ) )
+        {
+          continue;
+        }
         nodes.push_back( ctx );
       }
     }
