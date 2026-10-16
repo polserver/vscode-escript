@@ -8,6 +8,8 @@
  * the crash handlers below print them on the way out.
  */
 
+import { mkdirSync } from 'fs';
+
 export type BreadcrumbPosition = {
     line: number;
     character: number;
@@ -108,6 +110,10 @@ export function installCrashHandlers(storageFsPath: string): void {
     // Node's diagnostic report captures a *native* stack on fatal errors, which
     // is the only way to see where an abort inside the addon came from.
     try {
+        // Created here rather than waiting for onInitialize: the window this is
+        // for includes loading the addon, and Node will not write a report into
+        // a directory that does not exist yet.
+        mkdirSync(storageFsPath, { recursive: true });
         process.report.directory = storageFsPath;
         process.report.filename = '';
         process.report.reportOnFatalError = true;
