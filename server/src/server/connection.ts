@@ -61,6 +61,14 @@ export class LSPServer {
      * across N-API for every open document on every keystroke.
      */
     private dependsOn: Map<string, string[]> = new Map();
+
+    /**
+     * Set when an include or module buffer changes, and honored by the next
+     * analysis of *any* document: whichever one is analyzed first -- the edited
+     * file or a `.src` including it -- must not reuse the pre-edit tree. Kept as
+     * a flag so typing in a `.inc` costs no N-API call per keystroke.
+     */
+    private parseTreeCacheStale = false;
     private downloader: DocsDownloader;
     private configuration: ExtensionConfiguration | undefined;
     private updateCacheAbortController: AbortController | undefined;
@@ -337,14 +345,18 @@ export class LSPServer {
         if (!this.dirty.has(fsPath)) {
             return;
         }
-        this.dirty.delete(fsPath);
 
-        if (isCachedParseTreeFile(fsPath)) {
+        if (this.parseTreeCacheStale) {
             this.workspace.clearParseTreeCache();
+            this.parseTreeCacheStale = false;
         }
 
+        // analyze() drops the old syntax tree before compiling, so the document
+        // stays dirty until it succeeds: a throw here must not leave an empty
+        // tree that later requests treat as up to date.
         document.analyze(this.configuration?.continueAnalysisOnError);
         this.dependsOn.set(fsPath, document.dependents());
+        this.dirty.delete(fsPath);
     }
 
     private onDidOpen = async (e: TextDocumentChangeEvent<TextDocument>) => {
@@ -361,6 +373,15 @@ export class LSPServer {
         const { fsPath } = URI.parse(uri);
 
         const document = this.sources.get(fsPath);
+
+        // Closing discards any unsaved edits, so contents fall back to disk:
+        // whatever was analyzed from the buffer -- its cached parse tree, and
+        // every open document including it -- is now stale.
+        this.markDirty(fsPath);
+        if (isCachedParseTreeFile(fsPath)) {
+            this.parseTreeCacheStale = true;
+        }
+
         this.sources.delete(fsPath);
         this.dirty.delete(fsPath);
         this.dependsOn.delete(fsPath);
@@ -383,6 +404,9 @@ export class LSPServer {
 
         // Deliberately does no work here: the next request that needs the tree
         // triggers exactly one analysis.
+        if (isCachedParseTreeFile(fsPath)) {
+            this.parseTreeCacheStale = true;
+        }
         this.markDirty(fsPath);
     };
 
@@ -457,6 +481,13 @@ export class LSPServer {
                 // regardless of the setting, so that re-enabling workspace
                 // references later does not resurrect a stale index.
                 this.guard('workspace/invalidateReferenceCache', () => this.workspace.invalidateReferenceCache(), undefined);
+
+                // Every retained analysis was built against the old
+                // configuration.
+                this.parseTreeCacheStale = true;
+                for (const pathname of this.sources.keys()) {
+                    this.dirty.add(pathname);
+                }
 
                 if (this.configuration?.disableWorkspaceReferences === false) {
                     this.updateCache();
@@ -720,8 +751,6 @@ export class LSPServer {
         if (!textDocument) {
             return null;
         }
-
-        this.guard('textDocument/formatting/analyze', () => this.ensureAnalyzed(fsPath, document), undefined, fsPath);
 
         const formatted = this.guard('textDocument/formatting', () => range ?
             document.toFormattedString(options, {
