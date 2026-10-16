@@ -14,9 +14,10 @@
  *    through a computed `require()`, which esbuild leaves alone; the roots it
  *    searches account for this file's bundled location.
  */
-import { build } from 'esbuild';
+import { build, context } from 'esbuild';
 
-const production = !process.argv.includes('--watch');
+const watch = process.argv.includes('--watch');
+const production = !watch;
 
 /** @type {import('esbuild').BuildOptions} */
 const common = {
@@ -30,15 +31,23 @@ const common = {
     logLevel: 'info'
 };
 
-await Promise.all([
-    build({
+const entries = [
+    {
         ...common,
         entryPoints: ['client/src/extension.ts'],
         outfile: 'dist/extension.js'
-    }),
-    build({
+    },
+    {
         ...common,
         entryPoints: ['server/src/index.ts'],
         outfile: 'dist/server.js'
-    })
-]);
+    }
+];
+
+if (watch) {
+    // The Extension Development Host loads `dist/`, so the debug launch's watch
+    // task has to rebuild it; `tsc -b -w` alone only refreshes `*/out`.
+    await Promise.all(entries.map(async options => (await context(options)).watch()));
+} else {
+    await Promise.all(entries.map(options => build(options)));
+}

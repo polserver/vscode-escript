@@ -248,7 +248,8 @@
 	"scripts": {
 		"vscode:prepublish": "npm run clean && npm run build",
 		"postinstall": "cd client && npm install && cd ../native && npm install && cd ../server && npm install",
-		"watch": "npm run grammar && tsc -b -w",
+		"watch": "npm run grammar && node esbuild.mjs --watch",
+		"watch:tsc": "tsc -b -w",
 		"bundle": "node esbuild.mjs",
 		"build": "npm run grammar && tsc -b && node esbuild.mjs && cd native && npm run build",
 		"clean": "rimraf client/out server/out dist grammars/escript.json",
