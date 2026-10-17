@@ -191,11 +191,11 @@ std::vector<CompletionItem> CompletionBuilder::context()
   {
     if ( is_class_query )
     {
-      for ( auto* user_function : workspace.scope_tree.list_class_methods( query ) )
+      for ( auto* user_function : workspace.scope_tree->list_class_methods( query ) )
       {
         results.push_back( CompletionItem{ user_function->name, CompletionItemKind::Method } );
       }
-      for ( auto* assignment_statement : workspace.scope_tree.list_class_members( query ) )
+      for ( auto* assignment_statement : workspace.scope_tree->list_class_members( query ) )
       {
         results.push_back(
             CompletionItem{ assignment_statement->name, CompletionItemKind::Field } );
@@ -212,7 +212,7 @@ std::vector<CompletionItem> CompletionBuilder::context()
       // are _after_ scoped constants in `ScopeTree::list_constants()`.
       std::set<std::string> calling_scope_consts;
 
-      for ( auto* constant : workspace.scope_tree.list_constants( query ) )
+      for ( auto* constant : workspace.scope_tree->list_constants( query ) )
       {
         if ( !constant->name.scope.global() )
         {
@@ -233,20 +233,20 @@ std::vector<CompletionItem> CompletionBuilder::context()
     // Not in an enum, no need to worry about scoping, just add all the constants.
     else
     {
-      for ( auto* constant : workspace.scope_tree.list_constants( query ) )
+      for ( auto* constant : workspace.scope_tree->list_constants( query ) )
       {
         results.push_back(
             CompletionItem{ constant->name.string(), CompletionItemKind::Constant } );
       }
     }
 
-    for ( auto variable : workspace.scope_tree.list_variables( query, position ) )
+    for ( auto variable : workspace.scope_tree->list_variables( query, position ) )
     {
       results.push_back(
           CompletionItem{ variable->scoped_name().name, CompletionItemKind::Variable } );
     }
 
-    for ( auto* user_function : workspace.scope_tree.list_user_functions( query, position ) )
+    for ( auto* user_function : workspace.scope_tree->list_user_functions( query, position ) )
     {
       results.push_back(
           CompletionItem{ user_function->name, user_function->type == UserFunctionType::Constructor
@@ -254,17 +254,17 @@ std::vector<CompletionItem> CompletionBuilder::context()
                                                    : CompletionItemKind::Function } );
     }
 
-    for ( auto* module_function : workspace.scope_tree.list_module_functions( query ) )
+    for ( auto* module_function : workspace.scope_tree->list_module_functions( query ) )
     {
       results.push_back( CompletionItem{ module_function->name, CompletionItemKind::Function } );
     }
 
-    for ( auto& scope_name : workspace.scope_tree.list_scopes( query ) )
+    for ( auto& scope_name : workspace.scope_tree->list_scopes( query ) )
     {
       results.push_back( CompletionItem{ scope_name, CompletionItemKind::Class } );
     }
 
-    for ( auto& module_name : workspace.scope_tree.list_modules( query ) )
+    for ( auto& module_name : workspace.scope_tree->list_modules( query ) )
     {
       results.push_back( CompletionItem{ module_name, CompletionItemKind::Module } );
     }

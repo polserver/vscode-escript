@@ -263,7 +263,7 @@ std::optional<HoverResult> HoverBuilder::get_member( const std::string& name )
 
 std::optional<HoverResult> HoverBuilder::get_method( const std::string& name )
 {
-  auto user_function = workspace.scope_tree.find_class_method(
+  auto user_function = workspace.scope_tree->find_class_method(
       { calling_scope, current_user_function, ScopeName::None, name } );
 
   if ( user_function )
