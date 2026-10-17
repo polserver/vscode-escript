@@ -297,15 +297,15 @@ std::optional<SignatureHelp> SignatureHelpBuilder::context()
           }
         }
 
-        if ( auto* module_function = workspace.scope_tree.find_module_function( query ) )
+        if ( auto* module_function = workspace.scope_tree->find_module_function( query ) )
         {
           return make_signature_help( _lsp_workspace, module_function->name,
                                       module_function->parameters(), current_param, module_function,
                                       false );
         }
         else if ( auto* user_function = ( is_object_access_query
-                                              ? workspace.scope_tree.find_class_method( query )
-                                              : workspace.scope_tree.find_user_function( query ) ) )
+                                              ? workspace.scope_tree->find_class_method( query )
+                                              : workspace.scope_tree->find_user_function( query ) ) )
         {
           bool skip_first_param =
               user_function->type == UserFunctionType::Constructor ||

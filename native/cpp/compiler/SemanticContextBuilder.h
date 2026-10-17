@@ -202,7 +202,7 @@ std::optional<T> SemanticContextBuilder<T>::get_class( const std::string& name )
 template <typename T>
 std::optional<T> SemanticContextBuilder<T>::try_constant( const std::string& name )
 {
-  if ( auto* function_def = workspace.scope_tree.find_constant( name ) )
+  if ( auto* function_def = workspace.scope_tree->find_constant( name ) )
   {
     return get_constant( function_def );
   }
@@ -212,7 +212,7 @@ std::optional<T> SemanticContextBuilder<T>::try_constant( const std::string& nam
 template <typename T>
 std::optional<T> SemanticContextBuilder<T>::try_variable( const std::string& name )
 {
-  if ( auto variable = workspace.scope_tree.find_variable( name, position ) )
+  if ( auto variable = workspace.scope_tree->find_variable( name, position ) )
   {
     return get_variable( variable );
   }
@@ -223,7 +223,7 @@ template <typename T>
 std::optional<T> SemanticContextBuilder<T>::try_user_function_parameter(
     const Pol::Bscript::Compiler::ScopeTreeQuery& query, const std::string& param_name )
 {
-  if ( auto* function_def = workspace.scope_tree.find_user_function( query ) )
+  if ( auto* function_def = workspace.scope_tree->find_user_function( query ) )
   {
     for ( const auto& param_ref : function_def->parameters() )
     {
@@ -255,7 +255,7 @@ template <typename T>
 std::optional<T> SemanticContextBuilder<T>::try_user_function(
     const Pol::Bscript::Compiler::ScopeTreeQuery& query )
 {
-  if ( auto* function_def = workspace.scope_tree.find_user_function( query ) )
+  if ( auto* function_def = workspace.scope_tree->find_user_function( query ) )
   {
     return get_user_function( function_def );
   }
@@ -266,7 +266,7 @@ template <typename T>
 std::optional<T> SemanticContextBuilder<T>::try_module_function(
     const Pol::Bscript::Compiler::ScopeTreeQuery& query )
 {
-  if ( auto* function_def = workspace.scope_tree.find_module_function( query ) )
+  if ( auto* function_def = workspace.scope_tree->find_module_function( query ) )
   {
     return get_module_function( function_def );
   }
@@ -353,7 +353,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
 
           name += id->getText();
 
-          if ( auto variable = workspace.scope_tree.find_variable( name, position ) )
+          if ( auto variable = workspace.scope_tree->find_variable( name, position ) )
           {
             return get_variable( variable );
           }
@@ -368,7 +368,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
         if ( contains( id ) )
         {
           auto name = id->getText();
-          if ( auto* constant = workspace.scope_tree.find_constant( name ) )
+          if ( auto* constant = workspace.scope_tree->find_constant( name ) )
           {
             return get_constant( constant );
           }
@@ -383,7 +383,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
       {
         if ( contains( id ) )
         {
-          if ( auto* function_def = workspace.scope_tree.find_module_function(
+          if ( auto* function_def = workspace.scope_tree->find_module_function(
                    { calling_scope, current_user_function, Pol::Bscript::Compiler::ScopeName::None,
                      id->getText() } ) )
           {
@@ -399,7 +399,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
       {
         if ( contains( id ) )
         {
-          if ( auto* function_def = workspace.scope_tree.find_user_function(
+          if ( auto* function_def = workspace.scope_tree->find_user_function(
                    { calling_scope, current_user_function, Pol::Bscript::Compiler::ScopeName::None,
                      id->getText() } ) )
           {
@@ -423,7 +423,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
           {
             if ( auto* parent_id = parent_ctx->IDENTIFIER() )
             {
-              if ( auto* function_def = workspace.scope_tree.find_module_function(
+              if ( auto* function_def = workspace.scope_tree->find_module_function(
                        { calling_scope, current_user_function,
                          Pol::Bscript::Compiler::ScopeName::None,
                          parent_id->getSymbol()->getText() } ) )
@@ -571,7 +571,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
             {
               auto function_name = parent_id->getText();
 
-              if ( auto class_decl = workspace.scope_tree.find_class( calling_scope ) )
+              if ( auto class_decl = workspace.scope_tree->find_class( calling_scope ) )
               {
                 for ( const auto& uninit_func_ref : class_decl->uninit_functions() )
                 {
@@ -604,7 +604,7 @@ std::optional<T> SemanticContextBuilder<T>::context()
         {
           auto function_name = id->getText();
 
-          if ( auto class_decl = workspace.scope_tree.find_class( calling_scope ) )
+          if ( auto class_decl = workspace.scope_tree->find_class( calling_scope ) )
           {
             for ( const auto& uninit_func_ref : class_decl->uninit_functions() )
             {
